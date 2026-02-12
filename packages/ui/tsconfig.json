@@ -1,0 +1,9 @@
+{
+  "extends": "../tsconfig/react-library.json",
+  "include": [".", "./image-declaration.d.ts"],
+  "exclude": ["dist", "build", "node_modules"],
+  "compilerOptions": {
+    "resolveJsonModule": true,
+    "esModuleInterop": true
+  }
+}

@@ -1,0 +1,17 @@
+image: "node:latest"
+
+stages:
+  - deploy
+
+deploy_sandbox:
+  stage: deploy
+  only:
+    - sandbox
+  script:
+    - mkdir -p ~/.ssh
+    - echo "$HETZNER" >> ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    - echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config
+    - ssh alo@65.21.47.124 "cd ~/candleweb-frontend && git pull origin sandbox && bash deploy.sh"
+
+

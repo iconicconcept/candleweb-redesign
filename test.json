@@ -1,0 +1,13 @@
+{
+  "status": "success",
+  "results": [
+    {
+      "month": "August",
+      "percent": 15.0
+    },
+    {
+      "month": "September",
+      "percent": 18.0
+    }
+  ]
+}

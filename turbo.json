@@ -1,0 +1,29 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", ".next/**"],
+      "env": [
+        "NODE_ENV",
+        "NEXT_PUBLIC_MAIN_CONTRACT_ADDRESS",
+        "NEXT_PUBLIC_BUSD_APPROVE_ADDRESS",
+        "NEXT_PUBLIC_YELLOW_CARD_PUBLIC_KEY"
+      ]
+    },
+    "lint": {
+      "outputs": [],
+
+      "env": [
+        "NODE_ENV",
+        "NEXT_PUBLIC_MAIN_CONTRACT_ADDRESS",
+        "NEXT_PUBLIC_BUSD_APPROVE_ADDRESS",
+        "NEXT_PUBLIC_YELLOW_CARD_PUBLIC_KEY"
+      ]
+    },
+    "dev": {
+      "cache": false
+    }
+  },
+  "globalEnv": ["NODE_ENV"]
+}
