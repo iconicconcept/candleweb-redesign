@@ -23,7 +23,7 @@ type Props = {}
 const NewIndex = (props: Props) => {
     const { connectWallet } = useEthereum()
     const router = useRouter()
-    const { setUser } = useUserStore((state) => state);
+    const { setUser } = useUserStore((state: any) => state);
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const [showModal, setShowModal] = useState(false)
     return (
@@ -234,7 +234,7 @@ profitability.' icon={WHY1Image} />
                 width="720px"
 
                 isOpen={showModal}
-                onChnage={(e) =>
+                onChnage={(e: any) =>
                     setShowModal((prev) => {
                         return !prev
                     })

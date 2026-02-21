@@ -13,7 +13,8 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "preserve",
-    "incremental": true
+    "incremental": true,
+    "types": ["node"]
   },
   "include": [
     "next-env.d.ts",
@@ -21,5 +22,6 @@
     "**/*.tsx",
     "../../packages/ui/utils/shorten_address.ts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules"],
+  // "typeRoots": []
 }

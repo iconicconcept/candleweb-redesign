@@ -68,7 +68,7 @@ const InvitePage = (props: Props) => {
   const { copyToClipboard } = useCopyToClipboard();
   const axiosToken = useAxiosAuth();
 
-  const { user } = useUserStore((state) => state);
+  const { user } = useUserStore((state: any) => state);
 
   // const subscribes = useMemo(() => {
   //   dispatch(referralService.getUserReferral(axiosToken))
@@ -294,7 +294,6 @@ const InvitePage = (props: Props) => {
                           fontFamily="none"
                           fontWeight="none"
                           fontSize="none"
-                          textAnchor="none"
                           style={{ mixBlendMode: "normal" }}
                         >
                           <g transform="scale(5.12,5.12)">
@@ -377,7 +376,7 @@ const InvitePage = (props: Props) => {
             <div className="my-5">
               <GapTable
                 rows={
-                  (subscribedReferrals?.results ?? []).map((item) => {
+                  (subscribedReferrals?.results ?? []).map((item: any) => {
                     return {
                       id: item.referred_id,
                       network: item.payment_id ?? "-",
@@ -454,7 +453,7 @@ const InvitePage = (props: Props) => {
                 rowCheck
                 isInvite
                 rows={
-                  (unsubscribedReferrals?.results ?? []).map((item) => {
+                  (unsubscribedReferrals?.results ?? []).map((item: any) => {
                     return {
                       id: item.referred_id,
                       network: item.payment_id ?? "-",

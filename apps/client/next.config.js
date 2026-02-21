@@ -1,7 +1,7 @@
-const withTM = require("next-transpile-modules")(["ui"]);
-
-module.exports = withTM({
+/** @type {import('next').NextConfig} */
+const nextConfig = {
   reactStrictMode: true,
+  swcMinify: false,
   webpack: (config, options) => {
     config.module.rules.push({
       test: /\.pdf$/i,
@@ -15,5 +15,7 @@ module.exports = withTM({
     unoptimized: true,
   },
   trailingSlash: true,
-  // distDir: "build",
-});
+  transpilePackages: ["ui"],
+};
+
+module.exports = nextConfig;

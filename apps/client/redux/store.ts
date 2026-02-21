@@ -13,6 +13,8 @@ import notificationReducer from "./slices/notificationSlice";
 import tradeReducer from "./slices/tradeSlice";
 import userReducer from "./slices/userSlice";
 import taskReducer from "./slices/taskSlice";
+import courseReducer from "./slices/courseSlice";
+import tutorReducer from "./slices/tutorSlice";
 
 const combineReducer = combineReducers({
   auth: authReducer,
@@ -26,6 +28,8 @@ const combineReducer = combineReducers({
   notification: notificationReducer,
   trade: tradeReducer,
   task: taskReducer,
+  courses: courseReducer,
+  tutors: tutorReducer,
 });
 
 const makeStore = () =>

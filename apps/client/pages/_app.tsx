@@ -1,5 +1,3 @@
-"use client";
-
 import Layout from "../components/Layout";
 import "ui/styles/tailwind.css";
 import "ui/styles/global.css";
