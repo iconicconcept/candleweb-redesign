@@ -1,11 +1,14 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
+import { useSelector } from "react-redux";
+import { RootState } from "../../redux/store";
 import useUserStore from "../../lib/hooks/useUserStore";
 import { FaLock, FaShieldAlt, FaCcVisa, FaCcMastercard, FaCcPaypal, FaBitcoin } from "react-icons/fa";
 
 const PaymentSection = () => {
   const { user } = useUserStore();
   const isLoggedIn = Object.keys(user).length > 0;
+  const { purchasedCourseIds } = useSelector((state: RootState) => state.payment);
   const router = useRouter();
 
   return (
@@ -40,6 +43,8 @@ const PaymentSection = () => {
               onClick={() => {
                 if (!isLoggedIn) {
                   router.push("/register?redirect=/tutor#courses");
+                } else if (purchasedCourseIds.length > 0) {
+                  router.push("/dashboard");
                 } else {
                   const element = document.getElementById('courses');
                   if (element) {
@@ -48,7 +53,7 @@ const PaymentSection = () => {
                 }
               }}
               className="w-full py-4 md:py-5 bg-[#ff9900] hover:bg-[#ffaa22] text-black font-black text-center text-sm md:text-lg uppercase tracking-widest rounded-xl transition-all duration-300 transform active:scale-95 shadow-[0_0_30px_rgba(255,153,0,0.3)] mb-4">
-              PAY NOW
+              {purchasedCourseIds.length > 0 ? "GO TO DASHBOARD" : "PAY NOW"}
             </button>
 
             <div className="flex items-center justify-center gap-2 text-white/40 text-[10px] md:text-xs font-bold uppercase tracking-widest">
@@ -92,6 +97,8 @@ const PaymentSection = () => {
                 onClick={() => {
                   if (!isLoggedIn) {
                     router.push("/register?redirect=/tutor#courses");
+                  } else if (purchasedCourseIds.length > 0) {
+                    router.push("/dashboard");
                   } else {
                     const element = document.getElementById('courses');
                     if (element) {
@@ -100,7 +107,7 @@ const PaymentSection = () => {
                   }
                 }}
                 className="w-full py-3 bg-[#ff9900] text-center hover:bg-[#ffaa22] text-black font-black text-lg uppercase tracking-[0.2em] rounded-full transition-all active:scale-95 mb-6">
-                PAY NOW
+                {purchasedCourseIds.length > 0 ? "GO TO DASHBOARD" : "PAY NOW"}
              </button>
 
              {/* Payment Icons */}

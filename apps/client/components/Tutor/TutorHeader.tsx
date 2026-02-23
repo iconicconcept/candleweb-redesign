@@ -6,6 +6,8 @@ import { HiMenuAlt3 } from "react-icons/hi";
 import { FiChevronDown } from "react-icons/fi";
 import { Button } from "ui";
 import Image from "next/image";
+import { useSelector } from "react-redux";
+import { RootState } from "../../redux/store";
 import useUserStore from "../../lib/hooks/useUserStore";
 
 const TutorHeader = () => {
@@ -24,6 +26,7 @@ const TutorHeader = () => {
 
   const { user } = useUserStore();
   const isLoggedIn = Object.keys(user).length > 0;
+  const { purchasedCourseIds } = useSelector((state: RootState) => state.payment);
   
   const router = useRouter();
 
@@ -207,13 +210,17 @@ const TutorHeader = () => {
                 size="sm"
                 classstyle="!px-3 lg:!px-5 !py-2 !bg-[#FFA726] !border-[#FFA726] hover:!bg-[#FF9800] text-black !font-semibold rounded-lg transition-all duration-300 hover:scale-105"
                 onClick={() => {
-                  const element = document.getElementById('courses');
-                  if (element) {
-                    element.scrollIntoView({ behavior: 'smooth' });
+                  if (purchasedCourseIds.length > 0) {
+                    router.push("/dashboard");
+                  } else {
+                    const element = document.getElementById('courses');
+                    if (element) {
+                      element.scrollIntoView({ behavior: 'smooth' });
+                    }
                   }
                 }}
               >
-                Pay Now
+                {purchasedCourseIds.length > 0 ? "Dashboard" : "Pay Now"}
               </Button>
             )}
           </div>
@@ -335,14 +342,19 @@ const TutorHeader = () => {
               fullwidth
               classstyle="!bg-[#FFA726] !border-[#FFA726] hover:!bg-[#FF9800] !text-white !font-semibold transition-all duration-300"
               onClick={() => {
-                const element = document.getElementById('courses');
-                if (element) {
-                  element.scrollIntoView({ behavior: 'smooth' });
+                if (purchasedCourseIds.length > 0) {
+                  router.push("/dashboard");
                   setOpenMobileMenu(false);
+                } else {
+                  const element = document.getElementById('courses');
+                  if (element) {
+                    element.scrollIntoView({ behavior: 'smooth' });
+                    setOpenMobileMenu(false);
+                  }
                 }
               }}
             >
-              Pay Now
+              {purchasedCourseIds.length > 0 ? "Dashboard" : "Pay Now"}
             </Button>
           )}
         </div>

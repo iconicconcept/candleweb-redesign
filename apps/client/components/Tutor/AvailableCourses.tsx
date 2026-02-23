@@ -3,16 +3,22 @@ import Image from "next/image";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "../../redux/store";
 import courseService from "../../services/courseService";
+import paymentService from "../../services/paymentService";
+import { resetPaymentStatus } from "../../redux/slices/paymentSlice";
 import { FaCheck, FaClock, FaVideo, FaAward, FaChartLine } from "react-icons/fa";
 import { HiArrowRight } from "react-icons/hi";
 import useUserStore from "../../lib/hooks/useUserStore";
 import { useRouter } from "next/router";
 import Loader from "../Loader";
+import { toast } from "react-hot-toast";
+
+declare let window: any;
 
 const AvailableCourses = () => {
   const [isVisible, setIsVisible] = useState(false);
   const dispatch = useDispatch<AppDispatch>();
   const { courses, isLoading } = useSelector((state: RootState) => state.courses);
+  const { purchasedCourseIds, lastPaymentStatus, error: paymentError, isInitiating, isVerifying } = useSelector((state: RootState) => state.payment);
   const [showAll, setShowAll] = useState(false);
   const { user } = useUserStore();
   const isLoggedIn = Object.keys(user).length > 0;
@@ -23,11 +29,68 @@ const AvailableCourses = () => {
     setIsVisible(true);
   }, [dispatch]);
 
+  useEffect(() => {
+    if (lastPaymentStatus === "success") {
+      toast.success("Payment successful! Login to your dashboard on your phone to start learning.");
+      dispatch(resetPaymentStatus());
+    } else if (lastPaymentStatus === "failed" && paymentError) {
+      toast.error(paymentError);
+      dispatch(resetPaymentStatus());
+    }
+  }, [lastPaymentStatus, paymentError, dispatch]);
+
+  const handlePayment = async (course: any) => {
+    if (!isLoggedIn) {
+      router.push("/register?redirect=/tutor#courses");
+      return;
+    }
+
+    if (purchasedCourseIds.includes(course.id)) {
+      router.push("/dashboard");
+      return;
+    }
+
+    try {
+      const resultAction = await dispatch(paymentService.initiatePayment({
+        course_id: course.id,
+        email: user.email || "",
+        first_name: user.first_name || "",
+        last_name: user.last_name || "",
+      }));
+
+      if (paymentService.initiatePayment.fulfilled.match(resultAction)) {
+        const paymentData = resultAction.payload?.data;
+        const config = {
+          reference: paymentData.reference,
+          key: paymentData.key,
+          email: user.email || "",
+          amount: paymentData.amount || Math.round(course.price * 100 * 1600),
+          ...paymentData,
+          metadata: {
+            course_id: course.id,
+          },
+          callback: (response: any) => {
+            dispatch(paymentService.verifyPayment(response.reference));
+          },
+          onClose: () => {
+            toast.error("Payment window closed.");
+          },
+        };
+
+        const handler = (window as any).PaystackPop.setup(config);
+        handler.openIframe();
+      }
+    } catch (err) {
+      console.error("Payment initiation failed:", err);
+      toast.error("An unexpected error occurred. Please try again.");
+    }
+  };
+
   const displayedCourses = showAll ? courses : courses.slice(0, 3);
 
   return (
     <section id="courses" className="available-courses__section relative w-full py-16 md:py-24 bg-black/70 overflow-hidden">
-      {isLoading && <Loader />}
+      {(isLoading || isInitiating || isVerifying) && <Loader />}
       <div className="relative z-10 w-full px-6 md:px-20 lg:max-w-[1200px] lg:mx-auto">
         {/* Section Header */}
         <div className={`text-center mb-12 md:mb-20 transition-all duration-1000 ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"}`}>
@@ -142,31 +205,16 @@ const AvailableCourses = () => {
                     </div>
 
                     <button 
-                      onClick={() => {
-                        if (!isLoggedIn) {
-                          router.push("/register?redirect=/tutor#courses");
-                        } else {
-                          // TODO: Handle payment logic if already implemented elsewhere
-                          // alert("Payment logic would trigger here for logged-in user.");
-                        }
-                      }}
+                      onClick={() => handlePayment(course)}
                       className="md:hidden px-8 py-3 rounded-xl bg-primary text-black font-bold text-sm transition-all duration-300 active:scale-95 shadow-lg shadow-primary/20">
-                      Pay Now
+                      {purchasedCourseIds.includes(course.id) ? "Dashboard" : "Pay Now"}
                     </button>
                   </div>
 
-                   {/* Desktop Button */}
                   <button 
-                    onClick={() => {
-                      if (!isLoggedIn) {
-                        router.push("/register?redirect=/tutor#courses");
-                      } else {
-                        // TODO: Handle payment logic if already implemented elsewhere
-                        alert("Payment logic would trigger here for logged-in user.");
-                      }
-                    }}
+                    onClick={() => handlePayment(course)}
                     className="hidden md:flex w-full py-4 mb-6 rounded-xl border border-red-300 text-black font-bold text-sm tracking-wide transition-all duration-300 bg-primary hover:text-black hover:scale-105 active:scale-95 items-center justify-center gap-2 group/btn">
-                    Pay Now
+                    {purchasedCourseIds.includes(course.id) ? "Dashboard" : "Pay Now"}
                     <HiArrowRight className="transition-transform duration-300 group-hover/btn:translate-x-1" />
                   </button>
 

@@ -14,6 +14,7 @@ const HeroSlider = () => {
   const [progress, setProgress] = useState(0);
   const dispatch = useDispatch<AppDispatch>();
   const { courses, isLoading } = useSelector((state: RootState) => state.courses);
+  const { purchasedCourseIds } = useSelector((state: RootState) => state.payment);
   const { user } = useUserStore();
   const isLoggedIn = Object.keys(user).length > 0;
   const router = useRouter();
@@ -109,17 +110,21 @@ const HeroSlider = () => {
                   classstyle="!w-full md:!w-auto !py-3.5 !px-8 !text-black !text-center md:!text-start !bg-primary md:!bg-[#FFA726] hover:!bg-primary/90 md:hover:!bg-[#FF9800] !text-sm md:!text-base !font-bold !rounded-full md:!rounded-[12px] transition-all duration-300 hover:scale-105 shadow-lg"
                   onClick={() => {
                     if (isLoggedIn) {
-                      // Scroll to courses section
-                      const element = document.getElementById('courses');
-                      if (element) {
-                        element.scrollIntoView({ behavior: 'smooth' });
+                      if (purchasedCourseIds.length > 0) {
+                        router.push("/dashboard");
+                      } else {
+                        // Scroll to courses section
+                        const element = document.getElementById('courses');
+                        if (element) {
+                          element.scrollIntoView({ behavior: 'smooth' });
+                        }
                       }
                     } else {
                       router.push("/register?redirect=/tutor#courses");
                     }
                   }}
                 >
-                  {isLoggedIn ? "Explore Courses" : "Start Learning"}
+                  {purchasedCourseIds.length > 0 ? "Dashboard" : isLoggedIn ? "Explore Courses" : "Start Learning"}
                 </Button>
                 
                 {/* Watch Video Button */}

@@ -30,6 +30,8 @@ export interface User {
   is_live_mode?: boolean;
 
   access_token?: string;
+  first_name?: string;
+  last_name?: string;
 }
 
 export interface UserExchange {
