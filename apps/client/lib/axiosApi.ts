@@ -1,7 +1,7 @@
 import axios from "axios";
 
-// export const uri = "https://api.candleweb.io/api/";
-export const uri = "https://sandboxapi.candleweb.io/api/";
+export const uri = "https://api.candleweb.io/api/";
+// export const uri = "https://sandboxapi.candleweb.io/api/";
 
 export const axiosApi = axios.create({
   baseURL: uri,
