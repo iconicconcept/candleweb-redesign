@@ -86,7 +86,12 @@ const Register = (props: Props) => {
 
     useEffect(() => {
         if (isSuccessfulLogin) {
-            router.push("/dashboard")
+            const redirect = router.query.redirect as string;
+            if (redirect) {
+                router.push(redirect);
+            } else {
+                router.push("/dashboard");
+            }
         }
     }, [isSuccessfulLogin])
 
@@ -120,7 +125,12 @@ const Register = (props: Props) => {
                     wallet: wallet_address, signerPassword: walletDetails?.signMessage!, setIsLoading, onSuccess: (value, type) => {
                         if (type === "success") {
                             setUser(value)
-                            router.push("/dashboard")
+                            const redirect = router.query.redirect as string;
+                            if (redirect) {
+                                router.push(redirect);
+                            } else {
+                                router.push("/dashboard")
+                            }
                         } else {
                             setRegDetails((prev) => ({
                                 ...prev,
@@ -188,7 +198,12 @@ const Register = (props: Props) => {
                     access_token: data.access_token
                 });
 
-                router.push("/dashboard")
+                const redirect = router.query.redirect as string;
+                if (redirect) {
+                    router.push(redirect);
+                } else {
+                    router.push("/dashboard")
+                }
             }
         } catch (err: any) {
             // If there was an error during the login process, it will be caught here

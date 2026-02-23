@@ -58,7 +58,12 @@ export const FirstForm = ({ regDetails, onInputChange, onNextClick, connectedAcc
                     access_token: data.access_token
                 });
 
-                router.push("/dashboard")
+                const redirect = router.query.redirect as string;
+                if (redirect) {
+                    router.push(redirect);
+                } else {
+                    router.push("/dashboard");
+                }
             }
         } catch (err: any) {
             // If there was an error during the login process, it will be caught here
@@ -169,7 +174,11 @@ export const FirstForm = ({ regDetails, onInputChange, onNextClick, connectedAcc
                         <div className="max-w-[544px] tb:max-w-none">
 
                             <Button icon={SvgIcons.google} classstyle={"!bg-white hover:!bg-white !border-white !font-bold !px-0"} fullwidth onClick={() => {
-                                //TODO: Always check
+                                // Save redirect to local storage for google auth callback
+                                const redirect = router.query.redirect as string;
+                                if (redirect) {
+                                  localStorage.setItem('authRedirect', redirect);
+                                }
                                 router.push(`${uri}user/google/login/`)
                             }}>Continue with google</Button>
                         </div>
@@ -261,7 +270,12 @@ export const LastForm = ({ regDetails, onInputChange, onNextClick }: Props) => {
                     access_token: data.access_token
                 });
 
-                router.push("/dashboard")
+                const redirect = router.query.redirect as string;
+                if (redirect) {
+                    router.push(redirect);
+                } else {
+                    router.push("/dashboard");
+                }
             }
         } catch (err: any) {
             // If there was an error during the login process, it will be caught here
@@ -419,7 +433,12 @@ export const LastForm = ({ regDetails, onInputChange, onNextClick }: Props) => {
                     onClick={async () => {
 
                         if (Object.values(user).length > 0) {
-                            router.push("/dashboard")
+                            const redirect = router.query.redirect as string;
+                            if (redirect) {
+                                router.push(redirect);
+                            } else {
+                                router.push("/dashboard");
+                            }
                             return;
                         }
 

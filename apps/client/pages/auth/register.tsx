@@ -131,7 +131,12 @@ const Register = () => {
           wallet: wallet_address, signerPassword: walletDetails?.signMessage!, setIsLoading, onSuccess: (value, type) => {
             if (type === "success") {
               setUser(value)
-              router.push("/dashboard")
+              const redirect = router.query.redirect as string;
+              if (redirect) {
+                router.push(redirect);
+              } else {
+                router.push("/dashboard")
+              }
             } else {
               setRegDetails((prev) => ({
                 ...prev,
@@ -317,7 +322,12 @@ const Register = () => {
                         wallet: res.walletAddress, signerPassword: res.signMessage, setIsLoading, onSuccess: (value, type) => {
                           if (type === "success") {
                             setUser(value)
-                            router.push("/dashboard")
+                            const redirect = router.query.redirect as string;
+                            if (redirect) {
+                              router.push(redirect);
+                            } else {
+                              router.push("/dashboard")
+                            }
                           } else {
                             setRegDetails((prev) => ({
                               ...prev,

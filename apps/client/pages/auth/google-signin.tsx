@@ -32,7 +32,13 @@ const GoogleSignIn = (props: Props) => {
                     access_token: data.access_token
                 });
 
-                router.push("/dashboard")
+                const redirect = localStorage.getItem('authRedirect');
+                if (redirect) {
+                    localStorage.removeItem('authRedirect');
+                    router.push(redirect);
+                } else {
+                    router.push("/dashboard")
+                }
 
             }
         } catch (error) {

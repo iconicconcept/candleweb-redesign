@@ -5,12 +5,18 @@ import { RootState, AppDispatch } from "../../redux/store";
 import courseService from "../../services/courseService";
 import { FaCheck, FaClock, FaVideo, FaAward, FaChartLine } from "react-icons/fa";
 import { HiArrowRight } from "react-icons/hi";
+import useUserStore from "../../lib/hooks/useUserStore";
+import { useRouter } from "next/router";
+import Loader from "../Loader";
 
 const AvailableCourses = () => {
   const [isVisible, setIsVisible] = useState(false);
   const dispatch = useDispatch<AppDispatch>();
   const { courses, isLoading } = useSelector((state: RootState) => state.courses);
   const [showAll, setShowAll] = useState(false);
+  const { user } = useUserStore();
+  const isLoggedIn = Object.keys(user).length > 0;
+  const router = useRouter();
 
   useEffect(() => {
     dispatch(courseService.getCourses());
@@ -20,7 +26,8 @@ const AvailableCourses = () => {
   const displayedCourses = showAll ? courses : courses.slice(0, 3);
 
   return (
-    <section className="available-courses__section relative w-full py-16 md:py-24 bg-black/70 overflow-hidden">
+    <section id="courses" className="available-courses__section relative w-full py-16 md:py-24 bg-black/70 overflow-hidden">
+      {isLoading && <Loader />}
       <div className="relative z-10 w-full px-6 md:px-20 lg:max-w-[1200px] lg:mx-auto">
         {/* Section Header */}
         <div className={`text-center mb-12 md:mb-20 transition-all duration-1000 ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"}`}>
@@ -134,24 +141,42 @@ const AvailableCourses = () => {
                       <span className="md:hidden text-white/40 text-[10px] uppercase tracking-widest font-bold block">One-time payment</span>
                     </div>
 
-                    <button className="md:hidden px-8 py-3 rounded-xl bg-primary text-black font-bold text-sm transition-all duration-300 active:scale-95 shadow-lg shadow-primary/20">
-                      Add to Cart
+                    <button 
+                      onClick={() => {
+                        if (!isLoggedIn) {
+                          router.push("/register?redirect=/tutor#courses");
+                        } else {
+                          // TODO: Handle payment logic if already implemented elsewhere
+                          // alert("Payment logic would trigger here for logged-in user.");
+                        }
+                      }}
+                      className="md:hidden px-8 py-3 rounded-xl bg-primary text-black font-bold text-sm transition-all duration-300 active:scale-95 shadow-lg shadow-primary/20">
+                      Pay Now
                     </button>
                   </div>
 
-                  {/* Desktop Button */}
-                  <button className="hidden md:flex w-full py-4 mb-6 rounded-xl border border-red-300 text-black font-bold text-sm tracking-wide transition-all duration-300 bg-primary hover:text-black hover:scale-105 active:scale-95 items-center justify-center gap-2 group/btn">
-                    Add to Cart
+                   {/* Desktop Button */}
+                  <button 
+                    onClick={() => {
+                      if (!isLoggedIn) {
+                        router.push("/register?redirect=/tutor#courses");
+                      } else {
+                        // TODO: Handle payment logic if already implemented elsewhere
+                        alert("Payment logic would trigger here for logged-in user.");
+                      }
+                    }}
+                    className="hidden md:flex w-full py-4 mb-6 rounded-xl border border-red-300 text-black font-bold text-sm tracking-wide transition-all duration-300 bg-primary hover:text-black hover:scale-105 active:scale-95 items-center justify-center gap-2 group/btn">
+                    Pay Now
                     <HiArrowRight className="transition-transform duration-300 group-hover/btn:translate-x-1" />
                   </button>
 
-                  <div className="w-full flex flex-col items-center gap-2 pt-6 border-t border-white/5 md:border-none md:pt-0 md:mt-auto">
+                  {/* <div className="w-full flex flex-col items-center gap-2 pt-6 border-t border-white/5 md:border-none md:pt-0 md:mt-auto">
                     <span className="text-white/40 text-[10px] uppercase tracking-widest font-bold">Passive Revenue Potential</span>
                     <span className="text-primary font-bold text-xl flex items-center gap-2">
                       <FaChartLine className="text-sm opacity-50" />
                       {course.passiveRevenue}
                     </span>
-                  </div>
+                  </div> */}
                 </div>
               </div>
             </div>

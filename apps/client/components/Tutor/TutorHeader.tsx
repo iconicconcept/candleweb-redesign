@@ -6,6 +6,7 @@ import { HiMenuAlt3 } from "react-icons/hi";
 import { FiChevronDown } from "react-icons/fi";
 import { Button } from "ui";
 import Image from "next/image";
+import useUserStore from "../../lib/hooks/useUserStore";
 
 const TutorHeader = () => {
   const [navbar, setNavbar] = useState(false);
@@ -20,6 +21,9 @@ const TutorHeader = () => {
   // Mobile Dropdown States
   const [mobileBuyCryptoOpen, setMobileBuyCryptoOpen] = useState(false);
   const [mobileDocumentOpen, setMobileDocumentOpen] = useState(false);
+
+  const { user } = useUserStore();
+  const isLoggedIn = Object.keys(user).length > 0;
   
   const router = useRouter();
 
@@ -180,21 +184,38 @@ const TutorHeader = () => {
 
           {/* Desktop Buttons */}
           <div className="hidden md:flex items-center gap-2 lg:gap-4">
-            <Button
-              size="sm"
-              variant="transparent"
-              classstyle="!px-3 lg:!px-5 !text-white hover:!text-primary transition-all duration-300"
-              onClick={() => router.push("/auth/register")}
-            >
-              Login
-            </Button>
-            <Button
-              size="sm"
-              classstyle="!px-3 lg:!px-5 !py-2 !bg-[#FFA726] !border-[#FFA726] hover:!bg-[#FF9800] text-black !font-semibold rounded-lg transition-all duration-300 hover:scale-105"
-              onClick={() => router.push("/auth/register")}
-            >
-              Get started
-            </Button>
+            {!isLoggedIn ? (
+              <>
+                <Button
+                  size="sm"
+                  variant="transparent"
+                  classstyle="!px-3 lg:!px-5 !text-white hover:!text-primary transition-all duration-300"
+                  onClick={() => router.push("/register?redirect=/tutor#courses")}
+                >
+                  Login
+                </Button>
+                <Button
+                  size="sm"
+                  classstyle="!px-3 lg:!px-5 !py-2 !bg-[#FFA726] !border-[#FFA726] hover:!bg-[#FF9800] text-black !font-semibold rounded-lg transition-all duration-300 hover:scale-105"
+                  onClick={() => router.push("/register?redirect=/tutor#courses")}
+                >
+                  Get started
+                </Button>
+              </>
+            ) : (
+              <Button
+                size="sm"
+                classstyle="!px-3 lg:!px-5 !py-2 !bg-[#FFA726] !border-[#FFA726] hover:!bg-[#FF9800] text-black !font-semibold rounded-lg transition-all duration-300 hover:scale-105"
+                onClick={() => {
+                  const element = document.getElementById('courses');
+                  if (element) {
+                    element.scrollIntoView({ behavior: 'smooth' });
+                  }
+                }}
+              >
+                Pay Now
+              </Button>
+            )}
           </div>
 
           {/* Mobile Hamburger Menu */}
@@ -288,23 +309,42 @@ const TutorHeader = () => {
 
         <hr className="mx-3 border-[1px] border-white/20 my-6" />
         <div className="mt-6 mx-2">
-          <Button
-            size="sm"
-            fullwidth
-            variant="transparent"
-            classstyle="mb-4 !text-white hover:!text-primary transition-all duration-300"
-            onClick={() => router.push("/auth/login")}
-          >
-            Login
-          </Button>
-          <Button
-            size="sm"
-            fullwidth
-            classstyle="!bg-[#FFA726] !border-[#FFA726] hover:!bg-[#FF9800] !text-white !font-semibold transition-all duration-300"
-            onClick={() => router.push("/auth/register")}
-          >
-            Get started
-          </Button>
+          {!isLoggedIn ? (
+            <>
+              <Button
+                size="sm"
+                fullwidth
+                variant="transparent"
+                classstyle="mb-4 !text-white hover:!text-primary transition-all duration-300"
+                onClick={() => router.push("/register?redirect=/tutor#courses")}
+              >
+                Login
+              </Button>
+              <Button
+                size="sm"
+                fullwidth
+                classstyle="!bg-[#FFA726] !border-[#FFA726] hover:!bg-[#FF9800] !text-white !font-semibold transition-all duration-300"
+                onClick={() => router.push("/register?redirect=/tutor#courses")}
+              >
+                Get started
+              </Button>
+            </>
+          ) : (
+            <Button
+              size="sm"
+              fullwidth
+              classstyle="!bg-[#FFA726] !border-[#FFA726] hover:!bg-[#FF9800] !text-white !font-semibold transition-all duration-300"
+              onClick={() => {
+                const element = document.getElementById('courses');
+                if (element) {
+                  element.scrollIntoView({ behavior: 'smooth' });
+                  setOpenMobileMenu(false);
+                }
+              }}
+            >
+              Pay Now
+            </Button>
+          )}
         </div>
       </div>
 

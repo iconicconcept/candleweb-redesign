@@ -3,6 +3,7 @@ import { FaPlus, FaMinus } from "react-icons/fa";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "../../redux/store";
 import tutorService from "../../services/tutorService";
+import Loader from "../Loader";
 
 const FaqSection = () => {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
@@ -22,6 +23,7 @@ const FaqSection = () => {
 
   return (
     <section className="faq-section relative w-full py-20 md:py-32 bg-black/70 overflow-hidden">
+      {isLoading && <Loader />}
       <div className="relative z-10 w-full px-6 md:px-20 lg:max-w-[1200px] lg:mx-auto">
         {/* Desktop Header */}
         <div className="hidden md:block text-center mb-20">

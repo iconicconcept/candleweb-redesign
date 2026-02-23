@@ -1,7 +1,13 @@
 import Link from "next/link";
+import { useRouter } from "next/router";
+import useUserStore from "../../lib/hooks/useUserStore";
 import { FaLock, FaShieldAlt, FaCcVisa, FaCcMastercard, FaCcPaypal, FaBitcoin } from "react-icons/fa";
 
 const PaymentSection = () => {
+  const { user } = useUserStore();
+  const isLoggedIn = Object.keys(user).length > 0;
+  const router = useRouter();
+
   return (
     <section className="payment-section relative w-full py-16 md:py-24 bg-[#0a0a0a]">
       <div className="relative z-10 w-full px-6 md:px-20 lg:max-w-[1200px] lg:mx-auto">
@@ -30,7 +36,18 @@ const PaymentSection = () => {
               <span className="text-primary font-bold text-3xl md:text-4xl lg:text-5xl">$0.00</span>
             </div>
 
-            <button className="w-full py-4 md:py-5 bg-[#ff9900] hover:bg-[#ffaa22] text-black font-black text-center text-sm md:text-lg uppercase tracking-widest rounded-xl transition-all duration-300 transform active:scale-95 shadow-[0_0_30px_rgba(255,153,0,0.3)] mb-4">
+            <button 
+              onClick={() => {
+                if (!isLoggedIn) {
+                  router.push("/register?redirect=/tutor#courses");
+                } else {
+                  const element = document.getElementById('courses');
+                  if (element) {
+                    element.scrollIntoView({ behavior: 'smooth' });
+                  }
+                }
+              }}
+              className="w-full py-4 md:py-5 bg-[#ff9900] hover:bg-[#ffaa22] text-black font-black text-center text-sm md:text-lg uppercase tracking-widest rounded-xl transition-all duration-300 transform active:scale-95 shadow-[0_0_30px_rgba(255,153,0,0.3)] mb-4">
               PAY NOW
             </button>
 
@@ -71,7 +88,18 @@ const PaymentSection = () => {
              </div>
 
              {/* Action Button */}
-             <button className="w-full py-3 bg-[#ff9900] text-center hover:bg-[#ffaa22] text-black font-black text-lg uppercase tracking-[0.2em] rounded-full transition-all active:scale-95 mb-6">
+             <button 
+                onClick={() => {
+                  if (!isLoggedIn) {
+                    router.push("/register?redirect=/tutor#courses");
+                  } else {
+                    const element = document.getElementById('courses');
+                    if (element) {
+                      element.scrollIntoView({ behavior: 'smooth' });
+                    }
+                  }
+                }}
+                className="w-full py-3 bg-[#ff9900] text-center hover:bg-[#ffaa22] text-black font-black text-lg uppercase tracking-[0.2em] rounded-full transition-all active:scale-95 mb-6">
                 PAY NOW
              </button>
 

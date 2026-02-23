@@ -37,8 +37,8 @@ const TutorFooter = () => {
       links: [
         { label: "Pricing", href: "/pricing" },
         { label: "About Us", href: "/about" },
-        { label: "Sign in", href: "/auth/register" },
-        { label: "Create an account", href: "/auth/register" },
+        { label: "Sign in", href: "/register?redirect=/tutor#courses" },
+        { label: "Create an account", href: "/register?redirect=/tutor#courses" },
       ],
     },
     {
@@ -56,8 +56,8 @@ const TutorFooter = () => {
       links: [
         { label: "Pricing", href: "/pricing" },
         { label: "About Us", href: "/about" },
-        { label: "Sign in", href: "/auth/register" },
-        { label: "Create an account", href: "/auth/register" },
+        { label: "Sign in", href: "/register?redirect=/tutor#courses" },
+        { label: "Create an account", href: "/register?redirect=/tutor#courses" },
       ],
     },
     {

@@ -4,6 +4,7 @@ import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "../../redux/store";
 import tutorService from "../../services/tutorService";
 import { FaLinkedinIn, FaGlobe, FaStar, FaCheck, FaUser } from "react-icons/fa";
+import Loader from "../Loader";
 
 const ExpertsSection = () => {
   const [isVisible, setIsVisible] = useState(false);
@@ -57,6 +58,7 @@ const ExpertsSection = () => {
       ref={sectionRef}
       className="experts-section relative w-full py-20 bg-[#0a0a0a] overflow-hidden"
     >
+      {isLoading && <Loader />}
       <div className="relative z-10 w-full px-6 md:px-20 lg:max-w-[1400px] lg:mx-auto">
         {/* Section Header */}
         <div
