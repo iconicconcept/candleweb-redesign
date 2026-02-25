@@ -199,7 +199,7 @@ const AvailableCourses = () => {
                 <div className="w-full md:w-[300px] lg:w-[340px] p-6 lg:p-10 border-t border-white/5 md:border-t-0 md:border-l flex flex-col items-center justify-center text-center bg-white/[0.03] md:bg-black/20">
                   <div className="w-full flex flex-col items-center gap-3 justify-center mb-4">
                     <div className="text-left md:text-center">
-                      <span className="block text-primary md:text-white font-bold text-3xl md:text-3xl lg:text-4xl mb-0.5 md:mb-1">${course.price.toFixed(2)}</span>
+                      <span className="block text-primary md:text-white font-bold text-3xl md:text-3xl lg:text-4xl mb-0.5 md:mb-1">₦{course.price.toFixed(2)}</span>
                       <span className="hidden md:block text-white/40 text-[10px] uppercase tracking-widest font-bold">One-time payment</span>
                       <span className="md:hidden text-white/40 text-[10px] uppercase tracking-widest font-bold block">One-time payment</span>
                     </div>
