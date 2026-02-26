@@ -22,14 +22,14 @@ const AvailableCourses = () => {
   const [showAll, setShowAll] = useState(false);
   const { user } = useUserStore();
   const isLoggedIn = Object.keys(user).length > 0;
-  
-  // Name modal state
-  const [showNameModal, setShowNameModal] = useState(false);
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [selectedCourse, setSelectedCourse] = useState<any>(null);
-
   const router = useRouter();
+
+  // State for Name Prompt Modal
+  const [showNameModal, setShowNameModal] = useState(false);
+  const [selectedCourse, setSelectedCourse] = useState<any>(null);
+  const [tempFirstName, setTempFirstName] = useState("");
+  const [tempLastName, setTempLastName] = useState("");
+
 
   useEffect(() => {
     dispatch(courseService.getCourses());
@@ -46,6 +46,30 @@ const AvailableCourses = () => {
     }
   }, [lastPaymentStatus, paymentError, dispatch]);
 
+  const initiatePaymentWithNames = async (course: any, firstName: string, lastName: string) => {
+    try {
+      const resultAction = await dispatch(paymentService.initiatePayment({
+        course_id: course.id,
+        email: user.email || "",
+        first_name: firstName,
+        last_name: lastName,
+      }));
+
+      if (paymentService.initiatePayment.fulfilled.match(resultAction)) {
+        const paymentData = resultAction.payload?.data;
+        
+        if (paymentData?.authorization_url) {
+          window.location.href = paymentData.authorization_url;
+        } else {
+          toast.error("Unable to get payment authorization link. Please try again.");
+        }
+      }
+    } catch (err) {
+      console.error("Payment initiation failed:", err);
+      toast.error("An unexpected error occurred. Please try again.");
+    }
+  };
+
   const handlePayment = async (course: any) => {
     if (!isLoggedIn) {
       router.push("/register?redirect=/tutor#courses");
@@ -57,52 +81,16 @@ const AvailableCourses = () => {
       return;
     }
 
-    if (!user.first_name || !user.last_name) {
+    const firstName = user.first_name || "";
+    const lastName = user.last_name || "";
+
+    if (!firstName || !lastName) {
       setSelectedCourse(course);
-      setFirstName(user.first_name || "");
-      setLastName(user.last_name || "");
       setShowNameModal(true);
       return;
     }
 
-    proceedWithPayment(course, user.first_name, user.last_name);
-  };
-
-  const proceedWithPayment = async (course: any, fName: string, lName: string) => {
-    try {
-      const resultAction = await dispatch(paymentService.initiatePayment({
-        course_id: course.id,
-        email: user.email || "",
-        first_name: fName,
-        last_name: lName,
-      }));
-
-      if (paymentService.initiatePayment.fulfilled.match(resultAction)) {
-        const paymentData = resultAction.payload?.data;
-        const config = {
-          reference: paymentData.reference,
-          key: paymentData.key,
-          email: user.email || "",
-          amount: paymentData.amount || Math.round(course.price * 100 * 1600),
-          ...paymentData,
-          metadata: {
-            course_id: course.id,
-          },
-          callback: (response: any) => {
-            dispatch(paymentService.verifyPayment(response.reference));
-          },
-          onClose: () => {
-            toast.error("Payment window closed.");
-          },
-        };
-
-        const handler = (window as any).PaystackPop.setup(config);
-        handler.openIframe();
-      }
-    } catch (err) {
-      console.error("Payment initiation failed:", err);
-      toast.error("An unexpected error occurred. Please try again.");
-    }
+    initiatePaymentWithNames(course, firstName, lastName);
   };
 
   const displayedCourses = showAll ? courses : courses.slice(0, 3);
@@ -269,55 +257,64 @@ const AvailableCourses = () => {
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[120px] -z-10 translate-x-1/2 -translate-y-1/2"></div>
       <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[120px] -z-10 -translate-x-1/2 translate-y-1/2"></div>
 
-      {/* Name Missing Modal */}
-      {showNameModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm px-4">
-          <div className="bg-[#111] border border-white/10 p-6 md:p-8 rounded-2xl w-full max-w-md shadow-2xl">
-            <h3 className="text-xl md:text-2xl font-bold text-white mb-2">Complete Your Profile</h3>
-            <p className="text-white/60 mb-6 text-sm">Please provide your first and last name to proceed with the payment.</p>
+      {/* Name Prompt Modal */}
+      {showNameModal && selectedCourse && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-[#111111] border border-white/10 rounded-[24px] p-6 lg:p-8 w-full max-w-md relative shadow-2xl">
+            <h3 className="text-white text-xl font-bold mb-2">Complete Your Profile</h3>
+            <p className="text-white/60 text-sm mb-6">Please provide your first and last name to proceed with the payment.</p>
             
-            <div className="space-y-4 mb-6">
+            <div className="flex flex-col gap-4 mb-8">
               <div>
-                <label className="block text-white/80 text-sm font-medium mb-1">First Name</label>
-                <input
-                  type="text"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-primary/50 transition-colors"
+                <label className="text-white/80 text-sm font-medium mb-1.5 block">First Name</label>
+                <input 
+                  type="text" 
+                  value={tempFirstName}
+                  onChange={(e) => setTempFirstName(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3.5 text-white placeholder:text-white/20 focus:outline-none focus:border-primary/50 focus:bg-white/10 transition-colors text-sm"
                   placeholder="Enter your first name"
                 />
               </div>
               <div>
-                <label className="block text-white/80 text-sm font-medium mb-1">Last Name</label>
-                <input
-                  type="text"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-primary/50 transition-colors"
+                <label className="text-white/80 text-sm font-medium mb-1.5 block">Last Name</label>
+                <input 
+                  type="text" 
+                  value={tempLastName}
+                  onChange={(e) => setTempLastName(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3.5 text-white placeholder:text-white/20 focus:outline-none focus:border-primary/50 focus:bg-white/10 transition-colors text-sm"
                   placeholder="Enter your last name"
                 />
               </div>
             </div>
-            
-            <div className="flex gap-4">
-              <button
-                onClick={() => setShowNameModal(false)}
-                className="flex-1 py-3 rounded-xl border border-white/20 text-white font-medium hover:bg-white/5 transition-colors"
+
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={() => {
+                  setShowNameModal(false);
+                  setTempFirstName("");
+                  setTempLastName("");
+                  setSelectedCourse(null);
+                }}
+                className="flex-1 px-4 py-3.5 rounded-xl border border-white/10 text-white font-medium hover:bg-white/5 hover:border-white/20 transition-all text-sm"
               >
                 Cancel
               </button>
-              <button
+              <button 
                 onClick={() => {
-                  if (!firstName.trim() || !lastName.trim()) {
-                    toast.error("Both first name and last name are required");
+                  if (!tempFirstName.trim() || !tempLastName.trim()) {
+                    toast.error("Please fill in both first and last names");
                     return;
                   }
                   setShowNameModal(false);
-                  proceedWithPayment(selectedCourse, firstName.trim(), lastName.trim());
+                  initiatePaymentWithNames(selectedCourse, tempFirstName.trim(), tempLastName.trim());
+                  // Reset fields after initiation
+                  setTempFirstName("");
+                  setTempLastName("");
+                  setSelectedCourse(null);
                 }}
-                className="flex-1 py-3 rounded-xl bg-primary text-black font-bold hover:scale-[1.02] active:scale-[0.98] transition-all"
+                className="flex-[1.5] px-4 py-3.5 rounded-xl bg-primary text-black font-bold hover:scale-[1.02] active:scale-95 transition-transform text-sm shadow-lg shadow-primary/20"
               >
-                Continue to Pay
+                Proceed to Pay
               </button>
             </div>
           </div>
