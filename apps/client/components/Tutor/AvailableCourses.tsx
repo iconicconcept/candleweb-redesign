@@ -22,6 +22,13 @@ const AvailableCourses = () => {
   const [showAll, setShowAll] = useState(false);
   const { user } = useUserStore();
   const isLoggedIn = Object.keys(user).length > 0;
+  
+  // Name modal state
+  const [showNameModal, setShowNameModal] = useState(false);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [selectedCourse, setSelectedCourse] = useState<any>(null);
+
   const router = useRouter();
 
   useEffect(() => {
@@ -50,12 +57,24 @@ const AvailableCourses = () => {
       return;
     }
 
+    if (!user.first_name || !user.last_name) {
+      setSelectedCourse(course);
+      setFirstName(user.first_name || "");
+      setLastName(user.last_name || "");
+      setShowNameModal(true);
+      return;
+    }
+
+    proceedWithPayment(course, user.first_name, user.last_name);
+  };
+
+  const proceedWithPayment = async (course: any, fName: string, lName: string) => {
     try {
       const resultAction = await dispatch(paymentService.initiatePayment({
         course_id: course.id,
         email: user.email || "",
-        first_name: user.first_name || "",
-        last_name: user.last_name || "",
+        first_name: fName,
+        last_name: lName,
       }));
 
       if (paymentService.initiatePayment.fulfilled.match(resultAction)) {
@@ -249,6 +268,61 @@ const AvailableCourses = () => {
       {/* Background Decorations */}
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[120px] -z-10 translate-x-1/2 -translate-y-1/2"></div>
       <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[120px] -z-10 -translate-x-1/2 translate-y-1/2"></div>
+
+      {/* Name Missing Modal */}
+      {showNameModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm px-4">
+          <div className="bg-[#111] border border-white/10 p-6 md:p-8 rounded-2xl w-full max-w-md shadow-2xl">
+            <h3 className="text-xl md:text-2xl font-bold text-white mb-2">Complete Your Profile</h3>
+            <p className="text-white/60 mb-6 text-sm">Please provide your first and last name to proceed with the payment.</p>
+            
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-white/80 text-sm font-medium mb-1">First Name</label>
+                <input
+                  type="text"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-primary/50 transition-colors"
+                  placeholder="Enter your first name"
+                />
+              </div>
+              <div>
+                <label className="block text-white/80 text-sm font-medium mb-1">Last Name</label>
+                <input
+                  type="text"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-primary/50 transition-colors"
+                  placeholder="Enter your last name"
+                />
+              </div>
+            </div>
+            
+            <div className="flex gap-4">
+              <button
+                onClick={() => setShowNameModal(false)}
+                className="flex-1 py-3 rounded-xl border border-white/20 text-white font-medium hover:bg-white/5 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (!firstName.trim() || !lastName.trim()) {
+                    toast.error("Both first name and last name are required");
+                    return;
+                  }
+                  setShowNameModal(false);
+                  proceedWithPayment(selectedCourse, firstName.trim(), lastName.trim());
+                }}
+                className="flex-1 py-3 rounded-xl bg-primary text-black font-bold hover:scale-[1.02] active:scale-[0.98] transition-all"
+              >
+                Continue to Pay
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 };
