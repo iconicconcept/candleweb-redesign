@@ -110,7 +110,7 @@ const HeroSlider = () => {
                   onClick={() => {
                     if (isLoggedIn) {
                       if (purchasedCourseIds.length > 0) {
-                        router.push("/dashboard");
+                        router.push("https://dummy-app-link.com");
                       } else {
                         // Scroll to courses section
                         const element = document.getElementById('courses');
@@ -123,7 +123,7 @@ const HeroSlider = () => {
                     }
                   }}
                 >
-                  {purchasedCourseIds.length > 0 ? "Dashboard" : isLoggedIn ? "Explore Courses" : "Start Learning"}
+                  {purchasedCourseIds.length > 0 ? "Download app" : isLoggedIn ? "Explore Courses" : "Start Learning"}
                 </button>
                 
                 {/* Watch Video Button */}

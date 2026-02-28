@@ -211,7 +211,7 @@ const TutorHeader = () => {
                 classstyle="!px-3 lg:!px-5 !py-2 !bg-[#FFA726] !border-[#FFA726] hover:!bg-[#FF9800] text-black !font-semibold rounded-lg transition-all duration-300 hover:scale-105"
                 onClick={() => {
                   if (purchasedCourseIds.length > 0) {
-                    router.push("/dashboard");
+                    router.push("https://dummy-app-link.com");
                   } else {
                     const element = document.getElementById('courses');
                     if (element) {
@@ -220,7 +220,7 @@ const TutorHeader = () => {
                   }
                 }}
               >
-                {purchasedCourseIds.length > 0 ? "Dashboard" : "Pay Now"}
+                {purchasedCourseIds.length > 0 ? "Download app" : "Pay Now"}
               </Button>
             )}
           </div>
@@ -343,7 +343,7 @@ const TutorHeader = () => {
               classstyle="!bg-[#FFA726] !border-[#FFA726] hover:!bg-[#FF9800] !text-white !font-semibold transition-all duration-300"
               onClick={() => {
                 if (purchasedCourseIds.length > 0) {
-                  router.push("/dashboard");
+                  router.push("https://dummy-app-link.com");
                   setOpenMobileMenu(false);
                 } else {
                   const element = document.getElementById('courses');
@@ -354,7 +354,7 @@ const TutorHeader = () => {
                 }
               }}
             >
-              {purchasedCourseIds.length > 0 ? "Dashboard" : "Pay Now"}
+              {purchasedCourseIds.length > 0 ? "Download app" : "Pay Now"}
             </Button>
           )}
         </div>
