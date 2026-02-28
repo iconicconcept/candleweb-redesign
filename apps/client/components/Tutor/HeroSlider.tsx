@@ -106,7 +106,7 @@ const HeroSlider = () => {
             <div className="flex flex-col gap-3 md:flex-row md:gap-4 animate-[fadeInUp_1.1s_ease-out] w-full max-w-[290px] md:max-w-none">
               {/* Start Learning Button - Green on mobile, Yellow on desktop */}
                 <button
-                  className="w-full md:w-auto py-3.5 px-8 text-black text-center md:text-start bg-primary md:bg-[#FFA726] hover:bg-primary/90 md:hover:bg-[#FF9800] text-sm md:text-base font-bold rounded-full md:rounded-[12px] transition-all duration-300 hover:scale-105 shadow-lg"
+                  className="w-full md:w-auto py-3.5 md:px-8 text-black text-center md:text-start bg-primary md:bg-[#FFA726] hover:bg-primary/90 md:hover:bg-[#FF9800] text-sm md:text-base font-bold rounded-full md:rounded-[12px] transition-all duration-300 hover:scale-105 shadow-lg"
                   onClick={() => {
                     if (isLoggedIn) {
                       if (purchasedCourseIds.length > 0) {
@@ -128,7 +128,7 @@ const HeroSlider = () => {
                 
                 {/* Watch Video Button */}
                 <button 
-                  className="w-full md:w-auto py-3.5 px-8 bg-transparent md:bg-gray-900/80 border-2 border-white md:border-none hover:bg-white/10 text-white text-sm md:text-base font-bold rounded-full md:rounded-[12px] transition-all duration-300 hover:scale-105 backdrop-blur-2xl flex items-center justify-center gap-2"
+                  className="w-full md:w-auto py-3.5 md:px-8 bg-transparent md:bg-gray-900/80 border-2 border-white md:border-none hover:bg-white/10 text-white text-sm md:text-base font-bold rounded-full md:rounded-[12px] transition-all duration-300 hover:scale-105 backdrop-blur-2xl flex items-center justify-center gap-2"
                 >
                   <FaPlay className="text-sm" />
                   Watch Video

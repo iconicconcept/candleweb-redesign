@@ -18,7 +18,11 @@ const initiatePayment = createAsyncThunk(
       return response.data;
     } catch (err: any) {
       const errorData = err.response?.data;
-      const errorMessage = errorData?.errors?.non_field_errors?.[0] || errorData?.message || "Failed to initiate payment";
+      const errorMessage = 
+        errorData?.errors?.non_field_errors?.[0] || 
+        errorData?.non_field_errors?.[0] ||
+        errorData?.message || 
+        "Failed to initiate payment";
       return thunkApi.rejectWithValue(errorMessage);
     }
   }
@@ -31,7 +35,13 @@ const verifyPayment = createAsyncThunk(
       const response = await axiosApi.get(`/tutor/payments/verify/?reference=${reference}`);
       return response.data;
     } catch (err: any) {
-      return thunkApi.rejectWithValue(err.response?.data?.message || "Failed to verify payment");
+      const errorData = err.response?.data;
+      const errorMessage = 
+        errorData?.errors?.non_field_errors?.[0] || 
+        errorData?.non_field_errors?.[0] ||
+        errorData?.message || 
+        "Failed to verify payment";
+      return thunkApi.rejectWithValue(errorMessage);
     }
   }
 );

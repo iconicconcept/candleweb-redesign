@@ -44,6 +44,7 @@ const paymentSlice = createSlice({
       })
       .addCase(paymentService.initiatePayment.rejected, (state, action) => {
         state.isInitiating = false;
+        state.lastPaymentStatus = "failed";
         state.error = action.payload as string;
       })
       // Verify Payment
