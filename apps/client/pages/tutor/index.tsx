@@ -10,7 +10,31 @@ import StayUpdated from "../../components/Tutor/StayUpdated";
 import TutorFooter from "../../components/Tutor/TutorFooter";
 import AvailableCourses from "../../components/Tutor/AvailableCourses";
 
+import { useRouter } from "next/router";
+import { useState, useEffect } from "react";
+import PaymentSuccessModal from "../../components/Tutor/PaymentSuccessModal";
+
 export default function TutorPage() {
+  const router = useRouter();
+  const [showModal, setShowModal] = useState(false);
+
+  useEffect(() => {
+    if (router.isReady && router.query.payment === "success") {
+      setShowModal(true);
+      
+      // Clear the query param without refreshing the page
+      const { payment, ...rest } = router.query;
+      router.replace(
+        {
+          pathname: router.pathname,
+          query: rest,
+        },
+        undefined,
+        { shallow: true }
+      );
+    }
+  }, [router.isReady, router.query, router.pathname]);
+
   return (
     <>
       <Head>
@@ -37,6 +61,7 @@ export default function TutorPage() {
       </Head>
 
       <div className="tutor__page relative">
+        <PaymentSuccessModal isOpen={showModal} onClose={() => setShowModal(false)} />
         <TutorHeader />
         <HeroSlider />
         <FeaturesSection />
