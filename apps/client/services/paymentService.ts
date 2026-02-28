@@ -7,6 +7,7 @@ interface InitiatePaymentPayload {
   first_name: string;
   last_name: string;
   pricing_tier_id?: number;
+  callback_url?: string;
 }
 
 const initiatePayment = createAsyncThunk(
@@ -16,7 +17,9 @@ const initiatePayment = createAsyncThunk(
       const response = await axiosApi.post("/tutor/payments/initiate/", payload);
       return response.data;
     } catch (err: any) {
-      return thunkApi.rejectWithValue(err.response?.data?.message || "Failed to initiate payment");
+      const errorData = err.response?.data;
+      const errorMessage = errorData?.errors?.non_field_errors?.[0] || errorData?.message || "Failed to initiate payment";
+      return thunkApi.rejectWithValue(errorMessage);
     }
   }
 );

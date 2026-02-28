@@ -53,6 +53,7 @@ const AvailableCourses = () => {
         email: user.email || "",
         first_name: firstName,
         last_name: lastName,
+        callback_url: `${window.location.origin}/tutor/verify`,
       }));
 
       if (paymentService.initiatePayment.fulfilled.match(resultAction)) {
