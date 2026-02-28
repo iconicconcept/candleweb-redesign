@@ -115,9 +115,9 @@ const Footer = (props: IFooterProps) => {
               Company
             </Heading>
             <ul className="footer__company--items">
-              <Link href="/pricing">
+              <Link href="/tutor">
                 <li className="footer__company--item text-xs inter text-gray-400 duration-[1500ms] ease-in-out hover:text-primary cursor-pointer mb-3">
-                  Pricing
+                  Academy
                 </li>
               </Link>
               <Link href="/about">
@@ -246,9 +246,9 @@ const Footer = (props: IFooterProps) => {
 
               <AccordionContent>
                 <ul className="footer__company--items">
-                  <Link href="/pricing">
+                  <Link href="/tutor">
                     <li className="footer__company--item text-xs inter text-gray-400 duration-[1500ms] ease-in-out hover:text-primary cursor-pointer mb-3">
-                      Pricing
+                      Academy
                     </li>
                   </Link>
                   <Link href="/about">

@@ -166,12 +166,12 @@ export const Header = ({ Icon, Logo, route }: IHeaderProps) => {
           </li>
 
           <li className="menu__list--item  duration-[1500ms] ease-in-out hover:text-primary cursor-pointer">
-            <Link href={"/pricing"}>
+            <Link href={"/tutor"}>
               <span
-                className={`block px-5 ms:px-3 py-3 font-medium outfit ${route == "pricing" && "text-primary"
+                className={`block px-5 ms:px-3 py-3 font-medium outfit ${route == "Academy" && "text-primary"
                   }`}
               >
-                Pricing
+                Academy
               </span>
             </Link>
           </li>
@@ -336,17 +336,17 @@ export const Header = ({ Icon, Logo, route }: IHeaderProps) => {
                 />
               </li>
               <li className="mb-8">
-                <Link href="/pricing">
+                <Link href="/tutor">
                   <Typography
-                    classstyle={`font-medium outfit hover:text-primary flex items-center ${route == "pricing" && "!text-primary"
+                    classstyle={`font-medium outfit hover:text-primary flex items-center ${route == "tutor" && "!text-primary"
                       }`}
                   >
                     <Image
                       src={TagIcon}
-                      alt="Pricing Icon"
+                      alt="Academy Icon"
                       className="mr-3 w-5 h-5"
                     />{" "}
-                    Pricing
+                    Academy
                   </Typography>
                 </Link>
               </li>{" "}
