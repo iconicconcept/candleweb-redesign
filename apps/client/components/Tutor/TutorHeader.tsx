@@ -15,19 +15,21 @@ const TutorHeader = () => {
   const [openMobileMenu, setOpenMobileMenu] = useState(false);
   const [isBuyCryptoOpen, setIsBuyCryptoOpen] = useState(false);
   const [isDocumentOpen, setIsDocumentOpen] = useState(false);
-  
+
   // Timeout refs for dropdown delay
   const buyCryptoTimeout = useRef<NodeJS.Timeout | null>(null);
   const documentTimeout = useRef<NodeJS.Timeout | null>(null);
-  
+
   // Mobile Dropdown States
   const [mobileBuyCryptoOpen, setMobileBuyCryptoOpen] = useState(false);
   const [mobileDocumentOpen, setMobileDocumentOpen] = useState(false);
 
   const { user } = useUserStore();
   const isLoggedIn = Object.keys(user).length > 0;
-  const { purchasedCourseIds } = useSelector((state: RootState) => state.payment);
-  
+  const { purchasedCourseIds } = useSelector(
+    (state: RootState) => state.payment,
+  );
+
   const router = useRouter();
 
   const changeBackground = () => {
@@ -88,7 +90,9 @@ const TutorHeader = () => {
       <div className="nav__container fixed top-0 left-0 right-0 z-50 animate-[fadeInDown_0.6s_ease-out]">
         <div
           className={`nav__content px-6 md:px-20 h-16 md:h-20 flex items-center justify-between w-full transition-all duration-500 ${
-            navbar ? "backdrop-blur-lg bg-white/10 border-b border-white/20 shadow-lg" : ""
+            navbar
+              ? "backdrop-blur-lg bg-white/10 border-b border-white/20 shadow-lg"
+              : ""
           }`}
         >
           {/* Logo */}
@@ -114,15 +118,15 @@ const TutorHeader = () => {
               </Link>
             </li>
             <li className="menu__list--item">
-              <Link href="/pricing">
+              <Link href="/tutor">
                 <span className="block px-4 py-3 font-medium text-white hover:text-primary transition-all duration-300">
-                  Pricing
+                  Academy
                 </span>
               </Link>
             </li>
-            
+
             {/* Buy Crypto Dropdown - Desktop */}
-            <li 
+            <li
               className="menu__list--item relative group"
               onMouseEnter={handleBuyCryptoEnter}
               onMouseLeave={handleBuyCryptoLeave}
@@ -131,13 +135,19 @@ const TutorHeader = () => {
                 <span className="font-medium text-white group-hover:text-primary transition-all duration-300">
                   Buy Crypto
                 </span>
-                <FiChevronDown className={`text-white group-hover:text-primary transition-transform duration-300 ${isBuyCryptoOpen ? 'rotate-180' : ''}`} />
+                <FiChevronDown
+                  className={`text-white group-hover:text-primary transition-transform duration-300 ${isBuyCryptoOpen ? "rotate-180" : ""}`}
+                />
               </div>
-              
+
               {/* Dropdown Content */}
-              <div className={`absolute top-full left-0 w-48 bg-[#0a0a0a]/95 backdrop-blur-xl border border-white/10 rounded-xl py-2 mt-1 shadow-2xl transition-all duration-300 origin-top ${
-                isBuyCryptoOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'
-              }`}>
+              <div
+                className={`absolute top-full left-0 w-48 bg-[#0a0a0a]/95 backdrop-blur-xl border border-white/10 rounded-xl py-2 mt-1 shadow-2xl transition-all duration-300 origin-top ${
+                  isBuyCryptoOpen
+                    ? "opacity-100 scale-100"
+                    : "opacity-0 scale-95 pointer-events-none"
+                }`}
+              >
                 <Link href="https://candleweb.io/buy-crypto/?type=yellowcard">
                   <span className="block px-6 py-3 text-sm font-medium text-white/80 hover:text-primary hover:bg-white/5 transition-all duration-200">
                     Yellow Card
@@ -152,7 +162,7 @@ const TutorHeader = () => {
             </li>
 
             {/* Document Dropdown - Desktop */}
-            <li 
+            <li
               className="menu__list--item relative group"
               onMouseEnter={handleDocumentEnter}
               onMouseLeave={handleDocumentLeave}
@@ -161,13 +171,19 @@ const TutorHeader = () => {
                 <span className="font-medium text-white group-hover:text-primary transition-all duration-300">
                   Document
                 </span>
-                <FiChevronDown className={`text-white group-hover:text-primary transition-transform duration-300 ${isDocumentOpen ? 'rotate-180' : ''}`} />
+                <FiChevronDown
+                  className={`text-white group-hover:text-primary transition-transform duration-300 ${isDocumentOpen ? "rotate-180" : ""}`}
+                />
               </div>
-              
+
               {/* Dropdown Content */}
-              <div className={`absolute top-full left-0 w-48 bg-[#0a0a0a]/95 backdrop-blur-xl border border-white/10 rounded-xl py-2 mt-1 shadow-2xl transition-all duration-300 origin-top ${
-                isDocumentOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'
-              }`}>
+              <div
+                className={`absolute top-full left-0 w-48 bg-[#0a0a0a]/95 backdrop-blur-xl border border-white/10 rounded-xl py-2 mt-1 shadow-2xl transition-all duration-300 origin-top ${
+                  isDocumentOpen
+                    ? "opacity-100 scale-100"
+                    : "opacity-0 scale-95 pointer-events-none"
+                }`}
+              >
                 <Link href="https://candleweb.io/document/whitepaper">
                   <span className="block px-6 py-3 text-sm font-medium text-white/80 hover:text-primary hover:bg-white/5 transition-all duration-200">
                     White Paper
@@ -193,14 +209,18 @@ const TutorHeader = () => {
                   size="sm"
                   variant="transparent"
                   classstyle="!px-3 lg:!px-5 !text-white hover:!text-primary transition-all duration-300"
-                  onClick={() => router.push("/register?redirect=/tutor#courses")}
+                  onClick={() =>
+                    router.push("/register?redirect=/tutor#courses")
+                  }
                 >
                   Login
                 </Button>
                 <Button
                   size="sm"
                   classstyle="!px-3 lg:!px-5 !py-2 !bg-[#FFA726] !border-[#FFA726] hover:!bg-[#FF9800] text-black !font-semibold rounded-lg transition-all duration-300 hover:scale-105"
-                  onClick={() => router.push("/register?redirect=/tutor#courses")}
+                  onClick={() =>
+                    router.push("/register?redirect=/tutor#courses")
+                  }
                 >
                   Get started
                 </Button>
@@ -213,9 +233,9 @@ const TutorHeader = () => {
                   if (purchasedCourseIds.length > 0) {
                     router.push("https://dummy-app-link.com");
                   } else {
-                    const element = document.getElementById('courses');
+                    const element = document.getElementById("courses");
                     if (element) {
-                      element.scrollIntoView({ behavior: 'smooth' });
+                      element.scrollIntoView({ behavior: "smooth" });
                     }
                   }
                 }}
@@ -241,43 +261,60 @@ const TutorHeader = () => {
           openMobileMenu ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="close__btn m-5 flex justify-end" onClick={() => setOpenMobileMenu(false)}>
+        <div
+          className="close__btn m-5 flex justify-end"
+          onClick={() => setOpenMobileMenu(false)}
+        >
           <IoClose className="text-white text-3xl cursor-pointer hover:text-primary transition-all duration-300 hover:rotate-90" />
         </div>
         <ul className="px-3 mt-8">
           <li className="mb-6 transform hover:translate-x-2 transition-all duration-300">
             <Link href="/">
-              <span className="font-medium text-white text-lg hover:text-primary">Candle AI</span>
+              <span className="font-medium text-white text-lg hover:text-primary">
+                Candle AI
+              </span>
             </Link>
           </li>
           <li className="mb-6 transform hover:translate-x-2 transition-all duration-300">
-            <Link href="/pricing">
-              <span className="font-medium text-white text-lg hover:text-primary">Pricing</span>
+            <Link href="/tutor">
+              <span className="font-medium text-white text-lg hover:text-primary">
+                Academy
+              </span>
             </Link>
           </li>
-          
+
           {/* Mobile Buy Crypto Dropdown */}
           <li className="mb-6">
-            <div 
+            <div
               className="flex items-center justify-between cursor-pointer group"
               onClick={() => setMobileBuyCryptoOpen(!mobileBuyCryptoOpen)}
             >
-              <span className={`font-medium text-lg transition-all duration-300 ${mobileBuyCryptoOpen ? 'text-primary' : 'text-white'}`}>
+              <span
+                className={`font-medium text-lg transition-all duration-300 ${mobileBuyCryptoOpen ? "text-primary" : "text-white"}`}
+              >
                 Buy Crypto
               </span>
-              <FiChevronDown className={`text-white text-xl transition-transform duration-300 ${mobileBuyCryptoOpen ? 'rotate-180 text-primary' : ''}`} />
+              <FiChevronDown
+                className={`text-white text-xl transition-transform duration-300 ${mobileBuyCryptoOpen ? "rotate-180 text-primary" : ""}`}
+              />
             </div>
-            
-            <div className={`overflow-hidden transition-all duration-500 ease-in-out ${mobileBuyCryptoOpen ? 'max-h-40 opacity-100 mt-4' : 'max-h-0 opacity-0'}`}>
+
+            <div
+              className={`overflow-hidden transition-all duration-500 ease-in-out ${mobileBuyCryptoOpen ? "max-h-40 opacity-100 mt-4" : "max-h-0 opacity-0"}`}
+            >
               <ul className="pl-4 space-y-4">
                 <li>
                   <Link href="https://candleweb.io/buy-crypto/?type=yellowcard">
-                    <span className="text-white/70 text-base hover:text-primary transition-all duration-300">Yellow Card</span>
+                    <span className="text-white/70 text-base hover:text-primary transition-all duration-300">
+                      Yellow Card
+                    </span>
                   </Link>
                 </li>
                 <li>
                   <Link href="https://candleweb.io/buy-crypto/?type=quidax">
-                    <span className="text-white/70 text-base hover:text-primary transition-all duration-300">Quidax</span>
+                    <span className="text-white/70 text-base hover:text-primary transition-all duration-300">
+                      Quidax
+                    </span>
                   </Link>
                 </li>
               </ul>
@@ -286,21 +323,29 @@ const TutorHeader = () => {
 
           {/* Mobile Document Dropdown */}
           <li className="mb-6">
-            <div 
+            <div
               className="flex items-center justify-between cursor-pointer group"
               onClick={() => setMobileDocumentOpen(!mobileDocumentOpen)}
             >
-              <span className={`font-medium text-lg transition-all duration-300 ${mobileDocumentOpen ? 'text-primary' : 'text-white'}`}>
+              <span
+                className={`font-medium text-lg transition-all duration-300 ${mobileDocumentOpen ? "text-primary" : "text-white"}`}
+              >
                 Document
               </span>
-              <FiChevronDown className={`text-white text-xl transition-transform duration-300 ${mobileDocumentOpen ? 'rotate-180 text-primary' : ''}`} />
+              <FiChevronDown
+                className={`text-white text-xl transition-transform duration-300 ${mobileDocumentOpen ? "rotate-180 text-primary" : ""}`}
+              />
             </div>
-            
-            <div className={`overflow-hidden transition-all duration-500 ease-in-out ${mobileDocumentOpen ? 'max-h-20 opacity-100 mt-4' : 'max-h-0 opacity-0'}`}>
+
+            <div
+              className={`overflow-hidden transition-all duration-500 ease-in-out ${mobileDocumentOpen ? "max-h-20 opacity-100 mt-4" : "max-h-0 opacity-0"}`}
+            >
               <ul className="pl-4">
                 <li>
                   <Link href="https://candleweb.io/document/whitepaper">
-                    <span className="text-white/70 text-base hover:text-primary transition-all duration-300">White Paper</span>
+                    <span className="text-white/70 text-base hover:text-primary transition-all duration-300">
+                      White Paper
+                    </span>
                   </Link>
                 </li>
               </ul>
@@ -309,7 +354,9 @@ const TutorHeader = () => {
 
           <li className="mb-6 transform hover:translate-x-2 transition-all duration-300">
             <Link href="/blog">
-              <span className="font-medium text-white text-lg hover:text-primary">Blog</span>
+              <span className="font-medium text-white text-lg hover:text-primary">
+                Blog
+              </span>
             </Link>
           </li>
         </ul>
@@ -346,9 +393,9 @@ const TutorHeader = () => {
                   router.push("https://dummy-app-link.com");
                   setOpenMobileMenu(false);
                 } else {
-                  const element = document.getElementById('courses');
+                  const element = document.getElementById("courses");
                   if (element) {
-                    element.scrollIntoView({ behavior: 'smooth' });
+                    element.scrollIntoView({ behavior: "smooth" });
                     setOpenMobileMenu(false);
                   }
                 }
