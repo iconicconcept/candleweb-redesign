@@ -1,5 +1,5 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
-import { Tutor, FAQ } from "../types/tutor";
+import { Tutor, FAQ, StudentProfile } from "../types/tutor";
 import axios from "axios";
 import { axiosApi } from "../lib/axiosApi";
 
@@ -63,9 +63,19 @@ const getFaqs = createAsyncThunk("tutors/getFaqs", async (category: string | und
   }
 });
 
+const checkStudentProfile = createAsyncThunk("tutors/checkStudentProfile", async (_, thunkApi) => {
+  try {
+    const response = await axiosApi.get(`/tutor/student/check/`);
+    return response.data;
+  } catch (error: any) {
+    return thunkApi.rejectWithValue(error.response?.data?.message || "Failed to check student profile");
+  }
+});
+
 const tutorService = {
   getTutors,
   getFaqs,
+  checkStudentProfile,
 };
 
 export default tutorService;

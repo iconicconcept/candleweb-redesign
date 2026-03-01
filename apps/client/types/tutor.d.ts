@@ -19,3 +19,9 @@ export interface FAQ {
   order: number;
   is_active: boolean;
 }
+export interface StudentProfile {
+  has_profile: boolean;
+  first_name: string | null;
+  last_name: string | null;
+  needs_names: boolean;
+}

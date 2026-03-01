@@ -11,6 +11,8 @@ import useUserStore from "../../lib/hooks/useUserStore";
 import { useRouter } from "next/router";
 import Loader from "../Loader";
 import { toast } from "react-hot-toast";
+import tutorService from "../../services/tutorService";
+
 
 declare let window: any;
 
@@ -29,6 +31,8 @@ const AvailableCourses = () => {
   const [selectedCourse, setSelectedCourse] = useState<any>(null);
   const [tempFirstName, setTempFirstName] = useState("");
   const [tempLastName, setTempLastName] = useState("");
+  const [isCheckingProfile, setIsCheckingProfile] = useState(false);
+
 
 
   useEffect(() => {
@@ -85,20 +89,52 @@ const AvailableCourses = () => {
     const firstName = user.first_name || "";
     const lastName = user.last_name || "";
 
-    if (!firstName || !lastName) {
-      setSelectedCourse(course);
-      setShowNameModal(true);
-      return;
+    // If we already have names in the local storage, we can use them
+    // but the requirement says to check the endpoint.
+    setIsCheckingProfile(true);
+    try {
+      const profileResult = await dispatch(tutorService.checkStudentProfile());
+      if (tutorService.checkStudentProfile.fulfilled.match(profileResult)) {
+        const profileData = profileResult.payload?.data;
+        if (profileData?.has_profile && !profileData?.needs_names) {
+          initiatePaymentWithNames(course, profileData.first_name, profileData.last_name);
+        } else {
+          // If profile is missing or names are needed, show modal
+          setSelectedCourse(course);
+          setTempFirstName(profileData?.first_name || firstName);
+          setTempLastName(profileData?.last_name || lastName);
+          setShowNameModal(true);
+        }
+      } else {
+        // Fallback to local names if API fails? 
+        // Or if API says success but data is weird.
+        // The user says "check if the student has a profile already... and if not, modal shows up"
+        if (!firstName || !lastName) {
+          setSelectedCourse(course);
+          setShowNameModal(true);
+        } else {
+          initiatePaymentWithNames(course, firstName, lastName);
+        }
+      }
+    } catch (err) {
+      console.error("Profile check failed:", err);
+      // Fallback
+      if (!firstName || !lastName) {
+        setSelectedCourse(course);
+        setShowNameModal(true);
+      } else {
+        initiatePaymentWithNames(course, firstName, lastName);
+      }
+    } finally {
+      setIsCheckingProfile(false);
     }
-
-    initiatePaymentWithNames(course, firstName, lastName);
   };
 
   const displayedCourses = showAll ? courses : courses.slice(0, 3);
 
   return (
     <section id="courses" className="available-courses__section relative w-full py-16 md:py-24 bg-black/70 overflow-hidden">
-      {(isLoading || isInitiating || isVerifying) && <Loader />}
+      {(isLoading || isInitiating || isVerifying || isCheckingProfile) && <Loader />}
       <div className="relative z-10 w-full px-6 md:px-20 lg:max-w-[1200px] lg:mx-auto">
         {/* Section Header */}
         <div className={`text-center mb-12 md:mb-20 transition-all duration-1000 ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"}`}>
