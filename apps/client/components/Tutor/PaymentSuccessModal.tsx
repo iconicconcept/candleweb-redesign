@@ -54,7 +54,7 @@ const PaymentSuccessModal: React.FC<PaymentSuccessModalProps> = ({ isOpen, onClo
 
           <div className="flex flex-col items-center gap-6">
             <a 
-              href="https://dummy-app-link.com" 
+              href="https://play.google.com/store/apps/details?id=com.candlewebservices.candleweb" 
               target="_blank" 
               rel="noopener noreferrer"
               className="group relative flex items-center justify-center p-6 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 hover:border-primary/50 transition-all duration-300 transform hover:scale-105"
