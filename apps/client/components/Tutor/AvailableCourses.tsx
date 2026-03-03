@@ -12,6 +12,7 @@ import { useRouter } from "next/router";
 import Loader from "../Loader";
 import { toast } from "react-hot-toast";
 import tutorService from "../../services/tutorService";
+import { imageUri } from "../../utils/constants";
 
 
 declare let window: any;
@@ -179,7 +180,7 @@ const AvailableCourses = () => {
                 <div className="relative w-full md:w-[330px] lg:w-[380px] aspect-[16/10] md:aspect-auto overflow-hidden bg-white/5 flex items-center justify-center">
                   {course.image ? (
                     <Image
-                      src={course.image}
+                      src={course.image.startsWith('http') ? course.image : imageUri + course.image}
                       alt={course.title}
                       fill
                       className="object-cover transition-transform duration-700 group-hover:scale-110"

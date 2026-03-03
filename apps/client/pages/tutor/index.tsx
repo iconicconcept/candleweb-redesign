@@ -11,16 +11,23 @@ import TutorFooter from "../../components/Tutor/TutorFooter";
 import AvailableCourses from "../../components/Tutor/AvailableCourses";
 
 import { useRouter } from "next/router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import PaymentSuccessModal from "../../components/Tutor/PaymentSuccessModal";
 
 export default function TutorPage() {
   const router = useRouter();
   const [showModal, setShowModal] = useState(false);
 
+  const hasShownModal = useRef(false);
+
   useEffect(() => {
-    if (router.isReady && router.query.payment === "success") {
-      setShowModal(true);
+    if (router.isReady && router.query.payment === "success" && !hasShownModal.current) {
+      hasShownModal.current = true;
+      
+      // Small delay to ensure the page has settled
+      const timer = setTimeout(() => {
+        setShowModal(true);
+      }, 500);
       
       // Clear the query param without refreshing the page
       const { payment, ...rest } = router.query;
@@ -32,6 +39,8 @@ export default function TutorPage() {
         undefined,
         { shallow: true }
       );
+
+      return () => clearTimeout(timer);
     }
   }, [router.isReady, router.query, router.pathname]);
 

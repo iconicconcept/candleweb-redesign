@@ -5,6 +5,7 @@ import { RootState, AppDispatch } from "../../redux/store";
 import tutorService from "../../services/tutorService";
 import { FaLinkedinIn, FaGlobe, FaStar, FaCheck, FaUser } from "react-icons/fa";
 import Loader from "../Loader";
+import { imageUri } from "../../utils/constants";
 
 const ExpertsSection = () => {
   const [isVisible, setIsVisible] = useState(false);
@@ -67,11 +68,11 @@ const ExpertsSection = () => {
           {/* Desktop Heading */}
           <div className="hidden md:block text-center mb-16">
             <h2 className="text-white font-bold text-[16px] md:text-3xl lg:text-4xl mb-6">
-              Learn from the Masters
+              Learn from Industry Experts
             </h2>
             <p className="text-white/60 text-lg lg:text-xl max-w-3xl mx-auto font-light leading-relaxed">
               Our world-class tutors bring decades of combined experience in
-              cryptocurrency trading.
+              Backend Engineering, Blockchain developemnt, AI Automation, AI Engineering, Personal Finance, Cryptocurrency Trading.
             </p>
           </div>
 
@@ -128,7 +129,7 @@ const ExpertsSection = () => {
                           {tutor.picture &&
                           typeof tutor.picture === "string" ? (
                             <Image
-                              src={tutor.picture}
+                              src={tutor.picture.startsWith('http') ? tutor.picture : imageUri + tutor.picture}
                               alt={tutor.name}
                               fill
                               className="object-cover"
@@ -200,7 +201,7 @@ const ExpertsSection = () => {
                       {tutor.picture && typeof tutor.picture === "string" ? (
                         <>
                           <Image
-                            src={tutor.picture}
+                            src={tutor.picture.startsWith('http') ? tutor.picture : imageUri + tutor.picture}
                             alt={tutor.name}
                             fill
                             className="object-cover"

@@ -71,8 +71,8 @@ const HowItWorksSection = () => {
     {
       number: "3",
       icon: <FaChartLine className="text-2xl" />,
-      title: "Auto-Invest",
-      description: "We activate your passive trade portfolio immediately upon enrollment.",
+      title: "Auto-Incentive",
+      description: "We activate incentive generation on your account upon enrollment.",
     },
     {
       number: "4",
@@ -157,14 +157,14 @@ const HowItWorksSection = () => {
                   </div>
 
                   {/* Card containing Icon and Text */}
-                  <div className=" bg-[#111111] border border-gray-800/40 rounded-2xl p-8 flex flex-col items-center text-center hover:border-primary/40 transition-all duration-500 shadow-xl group">
+                  <div className="h-full bg-[#111111] border border-gray-800/40 rounded-2xl p-8 flex flex-col items-center text-center hover:border-primary/40 transition-all duration-500 shadow-xl group">
                     {/* Icon */}
                     <div className="w-14 h-14 rounded-xl bg-[#1a1a1a] border border-white/5 flex items-center justify-center text-primary mb-6 group-hover:scale-110 group-hover:text-white group-hover:bg-primary/5 transition-all duration-300">
                       {step.icon}
                     </div>
 
                     {/* Content */}
-                    <div className="relative">
+                    <div className="relative flex-1 flex flex-col justify-center">
                       <h3 className="text-white font-bold text-xl mb-4 group-hover:text-primary transition-colors duration-300">
                         {step.title}
                       </h3>

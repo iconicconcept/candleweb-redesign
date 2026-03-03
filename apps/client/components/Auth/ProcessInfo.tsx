@@ -43,10 +43,11 @@ const ProcessInfo = (props: Props) => {
             <div className="max-w-[544px] tb:max-w-none">
 
                 <Button icon={SvgIcons.google} classstyle={"!bg-white hover:!bg-white !border-white !font-bold !px-0"} fullwidth onClick={() => {
-                    // dispatch(authService.googleLoginUser({
-                    //     referral: router.query.referral as string ?? "",
-                    // }))
-                    // TODO: Always check
+                    // Save redirect to local storage for google auth callback
+                    const redirect = router.query.redirect as string;
+                    if (redirect) {
+                        localStorage.setItem('authRedirect', redirect);
+                    }
                     router.push(`${uri}user/google/login/`)
                 }}>Continue with google</Button>
             </div>
