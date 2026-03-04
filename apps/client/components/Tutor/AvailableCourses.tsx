@@ -42,9 +42,7 @@ const AvailableCourses = () => {
   }, [dispatch]);
 
   useEffect(() => {
-    if (lastPaymentStatus === "success") {
-      dispatch(resetPaymentStatus());
-    } else if (lastPaymentStatus === "failed" && paymentError) {
+    if (lastPaymentStatus === "failed" && paymentError) {
       toast.error(paymentError);
       dispatch(resetPaymentStatus());
     }
