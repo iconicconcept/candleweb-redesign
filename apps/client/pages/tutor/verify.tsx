@@ -24,7 +24,6 @@ const VerifyPayment = () => {
 
   useEffect(() => {
     if (lastPaymentStatus === "success") {
-      dispatch(resetPaymentStatus());
       router.push("/tutor?payment=success");
     } else if (lastPaymentStatus === "failed") {
       if (error) toast.error(error);

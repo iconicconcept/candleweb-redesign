@@ -1,5 +1,6 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import paymentService from "../../services/paymentService";
+import tutorService from "../../services/tutorService";
 
 interface PaymentState {
   isInitiating: boolean;
@@ -55,8 +56,11 @@ const paymentSlice = createSlice({
       .addCase(paymentService.verifyPayment.fulfilled, (state, action) => {
         state.isVerifying = false;
         state.lastPaymentStatus = "success";
-        // Assuming the verification response contains the course_id or we have it from before
-        const courseId = action.payload?.course_id || action.payload?.data?.course_id;
+        
+        // Extract course ID from the response (data.enrollment.course.id or data.course_id)
+        const data = action.payload?.data;
+        const courseId = data?.enrollment?.course?.id || data?.enrollment?.course_id || data?.course_id || action.payload?.course_id;
+        
         if (courseId && !state.purchasedCourseIds.includes(courseId)) {
           state.purchasedCourseIds.push(courseId);
         }
@@ -65,6 +69,15 @@ const paymentSlice = createSlice({
         state.isVerifying = false;
         state.lastPaymentStatus = "failed";
         state.error = action.payload as string;
+      })
+      // Get Student Enrollments (from student/check endpoint)
+      .addCase(tutorService.checkStudentProfile.fulfilled, (state, action) => {
+        const data = action.payload?.data;
+        if (data && data.enrolled_courses && Array.isArray(data.enrolled_courses)) {
+          state.purchasedCourseIds = data.enrolled_courses.map((c: any) => c.id || c.course_id || c);
+        } else if (data && data.enrollments && Array.isArray(data.enrollments)) {
+          state.purchasedCourseIds = data.enrollments.map((e: any) => e.course?.id || e.course_id || e);
+        }
       });
   },
 });

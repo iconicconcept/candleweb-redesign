@@ -43,7 +43,6 @@ const AvailableCourses = () => {
 
   useEffect(() => {
     if (lastPaymentStatus === "success") {
-      toast.success("Payment successful! Login to your dashboard on your phone to start learning.");
       dispatch(resetPaymentStatus());
     } else if (lastPaymentStatus === "failed" && paymentError) {
       toast.error(paymentError);

@@ -13,36 +13,57 @@ import AvailableCourses from "../../components/Tutor/AvailableCourses";
 import { useRouter } from "next/router";
 import { useState, useEffect, useRef } from "react";
 import PaymentSuccessModal from "../../components/Tutor/PaymentSuccessModal";
+import { useDispatch, useSelector } from "react-redux";
+import { AppDispatch, RootState } from "../../redux/store";
+import { resetPaymentStatus } from "../../redux/slices/paymentSlice";
+import tutorService from "../../services/tutorService";
+import useUserStore from "../../lib/hooks/useUserStore";
 
 export default function TutorPage() {
   const router = useRouter();
+  const dispatch = useDispatch<AppDispatch>();
   const [showModal, setShowModal] = useState(false);
+  const { lastPaymentStatus } = useSelector((state: RootState) => state.payment);
+  const { user } = useUserStore();
+  const isLoggedIn = Object.keys(user).length > 0;
 
   const hasShownModal = useRef(false);
 
   useEffect(() => {
-    if (router.isReady && router.query.payment === "success" && !hasShownModal.current) {
+    if (isLoggedIn) {
+      dispatch(tutorService.checkStudentProfile());
+    }
+  }, [isLoggedIn, dispatch]);
+
+  useEffect(() => {
+    const isPaymentSuccess = router.query.payment === "success" || lastPaymentStatus === "success";
+    
+    if (router.isReady && isPaymentSuccess && !hasShownModal.current) {
       hasShownModal.current = true;
       
       // Small delay to ensure the page has settled
       const timer = setTimeout(() => {
         setShowModal(true);
+        // Clear the success status after showing the modal
+        dispatch(resetPaymentStatus());
       }, 500);
       
       // Clear the query param without refreshing the page
-      const { payment, ...rest } = router.query;
-      router.replace(
-        {
-          pathname: router.pathname,
-          query: rest,
-        },
-        undefined,
-        { shallow: true }
-      );
+      if (router.query.payment) {
+        const { payment, ...rest } = router.query;
+        router.replace(
+          {
+            pathname: router.pathname,
+            query: rest,
+          },
+          undefined,
+          { shallow: true }
+        );
+      }
 
       return () => clearTimeout(timer);
     }
-  }, [router.isReady, router.query, router.pathname]);
+  }, [router.isReady, router.query, router.pathname, lastPaymentStatus, dispatch]);
 
   return (
     <>
