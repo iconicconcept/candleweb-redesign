@@ -36,20 +36,21 @@ export default function TutorPage() {
   }, [isLoggedIn, dispatch]);
 
   useEffect(() => {
-    const isPaymentSuccess = router.query.payment === "success" || lastPaymentStatus === "success";
+    // Check both router query and URL directly for maximum resilience
+    const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : "");
+    const queryPayment = router.query.payment || params.get('payment');
+    const isPaymentSuccess = queryPayment === "success" || lastPaymentStatus === "success";
     
-    if (router.isReady && isPaymentSuccess && !hasShownModal.current) {
+    if (isPaymentSuccess && !hasShownModal.current) {
       hasShownModal.current = true;
       
-      // Small delay to ensure the page has settled
-      const timer = setTimeout(() => {
-        setShowModal(true);
-        // Clear the success status after showing the modal
-        dispatch(resetPaymentStatus());
-      }, 500);
+      // Show modal immediately
+      setShowModal(true);
       
-      // Clear the query param without refreshing the page
-      if (router.query.payment) {
+      // Cleanup: reset Redux status and clear URL
+      dispatch(resetPaymentStatus());
+      
+      if (queryPayment === "success") {
         const { payment, ...rest } = router.query;
         router.replace(
           {
@@ -60,8 +61,6 @@ export default function TutorPage() {
           { shallow: true }
         );
       }
-
-      return () => clearTimeout(timer);
     }
   }, [router.isReady, router.query, router.pathname, lastPaymentStatus, dispatch]);
 

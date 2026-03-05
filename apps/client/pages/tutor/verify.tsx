@@ -22,10 +22,16 @@ const VerifyPayment = () => {
     }
   }, [router.isReady, router.query.reference, dispatch]);
 
+  const hasRedirected = useRef(false);
+
   useEffect(() => {
+    if (hasRedirected.current) return;
+
     if (lastPaymentStatus === "success") {
+      hasRedirected.current = true;
       router.push("/tutor?payment=success");
     } else if (lastPaymentStatus === "failed") {
+      hasRedirected.current = true;
       if (error) toast.error(error);
       dispatch(resetPaymentStatus());
       router.push("/tutor");
