@@ -17,28 +17,6 @@ const FeaturesSection = () => {
   // Mobile features
   const mobileFeatures = [
     {
-      icon: <FaGraduationCap className="text-2xl" />,
-      title: "Expert-Led Training",
-      description:
-        "Learn from professional traders with 10+ years of market experience. Get insider strategies that actually work.",
-    },
-    {
-      icon: <FaChartLine className="text-2xl" />,
-      title: "Real Trading Signals",
-      description:
-        "Receive daily trading signals and market analysis. Start earning while you're still learning the fundamentals.",
-    },
-    {
-      icon: <FaUsers className="text-2xl" />,
-      title: "Community Support",
-      description:
-        "Join our exclusive Discord community of 50,000+ traders. Network, share insights, and grow together.",
-    },
-  ];
-
-  // Desktop features
-  const desktopFeatures = [
-    {
       icon: <FaWallet className="text-2xl" />,
       title: "Subscription Cashback Trades",
       description:
@@ -58,6 +36,9 @@ const FeaturesSection = () => {
     },
   ];
 
+  // Desktop features
+  const desktopFeatures = [...mobileFeatures];
+
   return (
     <section className="features__section relative w-full py-16 md:py-24 bg-black/90 overflow-hidden">
       {/* Background decoration */}
@@ -70,7 +51,7 @@ const FeaturesSection = () => {
         >
           {/* Mobile Title */}
           <h2 className="md:hidden text-white font-bold text-3xl mb-4">
-            More Than Just a Course
+            More Than Just a Course.
           </h2>
 
           {/* Desktop Title */}
@@ -79,8 +60,9 @@ const FeaturesSection = () => {
           </h2>
 
           {/* Mobile Subtitle */}
-          <p className="md:hidden text-white/70 text-sm max-w-md mx-auto">
-            Everything you need to succeed in crypto trading
+          <p className="md:hidden text-white/70 text-base max-w-md mx-auto">
+            We&apos;ve reimagined education by integrating real financial growth
+            directly into the learning process.
           </p>
 
           {/* Desktop Subtitle */}

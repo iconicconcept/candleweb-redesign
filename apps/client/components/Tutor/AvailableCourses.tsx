@@ -5,7 +5,7 @@ import { RootState, AppDispatch } from "../../redux/store";
 import courseService from "../../services/courseService";
 import paymentService from "../../services/paymentService";
 import { resetPaymentStatus } from "../../redux/slices/paymentSlice";
-import { FaCheck, FaClock, FaVideo, FaAward, FaChartLine } from "react-icons/fa";
+import { FaCheck, FaClock, FaVideo, FaAward, FaChartLine, FaUsers } from "react-icons/fa";
 import { HiArrowRight } from "react-icons/hi";
 import useUserStore from "../../lib/hooks/useUserStore";
 import { useRouter } from "next/router";
@@ -144,8 +144,8 @@ const AvailableCourses = () => {
             Comprehensive programs designed to transform you from beginner to expert trader.
           </p>
           {/* Mobile Subtitle */}
-          <p className="md:hidden text-white/60 text-sm max-w-md mx-auto leading-relaxed">
-            From beginner to advanced - find your perfect match
+          <p className="md:hidden text-white/60 text-sm max-w-3xl mx-auto font-light leading-relaxed">
+            Comprehensive programs designed to transform you from beginner to expert trader.
           </p>
         </div>
 
@@ -229,6 +229,10 @@ const AvailableCourses = () => {
                     <div className="flex items-center gap-2">
                       <FaVideo className="text-primary/60" />
                       <span>{course.lessons} Hours</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <FaUsers className="text-primary/60" />
+                      <span>{course.current_enrollment_count || 0} Enrolled</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <FaAward className="text-primary/60" />

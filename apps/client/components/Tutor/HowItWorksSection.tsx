@@ -30,27 +30,27 @@ const HowItWorksSection = () => {
     return () => clearTimeout(t);
   }, []);
 
-  // Mobile steps (numbers only)
+  // Mobile steps (numbers)
   const mobileSteps = [
     {
       number: "1",
-      title: "Choose Your Course",
-      description: "Browse our comprehensive library and select the perfect course for your skill level and goals.",
+      title: "Select Course",
+      description: "Choose from our comprehensive financial literacy catalog tailored to your goals.",
     },
     {
       number: "2",
-      title: "Learn at Your Pace",
-      description: "Access video lessons, interactive quizzes, and downloadable resources. Study anytime, anywhere.",
+      title: "Make Payment",
+      description: "Secure payment via Paystack with multiple payment options available.",
     },
     {
       number: "3",
-      title: "Practice Trading",
-      description: "Use our simulation platform to practice strategies risk-free before trading with real money.",
+      title: "Auto-Incentive",
+      description: "We activate incentive generation on your account upon enrollment.",
     },
     {
       number: "4",
-      title: "Start Earning",
-      description: "Apply your knowledge to real markets and start generating consistent profits with confidence.",
+      title: "Start Learning",
+      description: "Access live classes and track your earnings in real-time on your dashboard.",
     },
   ];
 
@@ -95,8 +95,8 @@ const HowItWorksSection = () => {
           </h2>
           
           {/* Mobile Subtitle */}
-          <p className="md:hidden text-white/70 text-sm max-w-md mx-auto">
-            Your journey to crypto mastery in 4 simple steps
+          <p className="md:hidden text-white/70 text-base max-w-2xl mx-auto">
+            Your journey from enrollment to earning in four simple steps.
           </p>
           
           {/* Desktop Subtitle */}

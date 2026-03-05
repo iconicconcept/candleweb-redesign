@@ -72,7 +72,7 @@ const PaymentSection = () => {
                Ready to Start?
              </h2>
              <p className="text-white/40 text-sm text-center mb-10 leading-relaxed">
-               Select a course above and begin your journey to financial freedom
+               Select a course above to proceed with your journey to financial freedom.
              </p>
 
              {/* Price Breakdown Box */}
@@ -115,11 +115,11 @@ const PaymentSection = () => {
                 <FaCcVisa className="hover:text-white transition-colors" />
                 <FaCcMastercard className="hover:text-white transition-colors" />
                 <FaCcPaypal className="hover:text-white transition-colors" />
-                <FaBitcoin className="hover:text-white transition-colors" />
+                <FaCcMastercard className="hover:text-white transition-colors" />
              </div>
 
              <span className="text-white/20 text-[10px] font-bold uppercase tracking-widest">
-               Secure payment powered by Stripe
+               Secure payment powered by Paystack
              </span>
           </div>
         </div>

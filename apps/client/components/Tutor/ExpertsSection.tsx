@@ -79,10 +79,11 @@ const ExpertsSection = () => {
           {/* Mobile Heading */}
           <div className="md:hidden text-center mb-10">
             <h2 className="text-white font-bold text-2xl lg:text-3xl mb-4">
-              Meet Your Tutors
+              Learn from Industry Experts
             </h2>
             <p className="text-white/60 text-sm max-w-md mx-auto leading-relaxed">
-              Learn from industry experts with proven track records
+              Our world-class tutors bring decades of combined experience in
+              Backend Engineering, Blockchain developemnt, AI Automation, AI Engineering, Personal Finance, Cryptocurrency Trading.
             </p>
           </div>
         </div>
@@ -229,9 +230,9 @@ const ExpertsSection = () => {
                       <div className="mt-auto flex items-center gap-4 text-white/40 text-xs font-bold">
                         <div className="flex items-center gap-1.5">
                           {renderStars(tutor.rating)}
-                          <span className="text-white ml-1">
+                          {/* <span className="text-white ml-1">
                             {tutor.rating || "5"}
-                          </span>
+                          </span> */}
                         </div>
                         <div className="w-1 h-1 rounded-full bg-white/10"></div>
                         <span>

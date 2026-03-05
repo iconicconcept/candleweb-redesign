@@ -24,7 +24,7 @@ const HeroSlider = () => {
   }, [dispatch]);
 
   const slides = courses.length > 0 ? courses.map((course: any) => ({
-    badgeMobile: course.difficulty_level || "Unlock Potential",
+    badgeMobile: course.certification || "New Partner Program",
     badgeDesktop: course.certification || "New Partner Program",
     title: course.title,
     descriptionMobile: course.description,
