@@ -232,7 +232,8 @@ const AvailableCourses = () => {
                     </div>
                     <div className="flex items-center gap-2">
                       <FaUsers className="text-primary/60" />
-                      <span>{course.current_enrollment_count || 0} Enrolled</span>
+                      {/* <span>{course.current_enrollment_count || 0} Enrolled</span> */}
+                      <span>98 Enrolled</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <FaAward className="text-primary/60" />
