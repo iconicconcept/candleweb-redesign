@@ -27,14 +27,14 @@ const FaqSection = () => {
       <div className="relative z-10 w-full px-6 md:px-20 lg:max-w-[1200px] lg:mx-auto">
         {/* Desktop Header */}
         <div className="hidden md:block text-center mb-20">
-          <h2 className="text-white font-bold text-[16px] md:text-3xl lg:text-4xl">
+          <h2 className="text-white font-bold text-2xl md:text-3xl lg:text-4xl">
             Frequently asked questions
           </h2>
         </div>
 
         {/* Mobile Header */}
         <div className="md:hidden text-center mb-12">
-          <span className="text-white font-bold text-[16px] md:text-3xl lg:text-4xl mb-4 block">
+          <span className="text-white font-bold text-2xl md:text-3xl lg:text-4xl mb-4 block">
             Frequently asked questions
           </span>
           {/* Subtle decoration as seen in mobile mockup */}

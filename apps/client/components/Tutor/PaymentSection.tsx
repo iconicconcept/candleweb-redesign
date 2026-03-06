@@ -19,7 +19,7 @@ const PaymentSection = () => {
         <div className="hidden md:flex flex-row items-stretch bg-[#111111] border border-white/5 rounded-[32px] overflow-hidden backdrop-blur-3xl shadow-2xl">
           {/* Left Side - Info */}
           <div className="flex-1 p-6 md:p-10 lg:p-14">
-            <h2 className="text-white font-bold text-2xl md:text-3xl lg:text-4xl mb-6">
+            <h2 className="text-white font-bold text-2xl md:text-3xl lg:text-4xl mb-3">
               Ready to Start?
             </h2>
             <div className="w-full h-40 bg-white/[0.02] border border-white/5 rounded-2xl flex items-center justify-center text-center p-6 md:p-8">
@@ -68,7 +68,7 @@ const PaymentSection = () => {
         {/* Mobile Layout - Vertical Card with Green Glow */}
         <div className="md:hidden relative p-[1px] rounded-[32px] bg-gradient-to-b from-primary/40 to-transparent shadow-[0_0_40px_rgba(74,222,128,0.15)] overflow-hidden">
           <div className="bg-[#0f0f0f] rounded-[31px] p-6 flex flex-col items-center">
-             <h2 className="text-white font-bold text-3xl mb-4">
+             <h2 className="text-white font-bold text-2xl mb-3">
                Ready to Start?
              </h2>
              <p className="text-white/40 text-sm text-center mb-10 leading-relaxed">

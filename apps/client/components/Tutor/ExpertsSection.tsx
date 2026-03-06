@@ -67,7 +67,7 @@ const ExpertsSection = () => {
         >
           {/* Desktop Heading */}
           <div className="hidden md:block text-center mb-16">
-            <h2 className="text-white font-bold text-[16px] md:text-3xl lg:text-4xl mb-6">
+            <h2 className="text-white font-bold text-2xl md:text-3xl lg:text-4xl mb-3">
               Learn from Industry Experts
             </h2>
             <p className="text-white/60 text-lg lg:text-xl max-w-3xl mx-auto font-light leading-relaxed">
@@ -78,7 +78,7 @@ const ExpertsSection = () => {
 
           {/* Mobile Heading */}
           <div className="md:hidden text-center mb-10">
-            <h2 className="text-white font-bold text-2xl lg:text-3xl mb-4">
+            <h2 className="text-white font-bold text-2xl lg:text-3xl mb-3">
               Learn from Industry Experts
             </h2>
             <p className="text-white/60 text-sm max-w-md mx-auto leading-relaxed">

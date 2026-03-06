@@ -90,7 +90,7 @@ const HowItWorksSection = () => {
       <div className="relative z-10 w-full px-6 md:px-20 lg:max-w-[1200px] lg:mx-auto">
         {/* Section Header */}
         <div className={`text-center mb-12 md:mb-16 transition-all duration-1000 ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"}`}>
-          <h2 className="text-white font-bold text-2xl lg:text-3xl mb-4">
+          <h2 className="text-white font-bold text-2xl lg:text-3xl lg:text-4xl mb-3">
             How It Works
           </h2>
           

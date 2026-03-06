@@ -12,7 +12,7 @@ const StayUpdated = () => {
   return (
     <section className="stay-updated-section md:hidden relative w-full py-20 px-6 bg-[#0a0a0a]/90">
       <div className="relative z-10 flex flex-col items-center">
-        <h2 className="text-white font-black text-3xl mb-6 text-center">
+        <h2 className="text-white font-black text-2xl mb-3 text-center">
           Stay Updated
         </h2>
         <p className="text-white/40 text-lg text-center mb-12 max-w-xs leading-relaxed">

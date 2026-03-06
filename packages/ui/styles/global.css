@@ -712,8 +712,8 @@ tr.table__row th:last-child {
   transition: all 500ms ease-in-out !important;
   background: linear-gradient(94.69deg, #ffb322 16.29%, #ff8222 96.51%) !important;
   box-shadow:
-    0px 11px 18.7px #0d0d0d,
-    inset 0px 4px 20px #ffd687 !important;
+    0px 4px 10px rgba(13, 13, 13, 0.5),
+    inset 0px 4px 15px #ffd687 !important;
   border-radius: 30px !important;
 }
 

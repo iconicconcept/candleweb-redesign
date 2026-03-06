@@ -110,7 +110,7 @@ const HeroSlider = () => {
                   onClick={() => {
                     if (isLoggedIn) {
                       if (purchasedCourseIds.length > 0) {
-                        router.push("https://dummy-app-link.com");
+                        router.push("https://play.google.com/store/apps/details?id=com.candlewebservices.candleweb");
                       } else {
                         // Scroll to courses section
                         const element = document.getElementById('courses');

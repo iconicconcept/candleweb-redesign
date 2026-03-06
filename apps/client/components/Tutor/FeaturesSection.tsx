@@ -50,12 +50,12 @@ const FeaturesSection = () => {
           className={`text-center mb-12 md:mb-16 transition-all duration-1000 ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"}`}
         >
           {/* Mobile Title */}
-          <h2 className="md:hidden text-white font-bold text-3xl mb-4">
+          <h2 className="md:hidden text-white font-bold text-2xl mb-3">
             More Than Just a Course.
           </h2>
 
           {/* Desktop Title */}
-          <h2 className="hidden md:block text-white font-bold text-4xl lg:text-5xl mb-6">
+          <h2 className="hidden md:block text-white font-bold text-3xl lg:text-4xl mb-3">
             More Than Just a Course.
           </h2>
 

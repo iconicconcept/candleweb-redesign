@@ -209,29 +209,29 @@ const TutorHeader = () => {
                   size="sm"
                   variant="transparent"
                   classstyle="!px-3 lg:!px-5 !text-white hover:!text-primary transition-all duration-300"
-                  onClick={() =>
-                    router.push("/register?redirect=/tutor#courses")
-                  }
+                  onClick={() => router.push("/register?redirect=/tutor#courses")}
                 >
                   Login
                 </Button>
                 <Button
                   size="sm"
-                  classstyle="!px-3 lg:!px-5 !py-2 !bg-[#FFA726] !border-[#FFA726] hover:!bg-[#FF9800] text-black !font-semibold rounded-lg transition-all duration-300 hover:scale-105"
-                  onClick={() =>
-                    router.push("/register?redirect=/tutor#courses")
-                  }
+                  variant="gradient"
+                  iconright
+                  classstyle="yellow_gradient_btn !font-bold !bg-txt-yellow !border-txt-yellow hover:!bg-txt-yellow hover:!border-txt-yellow !rounded-full"
+                  onClick={() => router.push("/register?redirect=/tutor#courses")}
                 >
-                  Get started
+                  Get Started
                 </Button>
               </>
             ) : (
               <Button
                 size="sm"
-                classstyle="!px-3 lg:!px-5 !py-2 !bg-[#FFA726] !border-[#FFA726] hover:!bg-[#FF9800] text-black !font-semibold rounded-lg transition-all duration-300 hover:scale-105"
+                variant="gradient"
+                iconright
+                classstyle="yellow_gradient_btn !font-bold !bg-txt-yellow !border-txt-yellow hover:!bg-txt-yellow hover:!border-txt-yellow !rounded-full"
                 onClick={() => {
                   if (purchasedCourseIds.length > 0) {
-                    router.push("https://dummy-app-link.com");
+                    router.push("https://play.google.com/store/apps/details?id=com.candlewebservices.candleweb");
                   } else {
                     const element = document.getElementById("courses");
                     if (element) {
@@ -377,25 +377,29 @@ const TutorHeader = () => {
               <Button
                 size="sm"
                 fullwidth
-                classstyle="!bg-[#FFA726] !border-[#FFA726] hover:!bg-[#FF9800] !text-white !font-semibold transition-all duration-300"
+                variant="gradient"
+                iconright
+                classstyle="yellow_gradient_btn !font-bold !bg-txt-yellow !border-txt-yellow hover:!bg-txt-yellow hover:!border-txt-yellow !rounded-full"
                 onClick={() => router.push("/register?redirect=/tutor#courses")}
               >
-                Get started
+                Get Started
               </Button>
             </>
           ) : (
             <Button
               size="sm"
               fullwidth
-              classstyle="!bg-[#FFA726] !border-[#FFA726] hover:!bg-[#FF9800] !text-white !font-semibold transition-all duration-300"
+              variant="gradient"
+              iconright
+              classstyle="yellow_gradient_btn !font-bold !bg-txt-yellow !border-txt-yellow hover:!bg-txt-yellow hover:!border-txt-yellow !rounded-full"
               onClick={() => {
                 if (purchasedCourseIds.length > 0) {
-                  router.push("https://dummy-app-link.com");
+                  router.push("https://play.google.com/store/apps/details?id=com.candlewebservices.candleweb");
                   setOpenMobileMenu(false);
                 } else {
-                  const element = document.getElementById("courses");
+                  const element = document.getElementById('courses');
                   if (element) {
-                    element.scrollIntoView({ behavior: "smooth" });
+                    element.scrollIntoView({ behavior: 'smooth' });
                     setOpenMobileMenu(false);
                   }
                 }

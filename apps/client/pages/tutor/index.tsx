@@ -3,6 +3,7 @@ import TutorHeader from "../../components/Tutor/TutorHeader";
 import HeroSlider from "../../components/Tutor/HeroSlider";
 import FeaturesSection from "../../components/Tutor/FeaturesSection";
 import HowItWorksSection from "../../components/Tutor/HowItWorksSection";
+import PartnersSection from "../../components/Tutor/PartnersSection";
 import ExpertsSection from "../../components/Tutor/ExpertsSection";
 import FaqSection from "../../components/Tutor/FaqSection";
 import PaymentSection from "../../components/Tutor/PaymentSection";
@@ -97,6 +98,7 @@ export default function TutorPage() {
         <HowItWorksSection />
         <AvailableCourses />
         <ExpertsSection />
+        <PartnersSection />
         <FaqSection />
         <PaymentSection />
         <StayUpdated />
