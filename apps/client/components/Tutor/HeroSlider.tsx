@@ -12,6 +12,7 @@ import Loader from "../Loader";
 const HeroSlider = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [progress, setProgress] = useState(0);
+  const [hasFetched, setHasFetched] = useState(false);
   const dispatch = useDispatch<AppDispatch>();
   const { courses, isLoading } = useSelector((state: RootState) => state.courses);
   const { purchasedCourseIds } = useSelector((state: RootState) => state.payment);
@@ -22,6 +23,13 @@ const HeroSlider = () => {
   useEffect(() => {
     dispatch(courseService.getCourses());
   }, [dispatch]);
+
+  // Mark fetch as complete once loading transitions from true → false
+  useEffect(() => {
+    if (!isLoading) {
+      setHasFetched(true);
+    }
+  }, [isLoading]);
 
   const slides = courses.length > 0 ? courses.map((course: any) => ({
     badgeMobile: course.certification || "New Partner Program",
@@ -53,6 +61,9 @@ const HeroSlider = () => {
     };
   }, [currentSlide, slides.length]);
 
+  // Show loader while fetching OR before the first fetch completes
+  const showLoader = isLoading || !hasFetched;
+
   return (
     <div className="hero__slider relative w-full min-h-screen flex items-center overflow-hidden">
       {/* Background Image with Overlay */}
@@ -65,9 +76,9 @@ const HeroSlider = () => {
 
       {/* Content */}
       <div className="relative z-10 w-full px-6 md:px-20 lg:max-w-[1200px] lg:mx-auto pt-24 md:pt-32 pb-32 md:pb-24">
-        {isLoading && <Loader />}
+        {showLoader && <Loader />}
         
-        {!isLoading && slides.length === 0 ? (
+        {!showLoader && slides.length === 0 ? (
           <div className="text-center py-20 animate-[fadeIn_1s_ease-in-out]">
             <h2 className="text-white font-bold text-3xl md:text-5xl mb-6">No course is available</h2>
             <p className="text-white/60 text-lg">Check back later for our featured programs.</p>
@@ -106,7 +117,7 @@ const HeroSlider = () => {
             <div className="flex flex-col gap-3 md:flex-row md:gap-4 animate-[fadeInUp_1.1s_ease-out] w-full max-w-[290px] md:max-w-none">
               {/* Start Learning Button - Green on mobile, Yellow on desktop */}
                 <button
-                  className="w-full md:w-auto py-3.5 md:px-8 text-black text-center md:text-start bg-primary md:bg-[#FFA726] hover:bg-primary/90 md:hover:bg-[#FF9800] text-sm md:text-base font-bold rounded-full md:rounded-[12px] transition-all duration-300 hover:scale-105 shadow-lg"
+                  className="w-full md:w-auto py-3.5 md:px-8 text-black text-center md:text-start bg-primary md:bg-[#FFA726] hover:bg-primary/90 md:hover:bg-[#FF9800] text-sm md:text-base font-bold rounded-full transition-all duration-300 hover:scale-105 shadow-lg"
                   onClick={() => {
                     if (isLoggedIn) {
                       if (purchasedCourseIds.length > 0) {
@@ -128,7 +139,7 @@ const HeroSlider = () => {
                 
                 {/* Watch Video Button */}
                 <button 
-                  className="w-full md:w-auto py-3.5 md:px-8 bg-transparent md:bg-gray-900/80 border-2 border-white md:border-none hover:bg-white/10 text-white text-sm md:text-base font-bold rounded-full md:rounded-[12px] transition-all duration-300 hover:scale-105 backdrop-blur-2xl flex items-center justify-center gap-2"
+                  className="w-full md:w-auto py-3.5 md:px-8 bg-transparent md:bg-gray-900/80 border-2 border-white md:border-none hover:bg-white/10 text-white text-sm md:text-base font-bold rounded-full transition-all duration-300 hover:scale-105 backdrop-blur-2xl flex items-center justify-center gap-2"
                 >
                   <FaPlay className="text-sm" />
                   Watch Video

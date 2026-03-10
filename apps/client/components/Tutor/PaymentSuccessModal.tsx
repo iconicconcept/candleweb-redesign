@@ -67,7 +67,7 @@ const PaymentSuccessModal: React.FC<PaymentSuccessModalProps> = ({ isOpen, onClo
 
             <button
               onClick={onClose}
-              className="mt-4 px-10 py-3 bg-[#FFA726] hover:bg-[#FF9800] text-black font-bold rounded-xl transition-all duration-300 transform hover:scale-105 shadow-[0_4px_15px_rgba(255,167,38,0.3)] min-w-[160px]"
+              className="mt-4 px-10 py-3 bg-[#FFA726] hover:bg-[#FF9800] text-black font-bold rounded-full transition-all duration-300 transform hover:scale-105 shadow-[0_4px_15px_rgba(255,167,38,0.3)] min-w-[160px]"
             >
               OKAY
             </button>

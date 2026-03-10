@@ -18,9 +18,9 @@ const FeaturesSection = () => {
   const mobileFeatures = [
     {
       icon: <FaWallet className="text-2xl" />,
-      title: "Subscription Cashback Trades",
+      title: "Real-World Projects",
       description:
-        "We don't just take your fee; we put it to work. A percentage of your course payment is automatically allocated to active trades on our platform, generating passive revenue for you as you study.",
+        "Design and build real-world projects that reinforce what you've learned, grow your portfolio, and showcase your skills to recruiters.",
     },
     {
       icon: <FaBriefcase className="text-2xl" />,

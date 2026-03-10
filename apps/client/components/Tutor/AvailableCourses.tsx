@@ -5,7 +5,7 @@ import { RootState, AppDispatch } from "../../redux/store";
 import courseService from "../../services/courseService";
 import paymentService from "../../services/paymentService";
 import { resetPaymentStatus } from "../../redux/slices/paymentSlice";
-import { FaCheck, FaClock, FaVideo, FaAward, FaChartLine, FaUsers } from "react-icons/fa";
+import { FaCheck, FaClock, FaVideo, FaAward, FaChartLine, FaUsers, FaDollarSign } from "react-icons/fa";
 import { HiArrowRight } from "react-icons/hi";
 import useUserStore from "../../lib/hooks/useUserStore";
 import { useRouter } from "next/router";
@@ -27,6 +27,9 @@ const AvailableCourses = () => {
   const isLoggedIn = Object.keys(user).length > 0;
   const router = useRouter();
 
+  // Live NGN → USD exchange rate (open.er-api.com — no API key required)
+  const [usdRate, setUsdRate] = useState<number | null>(null);
+
   // State for Name Prompt Modal
   const [showNameModal, setShowNameModal] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState<any>(null);
@@ -40,6 +43,29 @@ const AvailableCourses = () => {
     dispatch(courseService.getCourses());
     setIsVisible(true);
   }, [dispatch]);
+
+  // Fetch live NGN → USD rate once on mount
+  useEffect(() => {
+    const fetchRate = async () => {
+      try {
+        // Free open tier — no API key needed, updates hourly
+        const res = await fetch("https://open.er-api.com/v6/latest/NGN");
+        const data = await res.json();
+        if (data?.rates?.USD) {
+          setUsdRate(data.rates.USD);
+        }
+      } catch {
+        // Silently fail — Naira price will still be shown
+      }
+    };
+    fetchRate();
+  }, []);
+
+  // Convert Naira amount to USD string, e.g. "25.40"
+  const toUSD = (naira: number): string | null => {
+    if (!usdRate) return null;
+    return (naira * usdRate).toFixed(2);
+  };
 
   useEffect(() => {
     if (lastPaymentStatus === "failed" && paymentError) {
@@ -245,22 +271,29 @@ const AvailableCourses = () => {
                 {/* Pricing & CTA Section - Right on desktop, bottom on mobile */}
                 <div className="w-full md:w-[300px] lg:w-[340px] p-6 lg:p-10 border-t border-white/5 md:border-t-0 md:border-l flex flex-col items-center justify-center text-center bg-white/[0.03] md:bg-black/20">
                   <div className="w-full flex flex-col items-center gap-3 justify-center mb-4">
-                    <div className="text-left md:text-center">
+                    <div className="text-center">
                       <span className="block text-primary md:text-white font-bold text-3xl md:text-3xl lg:text-4xl mb-0.5 md:mb-1">₦{course.price.toFixed(2)}</span>
-                      <span className="hidden md:block text-white/40 text-[10px] uppercase tracking-widest font-bold">One-time payment</span>
-                      <span className="md:hidden text-white/40 text-[10px] uppercase tracking-widest font-bold block">One-time payment</span>
+                      {/* Live USD equivalent */}
+                      {toUSD(course.price) && (
+                        <span className="inline-flex items-center text-center gap-1 mb-0.5 px-2.5 py-1 rounded-full bg-green-500/10 border border-green-500/20 text-green-400 text-xs font-semibold">
+                          <FaDollarSign className="text-[10px]" />
+                          {toUSD(course.price)}
+                        </span>
+                      )}
+                      <span className="hidden md:block text-white/40 text-[10px] uppercase tracking-widest font-bold mt-1">One-time payment</span>
+                      <span className="md:hidden text-center mt-1 text-white/40 text-[10px] uppercase tracking-widest font-bold block">One-time payment</span>
                     </div>
 
                     <button 
                       onClick={() => handlePayment(course)}
-                      className="md:hidden px-8 py-3 rounded-xl bg-primary text-black font-bold text-sm transition-all duration-300 active:scale-95 shadow-lg shadow-primary/20">
+                      className="md:hidden px-8 py-3 rounded-full bg-primary text-black font-bold text-sm transition-all duration-300 active:scale-95 shadow-lg shadow-primary/20">
                       {purchasedCourseIds.includes(course.id) ? "Dashboard" : "Pay Now"}
                     </button>
                   </div>
 
                   <button 
                     onClick={() => handlePayment(course)}
-                    className="hidden md:flex w-full py-4 mb-6 rounded-xl border border-red-300 text-black font-bold text-sm tracking-wide transition-all duration-300 bg-primary hover:text-black hover:scale-105 active:scale-95 items-center justify-center gap-2 group/btn">
+                    className="hidden md:flex w-full py-4 mb-6 rounded-full border border-red-300 text-black font-bold text-sm tracking-wide transition-all duration-300 bg-primary hover:text-black hover:scale-105 active:scale-95 items-center justify-center gap-2 group/btn">
                     {purchasedCourseIds.includes(course.id) ? "Dashboard" : "Pay Now"}
                     <HiArrowRight className="transition-transform duration-300 group-hover/btn:translate-x-1" />
                   </button>
@@ -335,7 +368,7 @@ const AvailableCourses = () => {
                   setTempLastName("");
                   setSelectedCourse(null);
                 }}
-                className="flex-1 px-4 py-3.5 rounded-xl border border-white/10 text-white font-medium hover:bg-white/5 hover:border-white/20 transition-all text-sm"
+                className="flex-1 px-4 py-3.5 rounded-full border border-white/10 text-white font-medium hover:bg-white/5 hover:border-white/20 transition-all text-sm"
               >
                 Cancel
               </button>
@@ -352,7 +385,7 @@ const AvailableCourses = () => {
                   setTempLastName("");
                   setSelectedCourse(null);
                 }}
-                className="flex-[1.5] px-4 py-3.5 rounded-xl bg-primary text-black font-bold hover:scale-[1.02] active:scale-95 transition-transform text-sm shadow-lg shadow-primary/20"
+                className="flex-[1.5] px-4 py-3.5 rounded-full bg-primary text-black font-bold hover:scale-[1.02] active:scale-95 transition-transform text-sm shadow-lg shadow-primary/20"
               >
                 Proceed to Pay
               </button>

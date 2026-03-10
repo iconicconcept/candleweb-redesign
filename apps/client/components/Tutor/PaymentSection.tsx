@@ -52,7 +52,7 @@ const PaymentSection = () => {
                   }
                 }
               }}
-              className="w-full py-4 md:py-5 bg-[#ff9900] hover:bg-[#ffaa22] text-black font-black text-center text-sm md:text-lg uppercase tracking-widest rounded-xl transition-all duration-300 transform active:scale-95 shadow-[0_0_30px_rgba(255,153,0,0.3)] mb-4">
+              className="w-full py-4 md:py-5 bg-[#ff9900] hover:bg-[#ffaa22] text-black font-black text-center text-sm md:text-lg uppercase tracking-widest rounded-full transition-all duration-300 transform active:scale-95 shadow-[0_0_30px_rgba(255,153,0,0.3)] mb-4">
               {purchasedCourseIds.length > 0 ? "GO TO DASHBOARD" : "PAY NOW"}
             </button>
 
