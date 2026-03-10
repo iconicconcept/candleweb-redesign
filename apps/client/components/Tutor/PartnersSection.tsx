@@ -19,7 +19,7 @@ const PartnersSection = () => {
         <p className="md:hidden text-white/60 text-sm mx-auto font-light leading-relaxed">
           Through our trusted industry partners, outstanding graduates gain immediate internship opportunities.
         </p>
-        <p className="hidden md:block text-white/60 text-sm lg:text-xl max-w-3xl mx-auto font-light leading-relaxed">
+        <p className="hidden md:block text-white/60 text-lg lg:text-xl max-w-3xl mx-auto font-light leading-relaxed">
           Through our trusted industry partners, outstanding graduates gain immediate internship opportunities.
         </p>
       </div>

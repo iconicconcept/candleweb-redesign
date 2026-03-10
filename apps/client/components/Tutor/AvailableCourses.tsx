@@ -167,11 +167,11 @@ const AvailableCourses = () => {
           </h2>
           {/* Desktop Subtitle */}
           <p className="hidden md:block text-white/60 text-lg lg:text-xl max-w-3xl mx-auto font-light leading-relaxed">
-            Comprehensive programs designed to transform you from beginner to expert trader.
+            Comprehensive programs designed to transform you from beginner to expert.
           </p>
           {/* Mobile Subtitle */}
           <p className="md:hidden text-white/60 text-sm max-w-3xl mx-auto font-light leading-relaxed">
-            Comprehensive programs designed to transform you from beginner to expert trader.
+            Comprehensive programs designed to transform you from beginner to expert.
           </p>
         </div>
 

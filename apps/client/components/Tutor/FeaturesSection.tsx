@@ -26,7 +26,7 @@ const FeaturesSection = () => {
       icon: <FaBriefcase className="text-2xl" />,
       title: "Earn AI Units",
       description:
-        "Complete tasks and quizzes to earn AI Credits. Use these credits to unlock powerful trading tools and automation services on the CandleWeb dashboard.",
+        "Complete tasks and quizzes to earn AI Credits. Use these credits to unlock unique educational tools like your personal AI Tutor - always available to help you with projects, lessons, and coursework.",
     },
     {
       icon: <FaBriefcase className="text-2xl" />,
@@ -61,14 +61,12 @@ const FeaturesSection = () => {
 
           {/* Mobile Subtitle */}
           <p className="md:hidden text-white/70 text-base max-w-md mx-auto">
-            We&apos;ve reimagined education by integrating real financial growth
-            directly into the learning process.
+            We&apos;ve reimagined education by combining real skills with real career opportunities.
           </p>
 
           {/* Desktop Subtitle */}
           <p className="hidden md:block text-white/70 text-base lg:text-lg max-w-3xl mx-auto">
-            We&apos;ve reimagined education by integrating real financial growth
-            directly into the learning process.
+            We&apos;ve reimagined education by combining real skills with real career opportunities.
           </p>
         </div>
 

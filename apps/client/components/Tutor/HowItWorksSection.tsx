@@ -44,13 +44,13 @@ const HowItWorksSection = () => {
     },
     {
       number: "3",
-      title: "Auto-Incentive",
-      description: "We activate incentive generation on your account upon enrollment.",
+      title: "Activate Your Tools",
+      description: "Upon enrollment, we activate your learning tools including your personal AI Tutor and access to project templates on your dashboard.",
     },
     {
       number: "4",
       title: "Start Learning",
-      description: "Access live classes and track your earnings in real-time on your dashboard.",
+      description: "Access live classes and track your progress in real-time on your dashboard.",
     },
   ];
 
@@ -71,8 +71,8 @@ const HowItWorksSection = () => {
     {
       number: "3",
       icon: <FaChartLine className="text-2xl" />,
-      title: "Auto-Incentive",
-      description: "We activate incentive generation on your account upon enrollment.",
+      title: "Activate Your Tools",
+      description: "Upon enrollment, we activate your learning tools including your personal AI Tutor and access to project templates on your dashboard.",
     },
     {
       number: "4",
@@ -96,12 +96,12 @@ const HowItWorksSection = () => {
           
           {/* Mobile Subtitle */}
           <p className="md:hidden text-white/70 text-base max-w-2xl mx-auto">
-            Your journey from enrollment to earning in four simple steps.
+            Your journey from enrollment to learning in four simple steps.
           </p>
           
           {/* Desktop Subtitle */}
           <p className="hidden md:block text-white/70 text-base lg:text-lg max-w-2xl mx-auto">
-            Your journey from enrollment to earning in four simple steps.
+            Your journey from enrollment to learning in four simple steps. 
           </p>
         </div>
 
