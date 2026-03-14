@@ -58,9 +58,8 @@ export const useRefreshToken = () => {
         access_token: data.access_token,
       };
     } catch (err) {
-      error("Session expired", "expired");
+      // Clear all user state first
       removeUser();
-
       dispatch(setIsSuccessful(false));
       dispatch(setSubscription([]));
       dispatch(setExchangeRecord([]));
@@ -75,7 +74,18 @@ export const useRefreshToken = () => {
       dispatch(setYearAnalysis([]));
       dispatch(setCurrentPlan({}));
       dispatch(setBalance(""));
-      router.push("/register");
+
+      // Redirect to the tutor page as a logged-out user so they see Login/Signup
+      // instead of just showing a toast while keeping the Pay Now button visible.
+      const currentPath = router.pathname;
+      const isTutorPage = currentPath.startsWith("/tutor");
+      if (isTutorPage) {
+        // Stay on tutor page — TutorHeader will now show Login/Signup buttons
+        router.replace("/tutor");
+      } else {
+        router.push("/register");
+      }
+      error("Session expired. Please log in again.", "expired");
       return;
     }
   };

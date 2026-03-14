@@ -89,9 +89,27 @@ export const FirstForm = ({ regDetails, onInputChange, onNextClick, connectedAcc
                     <Heading textsize='xl' classstyle='inter font-medium mb-2 sm:text-xl' align='center'>
                         Create an account
                     </Heading>
-                    <Typography classstyle='text-xs inter'>
+                    <Typography classstyle='text-xs inter mb-2 md:mb-3'>
                         Enter your preferred login credentials
                     </Typography>
+                    <div className="w-full max-w-[544px] tb:max-w-none">
+                        <Button icon={SvgIcons.google} classstyle={"!bg-white hover:!bg-white !border-white !font-bold !px-0"} fullwidth onClick={() => {
+                            // Save redirect to local storage for google auth callback
+                            const redirect = router.query.redirect as string;
+                            if (redirect) {
+                                localStorage.setItem('authRedirect', redirect);
+                            }
+                            router.push(`${uri}user/google/login/`)
+                        }}>Continue with google</Button>
+                    </div>
+
+                    <div className="relative my-6 w-full max-w-[544px] tb:max-w-none">
+                        <hr className='border-gray-600' />
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 px-2 py-1 rounded-full bg-background">
+                            <Typography>or</Typography>
+                        </div>
+                    </div>
+
                     <div className="step_indicator my-6 w-full">
                         <Box sx={{ width: '100%' }}>
                             <Stepper activeStep={1} alternativeLabel
@@ -164,24 +182,7 @@ export const FirstForm = ({ regDetails, onInputChange, onNextClick, connectedAcc
                         />
                         <Button variant='gradient' onClick={() => onNextClick("forward")} fullwidth classstyle={"tb:w-full yellow_gradient_btn !font-bold !bg-txt-yellow !border-txt-yellow hover:!bg-txt-yellow hover:!border-txt-yellow tb:!px-0"}>Next</Button>
                         <div className="h-3"></div>
-                        <Button variant='transparent' onClick={() => onNextClick("back")} fullwidth classstyle={""}>Back</Button>
-                        <div className="relative my-8 max-w-[544px] tb:max-w-none">
-                            <hr className='border-gray-600' />
-                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 px-2 py-1 rounded-full bg-background">
-                                <Typography>or</Typography>
-                            </div>
-                        </div>
-                        <div className="max-w-[544px] tb:max-w-none">
-
-                            <Button icon={SvgIcons.google} classstyle={"!bg-white hover:!bg-white !border-white !font-bold !px-0"} fullwidth onClick={() => {
-                                // Save redirect to local storage for google auth callback
-                                const redirect = router.query.redirect as string;
-                                if (redirect) {
-                                  localStorage.setItem('authRedirect', redirect);
-                                }
-                                router.push(`${uri}user/google/login/`)
-                            }}>Continue with google</Button>
-                        </div>
+                        <Button variant='transparent' onClick={() => onNextClick("back")} fullwidth classstyle={""}>Back</Button>                        
                     </div>
                 </div>
 
