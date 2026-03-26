@@ -85,6 +85,7 @@ const Register = (props: Props) => {
     }, [])
 
     useEffect(() => {
+        if (!router.isReady) return;
         if (isSuccessfulLogin) {
             const redirect = router.query.redirect as string;
             if (redirect) {
@@ -93,7 +94,7 @@ const Register = (props: Props) => {
                 router.push("/dashboard");
             }
         }
-    }, [isSuccessfulLogin])
+    }, [isSuccessfulLogin, router.isReady])
 
     const registerUser = async () => {
         const { username, email, wallet_address } = regDetails;
@@ -215,7 +216,7 @@ const Register = (props: Props) => {
                 e.message ||
                 e.toString();
             error(message);
-            router.push("/register");
+            // Removed router.push("/register") to avoid stripping query parameters
         }
         finally {
             setIsLoading(false);
@@ -263,7 +264,12 @@ const Register = (props: Props) => {
                                 onClick={async () => {
 
                                     if (Object.values(user).length > 0) {
-                                        router.push("/dashboard")
+                                        const redirect = router.query.redirect as string;
+                                        if (redirect) {
+                                            router.push(redirect);
+                                        } else {
+                                            router.push("/dashboard");
+                                        }
                                         return;
                                     }
 

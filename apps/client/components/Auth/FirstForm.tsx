@@ -75,7 +75,7 @@ export const FirstForm = ({ regDetails, onInputChange, onNextClick, connectedAcc
                 e.message ||
                 e.toString();
             error(message);
-            router.push("/register");
+            // Removed router.push("/register") to avoid stripping query parameters
         }
         finally {
             setIsLoading(false);
@@ -198,7 +198,12 @@ export const FirstForm = ({ regDetails, onInputChange, onNextClick, connectedAcc
                     onClick={async () => {
 
                         if (Object.values(user).length > 0) {
-                            router.push("/dashboard")
+                            const redirect = router.query.redirect as string;
+                            if (redirect) {
+                                router.push(redirect);
+                            } else {
+                                router.push("/dashboard");
+                            }
                             return;
                         }
 
@@ -288,7 +293,7 @@ export const LastForm = ({ regDetails, onInputChange, onNextClick }: Props) => {
                 e.message ||
                 e.toString();
             error(message);
-            router.push("/register");
+            // Removed router.push("/register") to avoid stripping query parameters
         }
         finally {
             setIsLoading(false);
@@ -455,7 +460,6 @@ export const LastForm = ({ regDetails, onInputChange, onNextClick }: Props) => {
                         } catch (err: any) {
                             error(err)
                         }
-
                     }}
                 >
                     Login
@@ -464,3 +468,15 @@ export const LastForm = ({ regDetails, onInputChange, onNextClick }: Props) => {
         </>
     )
 }
+
+
+
+// the price should be in naira and have the dollar price below it5 in small size sing dollar axiosApi.
+// Completed courses should be changed to enrolled course
+
+
+// We are working on the tutor page.
+
+// What we implemented is that, when user login/signup from the page, they get loggedin/signedup and get naviagted back to the page but as a signedin user (whereby the user can proceed to making payment). But then some user are experiencing slight issue, as they are getting loggedin/naviagted to the dashboard instead of getting back to the tutor page back so as to proceed with payment.
+// Rectify this!,they should be signed in back to the tutor page not dashboard. Check the code current implementation, find out what the issue is and get it done!
+// User should be naviagated back to the page after loggingin/signingup, instead of the dashboard which is happening occassionally now.

@@ -60,10 +60,14 @@ const Register = () => {
   });
 
   useEffect(() => {
-    // Redirect to /register and optionally add referral parameter
-    // const referralParam = router.query.referral;
+    // Redirect to /register and preserve all query parameters (redirect, referral, etc)
     if (router.isReady) {
-      router.push("/register", { query: { referral: router.query.referral as string ?? "" } });
+      router.push("/register", { 
+        query: { 
+          redirect: router.query.redirect as string ?? "",
+          referral: router.query.referral as string ?? "" 
+        } 
+      });
     }
   }, [router.isReady]);
 
