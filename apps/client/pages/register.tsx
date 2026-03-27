@@ -84,18 +84,6 @@ const Register = (props: Props) => {
 
     }, [])
 
-    useEffect(() => {
-        if (!router.isReady) return;
-        if (isSuccessfulLogin) {
-            const redirect = router.query.redirect as string;
-            if (redirect) {
-                router.push(redirect);
-            } else {
-                router.push("/dashboard");
-            }
-        }
-    }, [isSuccessfulLogin, router.isReady])
-
     const registerUser = async () => {
         const { username, email, wallet_address } = regDetails;
 
