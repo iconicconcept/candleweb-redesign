@@ -130,7 +130,7 @@ const HeroSlider = () => {
                         }
                       }
                     } else {
-                      router.push("/register?redirect=/tutor#courses");
+                      router.push({ pathname: "/register", query: { redirect: "/tutor#courses" } });
                     }
                   }}
                 >

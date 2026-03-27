@@ -19,7 +19,6 @@ import Link from 'next/link'
 
 
 
-
 type Props = {
     regDetails: RegisterProps,
     onNextClick: (to: "forward" | "back") => void,
