@@ -9,6 +9,7 @@ import Image from "next/image";
 import { useSelector } from "react-redux";
 import { RootState } from "../../redux/store";
 import useUserStore from "../../lib/hooks/useUserStore";
+import useGoogleAuth from "../../lib/hooks/useGoogleAuth";
 
 const TutorHeader = () => {
   const [navbar, setNavbar] = useState(false);
@@ -26,6 +27,7 @@ const TutorHeader = () => {
 
   const { user } = useUserStore();
   const isLoggedIn = Object.keys(user).length > 0;
+  const { googleAuth } = useGoogleAuth();
   const { purchasedCourseIds } = useSelector(
     (state: RootState) => state.payment,
   );
@@ -209,7 +211,7 @@ const TutorHeader = () => {
                   size="sm"
                   variant="transparent"
                   classstyle="!px-3 lg:!px-5 !text-white hover:!text-primary transition-all duration-300"
-                  onClick={() => router.push("/register?redirect=/tutor#courses")}
+                  onClick={() => googleAuth("/tutor#courses")}
                 >
                   Login
                 </Button>
@@ -218,7 +220,7 @@ const TutorHeader = () => {
                   variant="gradient"
                   iconright
                   classstyle="yellow_gradient_btn !font-bold !bg-txt-yellow !border-txt-yellow hover:!bg-txt-yellow hover:!border-txt-yellow !rounded-full"
-                  onClick={() => router.push("/register?redirect=/tutor#courses")}
+                  onClick={() => googleAuth("/tutor#courses")}
                 >
                   Get Started
                 </Button>
@@ -370,7 +372,7 @@ const TutorHeader = () => {
                 fullwidth
                 variant="transparent"
                 classstyle="mb-4 !text-white hover:!text-primary transition-all duration-300"
-                onClick={() => router.push("/register?redirect=/tutor#courses")}
+                onClick={() => googleAuth("/tutor#courses")}
               >
                 Login
               </Button>
@@ -380,7 +382,7 @@ const TutorHeader = () => {
                 variant="gradient"
                 iconright
                 classstyle="yellow_gradient_btn !font-bold !bg-txt-yellow !border-txt-yellow hover:!bg-txt-yellow hover:!border-txt-yellow !rounded-full"
-                onClick={() => router.push("/register?redirect=/tutor#courses")}
+                onClick={() => googleAuth("/tutor#courses")}
               >
                 Get Started
               </Button>

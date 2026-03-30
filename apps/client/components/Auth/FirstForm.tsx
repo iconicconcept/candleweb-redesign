@@ -97,6 +97,7 @@ export const FirstForm = ({ regDetails, onInputChange, onNextClick, connectedAcc
                             const redirect = router.query.redirect as string;
                             if (redirect) {
                                 localStorage.setItem('authRedirect', redirect);
+                                sessionStorage.setItem('authRedirect', redirect);
                             }
                             router.push(`${uri}user/google/login/`)
                         }}>Continue with google</Button>

@@ -13,6 +13,7 @@ import Loader from "../Loader";
 import { toast } from "react-hot-toast";
 import tutorService from "../../services/tutorService";
 import { imageUri } from "../../utils/constants";
+import useGoogleAuth from "../../lib/hooks/useGoogleAuth";
 
 
 declare let window: any;
@@ -25,6 +26,7 @@ const AvailableCourses = () => {
   const [showAll, setShowAll] = useState(false);
   const { user } = useUserStore();
   const isLoggedIn = Object.keys(user).length > 0;
+  const { googleAuth } = useGoogleAuth();
   const router = useRouter();
 
   // Live NGN → USD exchange rate (open.er-api.com — no API key required)
@@ -101,7 +103,7 @@ const AvailableCourses = () => {
 
   const handlePayment = async (course: any) => {
     if (!isLoggedIn) {
-      router.push("/register?redirect=/tutor#courses");
+      googleAuth("/tutor#courses");
       return;
     }
 

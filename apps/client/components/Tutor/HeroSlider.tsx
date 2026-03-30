@@ -8,6 +8,7 @@ import useUserStore from "../../lib/hooks/useUserStore";
 import { useRouter } from "next/router";
 import { Button } from "ui";
 import Loader from "../Loader";
+import useGoogleAuth from "../../lib/hooks/useGoogleAuth";
 
 const HeroSlider = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -18,6 +19,7 @@ const HeroSlider = () => {
   const { purchasedCourseIds } = useSelector((state: RootState) => state.payment);
   const { user } = useUserStore();
   const isLoggedIn = Object.keys(user).length > 0;
+  const { googleAuth } = useGoogleAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -130,7 +132,7 @@ const HeroSlider = () => {
                         }
                       }
                     } else {
-                      router.push({ pathname: "/register", query: { redirect: "/tutor#courses" } });
+                      googleAuth("/tutor#courses");
                     }
                   }}
                 >

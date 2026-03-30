@@ -4,10 +4,12 @@ import { useSelector } from "react-redux";
 import { RootState } from "../../redux/store";
 import useUserStore from "../../lib/hooks/useUserStore";
 import { FaLock, FaShieldAlt, FaCcVisa, FaCcMastercard, FaCcPaypal, FaBitcoin } from "react-icons/fa";
+import useGoogleAuth from "../../lib/hooks/useGoogleAuth";
 
 const PaymentSection = () => {
   const { user } = useUserStore();
   const isLoggedIn = Object.keys(user).length > 0;
+  const { googleAuth } = useGoogleAuth();
   const { purchasedCourseIds } = useSelector((state: RootState) => state.payment);
   const router = useRouter();
 
@@ -42,7 +44,7 @@ const PaymentSection = () => {
             <button 
               onClick={() => {
                 if (!isLoggedIn) {
-                  router.push("/register?redirect=/tutor#courses");
+                  googleAuth("/tutor#courses");
                 } else if (purchasedCourseIds.length > 0) {
                   router.push("/dashboard");
                 } else {
@@ -96,7 +98,7 @@ const PaymentSection = () => {
              <button 
                 onClick={() => {
                   if (!isLoggedIn) {
-                    router.push("/register?redirect=/tutor#courses");
+                    googleAuth("/tutor#courses");
                   } else if (purchasedCourseIds.length > 0) {
                     router.push("/dashboard");
                   } else {
