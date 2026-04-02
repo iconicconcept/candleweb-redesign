@@ -224,7 +224,13 @@ const AvailableCourses = () => {
                 {/* Content Section - Middle */}
                 <div className="flex-1 p-5 lg:p-10 flex flex-col justify-between">
                   <div>
-                    <h3 className="text-white font-bold text-xl lg:text-2xl mb-4 group-hover:text-primary transition-colors duration-300">
+                    <h3 className="text-white font-bold text-xl lg:text-2xl mb-4 group-hover:text-primary transition-colors duration-300 cursor-pointer" onClick={() => {
+                      if (!isLoggedIn) {
+                        googleAuth("/tutor#courses");
+                        return;
+                      }
+                      router.push(`/dashboard/tutor/course/${course.id}`);
+                    }}>
                       {course.title}
                     </h3>
                     <p className="text-white/50 text-sm lg:text-base mb-6 leading-relaxed max-w-2xl">
@@ -291,12 +297,25 @@ const AvailableCourses = () => {
                       className="md:hidden px-8 py-3 rounded-full bg-primary text-black font-bold text-sm transition-all duration-300 active:scale-95 shadow-lg shadow-primary/20">
                       {purchasedCourseIds.includes(course.id) ? "Dashboard" : "Pay Now"}
                     </button>
+
+                    <button 
+                      onClick={() => router.push(`/dashboard/tutor/course/${course.id}`)}
+                      className="md:hidden px-8 py-3 rounded-full bg-white/10 border border-white/20 text-white font-medium text-sm transition-all duration-300 active:scale-95 mt-3">
+                      View Details
+                    </button>
                   </div>
 
                   <button 
                     onClick={() => handlePayment(course)}
                     className="hidden md:flex w-full py-4 mb-6 rounded-full border border-red-300 text-black font-bold text-sm tracking-wide transition-all duration-300 bg-primary hover:text-black hover:scale-105 active:scale-95 items-center justify-center gap-2 group/btn">
                     {purchasedCourseIds.includes(course.id) ? "Dashboard" : "Pay Now"}
+                    <HiArrowRight className="transition-transform duration-300 group-hover/btn:translate-x-1" />
+                  </button>
+
+                  <button 
+                    onClick={() => router.push(`/dashboard/tutor/course/${course.id}`)}
+                    className="hidden md:flex w-full py-3 mb-4 rounded-full border border-white/20 text-white font-medium text-sm tracking-wide transition-all duration-300 hover:bg-white/10 hover:border-white/40 items-center justify-center gap-2 group/btn">
+                    View Details
                     <HiArrowRight className="transition-transform duration-300 group-hover/btn:translate-x-1" />
                   </button>
 

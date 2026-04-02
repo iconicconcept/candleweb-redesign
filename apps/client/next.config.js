@@ -13,6 +13,7 @@ const nextConfig = {
   productionBrowserSourceMaps: true,
   images: {
     unoptimized: true,
+    domains: ["api.dicebear.com", "res.cloudinary.com"],
   },
   trailingSlash: true,
   transpilePackages: ["ui"],

@@ -59,8 +59,23 @@ const getCourses = createAsyncThunk(
   }
 );
 
+
+// Fetch single course by ID
+const getCourseById = async (id: string | number) => {
+  try {
+    const response = await axiosApi.get(`/tutor/courses/${id}/`);
+    if (response.data && response.data.data) {
+      return response.data.data;
+    }
+    throw new Error("Invalid course detail response");
+  } catch (err: any) {
+    throw err;
+  }
+};
+
 const courseService = {
-  getCourses
+  getCourses,
+  getCourseById,
 };
 
 export default courseService;

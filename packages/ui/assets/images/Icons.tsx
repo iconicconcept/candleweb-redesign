@@ -512,5 +512,32 @@ export const SvgIcons = {
       <path d="M19.3335 20.625H21.6252V29.7917H23.9168" stroke="#848484" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
 
-  )
+  ),
+  tutor: (
+    <svg
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M12 3L1 9L12 15L21 10.09V17H23V9L12 3ZM18.96 11.62L12 15.42L5.04 11.62L1 13.82V15.82L12 21.82L23 15.82V13.82L18.96 11.62Z"
+        fill="currentColor"
+      />
+    </svg>
+  ),
+  addTrade: (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="24" height="24" rx="6" fill="#27ECB0" fillOpacity="0.2" />
+      <path d="M12 8V16M8 12H16" stroke="#27ECB0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+  myUsage: (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M20 7H4C2.89543 7 2 7.89543 2 9V17C2 18.1046 2.89543 19 4 19H20C21.1046 19 22 18.1046 22 17V9C22 7.89543 21.1046 7 20 7Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M16 12C16 13.1046 15.1046 14 14 14C12.8954 14 12 13.1046 12 12C12 10.8954 12.8954 10 14 10C15.1046 10 16 10.8954 16 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M2 12H5M19 12H22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
 };

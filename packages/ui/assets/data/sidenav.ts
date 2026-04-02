@@ -26,6 +26,11 @@ export const sideNav: {
     route: "/dashboard/subscription",
   },
   {
+    title: "Tutor",
+    icon: SvgIcons.tutor,
+    route: "/dashboard/tutor",
+  },
+  {
     title: "Invite & Earn",
     icon: SvgIcons.invite,
     route: "/dashboard/invite",
