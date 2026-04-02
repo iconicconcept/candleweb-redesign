@@ -18,7 +18,9 @@ import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "../../redux/store";
 import { resetPaymentStatus } from "../../redux/slices/paymentSlice";
 import tutorService from "../../services/tutorService";
+import useAxiosAuth from "../../lib/hooks/useAxiosAuth";
 import useUserStore from "../../lib/hooks/useUserStore";
+import { isAuthorizationHeaderSet } from "../../utils/check_auth";
 
 export default function TutorPage() {
   const router = useRouter();
@@ -26,15 +28,16 @@ export default function TutorPage() {
   const [showModal, setShowModal] = useState(false);
   const { lastPaymentStatus } = useSelector((state: RootState) => state.payment);
   const { user } = useUserStore();
+  const axiosToken = useAxiosAuth();
   const isLoggedIn = Object.keys(user).length > 0;
 
   const hasShownModal = useRef(false);
 
   useEffect(() => {
-    if (isLoggedIn) {
-      dispatch(tutorService.checkStudentProfile());
+    if (isLoggedIn && isAuthorizationHeaderSet(axiosToken)) {
+      dispatch(tutorService.checkStudentProfile(axiosToken));
     }
-  }, [isLoggedIn, dispatch]);
+  }, [isLoggedIn, dispatch, axiosToken]);
 
   useEffect(() => {
     // Check both router query and URL directly for maximum resilience

@@ -121,8 +121,8 @@ const TutorDashboard = () => {
           {/* ── Sub-header ──────────────────────────────────────────────── */}
           <div className="flex items-start justify-between mb-8 gap-4">
             <div>
-              <p className="text-sm text-txtGray mb-1">Welcome, Tutor</p>
-              <p className="text-sm text-txtGray">
+              <p className="text-sm text-white mb-1">Welcome, Tutor</p>
+              <p className="text-sm text-white/70">
                 Your learning ecosystem is performing at{" "}
                 <span className="text-primary font-semibold">+24%</span> this
                 week.

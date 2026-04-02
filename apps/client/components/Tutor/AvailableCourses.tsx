@@ -297,12 +297,6 @@ const AvailableCourses = () => {
                       className="md:hidden px-8 py-3 rounded-full bg-primary text-black font-bold text-sm transition-all duration-300 active:scale-95 shadow-lg shadow-primary/20">
                       {purchasedCourseIds.includes(course.id) ? "Dashboard" : "Pay Now"}
                     </button>
-
-                    <button 
-                      onClick={() => router.push(`/dashboard/tutor/course/${course.id}`)}
-                      className="md:hidden px-8 py-3 rounded-full bg-white/10 border border-white/20 text-white font-medium text-sm transition-all duration-300 active:scale-95 mt-3">
-                      View Details
-                    </button>
                   </div>
 
                   <button 

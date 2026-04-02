@@ -40,13 +40,14 @@ const useAxiosAuth = () => {
 
         if (
           (err.response?.status === 401 || err.response?.status === 403) &&
-          !prevRequest._retry  // ← fixed: use _retry not sent
+          !prevRequest._retry
         ) {
           prevRequest._retry = true;
           const newToken = await refreshToken();
 
           if (newToken?.access_token) {
             prevRequest.headers["Authorization"] = `Bearer ${newToken.access_token}`;
+            axiosApi.defaults.headers.common.Authorization = `Bearer ${newToken.access_token}`;
             return axiosApi(prevRequest);
           }
         }
