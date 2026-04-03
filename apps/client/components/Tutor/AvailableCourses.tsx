@@ -8,6 +8,7 @@ import { resetPaymentStatus } from "../../redux/slices/paymentSlice";
 import { FaCheck, FaClock, FaVideo, FaAward, FaChartLine, FaUsers, FaDollarSign } from "react-icons/fa";
 import { HiArrowRight } from "react-icons/hi";
 import useUserStore from "../../lib/hooks/useUserStore";
+import useAxiosAuth from "../../lib/hooks/useAxiosAuth";
 import { useRouter } from "next/router";
 import Loader from "../Loader";
 import { toast } from "react-hot-toast";
@@ -28,6 +29,7 @@ const AvailableCourses = () => {
   const isLoggedIn = Object.keys(user).length > 0;
   const { googleAuth } = useGoogleAuth();
   const router = useRouter();
+  const axiosToken = useAxiosAuth();
 
   // Live NGN → USD exchange rate (open.er-api.com — no API key required)
   const [usdRate, setUsdRate] = useState<number | null>(null);
@@ -119,7 +121,7 @@ const AvailableCourses = () => {
     // but the requirement says to check the endpoint.
     setIsCheckingProfile(true);
     try {
-      const profileResult = await dispatch(tutorService.checkStudentProfile());
+      const profileResult = await dispatch(tutorService.checkStudentProfile(axiosToken));
       if (tutorService.checkStudentProfile.fulfilled.match(profileResult)) {
         const profileData = profileResult.payload?.data;
         if (profileData?.has_profile && !profileData?.needs_names) {

@@ -91,7 +91,7 @@ const DashHeader = (props: Props) => {
   }, []);
 
   return (
-    <div className="fixed w-screen top-0 left-0 right-0 z-10">
+    <div className="fixed w-screen top-0 left-0 right-0 z-50">
       <div className="flex items-center justify-between gap-2 h-[70px] md:h-[81px] overflow-y-0 px-4 md:px-8 border-b-2 border-[#323233] bg-[#1f1f23] sm:bg-card">
         <div className="logo tb:block ai:block hidden">
           <Link href="/">

@@ -39,23 +39,27 @@ const Sidenav = (props: Props) => {
           </Link>
         </div>
         <ul className="mt-3 md:mt-8">
-          {sideNav.map((nav, index) => (
-            <li className="" key={index}>
-              <div
+          {sideNav.map((nav, index) => {
+            const isActive =
+              nav.route === "/dashboard"
+                ? path === "/dashboard"
+                : path.startsWith(nav.route);
+            return (
+              <li className="" key={index}>
+                <div
 
-                className={`sidebar__navlink ${path === nav.route ? "active" : ""
-                  } flex items-center gap-2 px-3 py-2 rounded-full my-2 cursor-pointer`}
-                onClick={() => {
-                  router.push(nav.route)
-                }}
-              >
+                  className={`sidebar__navlink ${isActive ? "active" : ""} flex items-center gap-2 px-3 py-2 rounded-full my-2 cursor-pointer`}
+                  onClick={() => {
+                    router.push(nav.route);
+                  }}
+                >
                 <div className="link__icon w-10 h-10 flex items-center justify-center rounded-full p-2 text-[#B6B6B6]">
                   {nav.icon}
                 </div>
                 <p className="text-[#B6B6B6]">{nav.title}</p>
               </div>
             </li>
-          ))}
+          )})}
         </ul>
         <div className="mt-0 p-5 w-full">
           <Button

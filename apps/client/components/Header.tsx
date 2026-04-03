@@ -138,7 +138,7 @@ export const Header = ({ Icon, Logo, route }: IHeaderProps) => {
   };
 
   return (
-    <div className="nav__container fixed top-0 left-0 right-0 z-50">
+    <div className="nav__container fixed top-0 left-0 right-0 z-999">
       <div
         className={`nav__content px-7 md:px-20 ms:px-9 h-16 md:h-20 flex items-center justify-between w-full ${
           navbar ? "bg-background" : ""

@@ -1,18 +1,23 @@
 import Head from "next/head";
 import React, { useEffect, useState } from "react";
 import Wrapper from "../../../../components/dashboard/wrapper";
-import { Heading, Progress, joinClasses } from "ui";
+import Loader from "../../../../components/Loader";
 import Image from "next/image";
-import { IoCheckmarkCircle, IoLockClosedOutline, IoPlayCircleOutline, IoDownloadOutline, IoCodeSlashOutline, IoLayersOutline, IoChevronForward } from "react-icons/io5";
+import {
+  IoCheckmarkCircle,
+  IoLockClosedOutline,
+  IoPlayCircleOutline,
+  IoDownloadOutline,
+  IoCodeSlashOutline,
+  IoLayersOutline,
+  IoChevronForward,
+  IoArrowBack,
+  IoHeadsetOutline,
+  IoTimeOutline,
+} from "react-icons/io5";
 import { useRouter } from "next/router";
 import courseService from "../../../../services/courseService";
-
-const defaultModules = [
-  { id: "01", title: "Foundations of Perceptrons", duration: "15:30", status: "COMPLETED" },
-  { id: "02", title: "Activation Functions & Non-linearity", duration: "22:15", status: "COMPLETED" },
-  { id: "03", title: "Gradient Descent & Optimization", duration: "", status: "CURRENT", label: "START MODULE" },
-  { id: "04", title: "Multilayer Perceptrons (MLP)", duration: "", status: "LOCKED" },
-];
+import { imageUri } from "../../../../utils/constants";
 
 const CourseDetails = () => {
   const router = useRouter();
@@ -25,216 +30,609 @@ const CourseDetails = () => {
     if (!id) return;
     setLoading(true);
     setError(null);
-    courseService.getCourseById(id as string)
+    courseService
+      .getCourseById(id as string)
       .then((data) => {
         setCourse(data);
         setLoading(false);
       })
-      .catch((err) => {
+      .catch(() => {
         setError("Failed to load course details");
         setLoading(false);
       });
   }, [id]);
 
-  // Fallback UI for loading/error
-  if (loading) return <div className="text-white p-10">Loading course details...</div>;
-  if (error) return <div className="text-red-500 p-10">{error}</div>;
-  if (!course) return <div className="text-white p-10">No course found.</div>;
+  if (loading) {
+    return (
+      <Wrapper>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <Loader />
+        </div>
+      </Wrapper>
+    );
+  }
 
-  // Example: Use course fields, fallback to mock if missing
-  const modules = course.class_schedules || defaultModules;
+  if (error) {
+    return (
+      <Wrapper>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center px-4">
+          <div className="w-16 h-16 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center text-3xl">
+            ⚠️
+          </div>
+          <p className="text-white font-semibold text-lg">{error}</p>
+          <p className="text-gray-500 text-sm">Please try again or go back.</p>
+          <button
+            onClick={() => router.back()}
+            className="mt-2 px-6 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm hover:bg-white/10 transition-all"
+          >
+            ← Go Back
+          </button>
+        </div>
+      </Wrapper>
+    );
+  }
+
+  if (!course) {
+    return (
+      <Wrapper>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center px-4">
+          <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-3xl">
+            📭
+          </div>
+          <p className="text-white font-semibold text-lg">Course not found</p>
+          <p className="text-gray-500 text-sm">This course may have been removed or doesn&apos;t exist.</p>
+          <button
+            onClick={() => router.back()}
+            className="mt-2 px-6 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm hover:bg-white/10 transition-all"
+          >
+            ← Go Back
+          </button>
+        </div>
+      </Wrapper>
+    );
+  }
+
+  // ── Derived data ─────────────────────────────────────────────
+  const scheduleModules = Array.isArray(course.class_schedules) ? course.class_schedules : [];
+  const totalModules = scheduleModules.length;
+  const completedCount = scheduleModules.filter((m: any) => m.is_completed).length;
+  const progressPercent = totalModules > 0 ? Math.round((completedCount / totalModules) * 100) : 0;
+  const firstIncompleteIdx = scheduleModules.findIndex((m: any) => !m.is_completed);
+
+  const nextSession =
+    scheduleModules.find((m: any) => m.is_active && !m.is_completed && m.class_link) ||
+    scheduleModules[0] ||
+    null;
+  const joinLink = nextSession?.class_link || "";
+
+  const modules = scheduleModules.map((m: any, idx: number) => ({
+    ...m,
+    inferredStatus: m.is_completed
+      ? "COMPLETED"
+      : idx === firstIncompleteIdx
+      ? "CURRENT"
+      : "LOCKED",
+    topic: m.topic || m.title || m.course_title || `Module ${idx + 1}`,
+  }));
+
+  const thumbnailSrc = course.thumbnail
+    ? course.thumbnail.startsWith("http")
+      ? course.thumbnail
+      : `${imageUri}${course.thumbnail}`
+    : null;
+
+  const lecturer = course.lecturers?.[0] || null;
+  const lecturerPic = lecturer?.picture
+    ? lecturer.picture.startsWith("http")
+      ? lecturer.picture
+      : `${imageUri}${lecturer.picture}`
+    : null;
+
+  const onJoinCourse = () => {
+    if (!joinLink) return;
+    window.open(joinLink, "_blank");
+  };
+
   return (
     <>
       <Head>
         <title>{course.title || "Course Content"} | Candleweb</title>
       </Head>
       <Wrapper>
-        <div className="dash__content space-y-12 pb-20">
-          {/* Main Content Area */}
-          <div className="flex flex-col xl:flex-row gap-10 text-white min-h-screen">
-            <div className="flex-1 space-y-10">
-              {/* Hero Header Section */}
-              <div className="relative p-10 lg:p-14 rounded-[48px] overflow-hidden min-h-[400px] flex flex-col justify-end border border-white/5 bg-[#141414] shadow-[0_40px_80px_rgba(0,0,0,0.6)] group">
-                 <div className="absolute top-0 right-0 w-full h-full opacity-30 pointer-events-none overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-tr from-[#27ECB0]/15 to-transparent"></div>
-                    <div className="absolute -top-48 -right-48 w-[600px] h-[600px] bg-[#27ECB0]/5 rounded-full blur-[120px] animate-pulse"></div>
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full opacity-5 grayscale scale-150 group-hover:scale-[1.6] transition-transform duration-[12s]">
-                       <Image src={course.thumbnail || course.logo || "/logo.png"} alt="Pattern" layout="fill" objectFit="contain" />
-                    </div>
-                 </div>
-                 
-                 <div className="relative z-10 space-y-8">
-                   <div className="flex items-center gap-6">
-                      <span className="px-5 py-2.5 bg-orange-500/10 text-orange-400 rounded-2xl text-[10px] font-black tracking-[0.25em] uppercase border border-white/5 shadow-xl">{course.category || "Course"}</span>
-                      <span className="flex items-center gap-2 text-[10px] font-black tracking-[0.25em] text-gray-500 uppercase">
-                         <span className="text-white">⏱</span> {course.total_hours ? `${course.total_hours} HOURS TOTAL` : ""}
+        <div className="dash__content text-white pb-20">
+
+          {/* ══════════════════════════════════════════════════════
+              DESKTOP LAYOUT
+          ══════════════════════════════════════════════════════ */}
+          <div className="hidden xl:block">
+
+            {/* ── HERO ── */}
+            <div
+              className="relative w-full overflow-hidden rounded-2xl mb-6"
+              style={{ minHeight: 340 }}
+            >
+              {/* Thumbnail background */}
+              {thumbnailSrc ? (
+                <>
+                  <img
+                    src={thumbnailSrc}
+                    alt={course.title}
+                    className="absolute inset-0 w-full h-full object-cover"
+                  />
+                  {/* Strong dark overlay so text is always readable */}
+                  <div className="absolute inset-0 bg-black/70" />
+                </>
+              ) : (
+                <div className="absolute inset-0 bg-gradient-to-br from-[#040d0a] to-[#060e10]" />
+              )}
+
+              {/* Hero content: full-width flex row */}
+              <div className="relative z-10 flex items-stretch justify-between min-h-[340px] px-10 py-10">
+
+                {/* LEFT — category + title + description */}
+                <div className="flex flex-col justify-end max-w-[55%] space-y-4">
+                  {/* Pill + hours */}
+                  <div className="flex items-center gap-3">
+                    <span className="px-3 py-1 rounded-full border border-[#FFB322]/70 text-[#FFB322] text-[11px] font-semibold tracking-wider">
+                      {course.category || "Course"}
+                    </span>
+                    {course.total_hours && (
+                      <span className="flex items-center gap-1.5 text-gray-300 text-xs">
+                        <IoTimeOutline size={13} />
+                        {course.total_hours} Hours
                       </span>
-                   </div>
-                   
-                   <div className="max-w-3xl space-y-5">
-                      <Heading textsize="md" classstyle="text-4xl lg:text-7xl font-black tracking-tight leading-[1.05] text-white uppercase italic">{course.title}</Heading>
-                      <p className="text-gray-400 leading-relaxed text-base lg:text-lg font-medium max-w-2xl">
-                        {course.description}
-                      </p>
-                   </div>
-
-                   <div className="flex flex-wrap items-center gap-14 pt-8">
-                      <div className="flex items-center gap-8 bg-white/5 p-6 rounded-[32px] border border-white/10 shadow-inner">
-                         <div className="relative w-24 h-24 flex items-center justify-center p-1.5 bg-background rounded-full border-2 border-white/10 shadow-2xl">
-                            <svg className="w-full h-full transform -rotate-90">
-                               <circle cx="43" cy="43" r="38" stroke="currentColor" strokeWidth="6" fill="transparent" className="text-white/5" />
-                               <circle cx="43" cy="43" r="38" stroke="currentColor" strokeWidth="6" fill="transparent" strokeDasharray="238.7" strokeDashoffset={course.progress ? 238.7 * (1 - course.progress) : 238.7 * 0.4} className="text-[#27ECB0]" strokeLinecap="round" />
-                            </svg>
-                            <span className="absolute inset-0 flex items-center justify-center text-xl font-black text-white italic">{course.progress ? `${Math.round(course.progress * 100)}%` : "60%"}</span>
-                         </div>
-                         <div className="space-y-3">
-                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Global Progress</p>
-                            <div className="w-44 h-2.5 bg-white/5 rounded-full overflow-hidden border border-white/10 shadow-inner">
-                               <div className="h-full bg-[#27ECB0] shadow-[0_0_15px_#27ECB0]" style={{ width: course.progress ? `${Math.round(course.progress * 100)}%` : '60%' }}></div>
-                            </div>
-                         </div>
-                      </div>
-                      <button className="px-12 py-6 bg-[#FFB322] hover:bg-white hover:text-black hover:scale-105 active:scale-95 text-black font-black rounded-[24px] flex items-center gap-4 transition-all shadow-[0_20px_40px_rgba(255,179,34,0.3)] group/btn uppercase tracking-widest italic">
-                         <IoPlayCircleOutline size={28} className="group-hover/btn:rotate-12 transition-transform" />
-                         CONTINUE LEARNING
-                      </button>
-                   </div>
-                 </div>
-              </div>
-
-              {/* Syllabus */}
-              <div className="bg-[#141414]/90 backdrop-blur-xl rounded-[48px] p-10 lg:p-14 border border-white/5 shadow-2xl space-y-12">
-                  <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-                     <div className="space-y-2 text-center md:text-left">
-                        <Heading textsize="sm" classstyle="text-3xl font-black tracking-tight text-white uppercase italic">Course Syllabus</Heading>
-                        <p className="text-sm lg:text-base text-gray-500 font-bold tracking-wide uppercase opacity-70">Structured pathway to mastery</p>
-                     </div>
-                     <div className="px-6 py-3 bg-[#27ECB0]/10 rounded-2xl border border-[#27ECB0]/20 shadow-inner">
-                        <span className="text-xs font-black tracking-widest uppercase text-[#27ECB0]">{Array.isArray(modules) ? `${modules.length}` : 0} Modules</span>
-                     </div>
+                    )}
                   </div>
 
-                  <div className="space-y-6">
-                     {Array.isArray(modules) && modules.length > 0 ? modules.map((m: any, idx: number) => (
-                        <div key={m.id || idx} className={joinClasses("p-8 lg:p-10 rounded-[38px] border flex flex-col md:flex-row md:items-center justify-between gap-8 transition-all duration-500 group", 
-                          m.status === "COMPLETED" ? "bg-[#1A1A1A]/80 border-[#27ECB0]/20 hover:border-[#27ECB0]/40" : 
-                          m.status === "CURRENT" ? "bg-[#1A1A1A] border-[#FFB322]/80 ring-2 ring-[#FFB322]/20 shadow-[0_0_60px_rgba(255,179,34,0.1)]" : "bg-[#101010] border-white/5 opacity-50 hover:opacity-100")}>
-                           <div className="flex items-center gap-10">
-                              <div className={joinClasses("w-16 h-16 rounded-[22px] flex items-center justify-center transition-all duration-500 group-hover:scale-110", 
-                                m.status === "COMPLETED" ? "text-[#27ECB0] bg-[#27ECB0]/10 shadow-inner" : 
-                                m.status === "CURRENT" ? "text-[#FFB322] bg-[#FFB322]/10" : "text-gray-700 bg-white/5")}>
-                                 {m.status === "COMPLETED" ? <IoCheckmarkCircle size={36} /> : 
-                                  m.status === "CURRENT" ? <IoPlayCircleOutline size={36} className="animate-spin-slow" /> : <IoLockClosedOutline size={28} />}
-                              </div>
-                              <div>
-                                 <div className="flex items-center gap-4 mb-2">
-                                    <p className={joinClasses("text-[10px] font-black tracking-[0.25em] uppercase", m.status === "CURRENT" ? "text-[#FFB322]" : "text-[#27ECB0]")}>MODULE {m.id || idx+1}</p>
-                                    {m.label && <span className="text-[9px] font-black bg-white/10 px-3 py-1 rounded-full text-white uppercase tracking-widest italic">{m.label}</span>}
-                                 </div>
-                                 <Heading textsize="sm" classstyle={joinClasses("text-xl lg:text-3xl font-black transition-colors uppercase italic", m.status === "LOCKED" ? "text-gray-700" : "text-white group-hover:text-[#27ECB0]")}>{m.topic || m.title}</Heading>
-                              </div>
-                           </div>
-                           <div className="flex items-center justify-between md:justify-end gap-12">
-                              {m.duration_minutes && <span className="text-sm font-black text-gray-500 tracking-widest group-hover:text-white transition-colors uppercase italic">{m.duration_minutes} min</span>}
-                              {m.status === "CURRENT" && (
-                                 <button className="px-10 py-4 bg-[#27ECB0] text-black text-[10px] font-black rounded-2xl border-2 border-transparent hover:bg-transparent hover:text-[#27ECB0] hover:border-[#27ECB0] tracking-[0.25em] transition-all uppercase shadow-2xl italic">Resume Now</button>
-                              )}
-                              {m.status === "LOCKED" && <span className="text-[10px] font-black tracking-widest uppercase italic text-gray-800">Available in Level 2</span>}
-                           </div>
-                        </div>
-                     )) : <div className="text-gray-400">No modules found.</div>}
+                  {/* Title */}
+                  <h1 className="text-4xl xl:text-5xl font-extrabold leading-[1.1] text-white">
+                    {course.title}
+                  </h1>
+
+                  {/* Description */}
+                  <p className="text-gray-300 text-sm leading-relaxed max-w-md">
+                    {course.description}
+                  </p>
+                </div>
+
+                {/* RIGHT — YOUR PROGRESS + CTA */}
+                <div className="flex flex-col justify-end items-end gap-5 ml-8">
+                  {/* Progress */}
+                  <div className="flex flex-col items-end gap-2">
+                    <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">
+                      Your Progress
+                    </span>
+                    <span className="text-5xl font-black text-[#27ECB0] leading-none">
+                      {progressPercent}%
+                    </span>
+                    {/* Progress bar */}
+                    <div className="w-52 h-2 rounded-full bg-white/10 overflow-hidden">
+                      <div
+                        className="h-full bg-[#27ECB0] rounded-full transition-all duration-700"
+                        style={{ width: `${progressPercent}%` }}
+                      />
+                    </div>
                   </div>
+
+                  {/* Continue Learning button */}
+                  <button
+                    onClick={onJoinCourse}
+                    disabled={!joinLink}
+                    className={`flex items-center gap-3 px-8 py-4 rounded-full font-bold text-sm transition-all w-full justify-center
+                      ${joinLink
+                        ? "bg-[#FFB322] text-black hover:brightness-110 active:scale-95 shadow-[0_8px_30px_rgba(255,179,34,0.3)]"
+                        : "bg-gray-700 text-gray-400 cursor-not-allowed"
+                      }`}
+                  >
+                    <IoPlayCircleOutline size={19} />
+                    Continue Learning
+                  </button>
+                </div>
               </div>
             </div>
 
-            {/* Right Sidebar */}
-            <div className="xl:w-[380px] space-y-8">
+            {/* ── BELOW HERO: syllabus+circle (left) + sidebar (right) ── */}
+            <div className="flex gap-5 items-start">
 
-              {/* Course Rewards */}
-              <div className="bg-[#141414]/80 backdrop-blur-xl p-10 rounded-[48px] border border-white/5 space-y-8 shadow-2xl relative overflow-hidden group">
-                <div className="absolute top-0 right-0 p-8 opacity-[0.03] group-hover:opacity-[0.07] transition-opacity duration-700 pointer-events-none text-[80px] leading-none">
-                  🏆
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-orange-500/10 rounded-2xl flex items-center justify-center text-orange-400 text-xl shadow-inner">🏆</div>
-                  <Heading textsize="sm" classstyle="text-xl font-black tracking-tight text-white uppercase italic">Course Rewards</Heading>
-                </div>
-                <p className="text-sm text-gray-500 font-semibold leading-relaxed">
-                  Complete the course to unlock exclusive terminal access and blockchain credentials.
-                </p>
-                <div className="space-y-4">
-                  {[
-                    { label: "Certified NFT Diploma", icon: "🎓" },
-                    { label: "500 LMN Credits", icon: "⭐" },
-                  ].map((r, i) => (
-                    <div key={i} className="flex items-center gap-4 p-5 bg-white/5 rounded-[22px] border border-white/5 hover:border-[#27ECB0]/30 transition-all cursor-default group/item hover:bg-white/10">
-                      <span className="text-2xl group-hover/item:scale-125 transition-transform duration-500">{r.icon}</span>
-                      <span className="text-xs font-black text-gray-300 tracking-widest uppercase">{r.label}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              {/* ── LEFT COLUMN ── */}
+              <div className="flex-1 min-w-0 space-y-5">
 
-              {/* Resources */}
-              <div className="bg-[#141414]/80 backdrop-blur-xl p-10 rounded-[48px] border border-white/5 shadow-2xl space-y-8">
-                <Heading textsize="sm" classstyle="text-xl font-black tracking-tight text-white uppercase italic">Resources</Heading>
-                <div className="space-y-4">
-                  {[
-                    { title: "Course Slides (PDF)", icon: <IoDownloadOutline size={20} /> },
-                    { title: "Python Source Code", icon: <IoCodeSlashOutline size={20} /> },
-                    { title: "Sample Datasets", icon: <IoLayersOutline size={20} /> },
-                  ].map((res, i) => (
-                    <div key={i} className="flex items-center justify-between p-5 bg-white/5 hover:bg-white/10 rounded-[22px] transition-all cursor-pointer group border border-white/5 hover:border-[#27ECB0]/25">
-                      <div className="flex items-center gap-4">
-                        <span className="text-gray-400 group-hover:text-[#27ECB0] transition-colors">{res.icon}</span>
-                        <span className="text-xs font-black text-gray-400 group-hover:text-white transition-colors tracking-widest uppercase">{res.title}</span>
+                {/* Course Syllabus card */}
+                <div className="bg-[#111827]/80 rounded-2xl border border-white/5 overflow-hidden">
+                  {/* Header */}
+                  <div className="flex items-center justify-between px-7 py-5 border-b border-white/5">
+                    <h2 className="text-base font-bold text-white">Course Syllabus</h2>
+                    <span className="text-sm text-gray-400">
+                      {completedCount} / {totalModules} Modules Completed
+                    </span>
+                  </div>
+
+                  {/* Module rows */}
+                  <div className="divide-y divide-white/5">
+                    {modules.length === 0 && (
+                      <p className="text-gray-500 text-sm py-8 text-center">No modules available yet.</p>
+                    )}
+                    {modules.map((m: any, idx: number) => {
+                      const isCompleted = m.inferredStatus === "COMPLETED";
+                      const isCurrent = m.inferredStatus === "CURRENT";
+                      const isLocked = m.inferredStatus === "LOCKED";
+
+                      return (
+                        <div
+                          key={m.id || idx}
+                          className={`flex items-center gap-0 transition-all
+                            ${isCurrent ? "bg-[#1c1800]" : ""}
+                            ${isLocked ? "opacity-50" : ""}
+                          `}
+                        >
+                          {/* Left accent bar — 3px wide */}
+                          <div
+                            className={`w-[3px] self-stretch shrink-0
+                              ${isCompleted ? "bg-[#27ECB0]" : isCurrent ? "bg-[#FFB322]" : "bg-transparent"}
+                            `}
+                          />
+
+                          <div className="flex-1 flex items-center justify-between px-6 py-5 gap-4">
+                            {/* Icon + labels */}
+                            <div className="flex items-center gap-5">
+                              {/* Status icon — circle */}
+                              <div
+                                className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 border-2
+                                  ${isCompleted
+                                    ? "bg-[#27ECB0]/15 border-[#27ECB0]/40 text-[#27ECB0]"
+                                    : isCurrent
+                                    ? "bg-[#FFB322]/10 border-[#FFB322]/40 text-[#FFB322]"
+                                    : "bg-white/5 border-white/10 text-gray-600"
+                                  }`}
+                              >
+                                {isCompleted && <IoCheckmarkCircle size={22} />}
+                                {isCurrent && <IoPlayCircleOutline size={20} />}
+                                {isLocked && <IoLockClosedOutline size={17} />}
+                              </div>
+
+                              {/* Module label + title */}
+                              <div>
+                                <p
+                                  className={`text-[10px] font-bold uppercase tracking-[0.2em] mb-1
+                                    ${isCurrent ? "text-[#FFB322]" : "text-[#27ECB0]"}
+                                  `}
+                                >
+                                  Module {String(idx + 1).padStart(2, "0")}
+                                  {isCurrent && (
+                                    <span className="ml-2 text-gray-400 normal-case font-normal tracking-normal">
+                                      — Next Up
+                                    </span>
+                                  )}
+                                </p>
+                                <p className={`text-sm font-semibold leading-snug ${isLocked ? "text-gray-500" : "text-white"}`}>
+                                  {m.topic}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Right side */}
+                            <div className="flex items-center gap-5 shrink-0">
+                              {isCompleted && m.duration_minutes && (
+                                <span className="text-sm text-gray-500 font-medium">
+                                  {m.duration_minutes}:00
+                                </span>
+                              )}
+                              {isLocked && (
+                                <span className="text-xs text-gray-600 font-medium">Locked</span>
+                              )}
+                              {isCurrent && (
+                                <button className="px-5 py-2.5 bg-[#27ECB0]/10 border border-[#27ECB0]/30 text-[#27ECB0] text-[10px] font-black uppercase tracking-[0.2em] rounded-lg hover:bg-[#27ECB0] hover:text-black transition-all">
+                                  Start Module
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Learning Circle card */}
+                <div className="bg-[#111827]/80 rounded-2xl border border-white/5 px-7 py-6">
+                  <div className="flex items-center justify-between mb-5">
+                    <h3 className="text-base font-bold text-white">Learning Circle</h3>
+                    <span className="text-[#27ECB0] text-xs font-semibold flex items-center gap-1 cursor-pointer hover:underline">
+                      Visit Class Forum <IoChevronForward size={12} />
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="flex -space-x-3">
+                      {[1, 2, 3, 4].map((i) => (
+                        <div key={i} className="w-10 h-10 rounded-full border-2 border-[#111827] bg-gray-700 overflow-hidden">
+                          <Image src="/logo.png" alt={`student-${i}`} width={40} height={40} />
+                        </div>
+                      ))}
+                      <div className="w-10 h-10 rounded-full border-2 border-[#111827] bg-[#27ECB0] flex items-center justify-center text-[9px] text-black font-black">
+                        +2.4k
                       </div>
-                      <IoChevronForward className="text-gray-700 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0 group-hover:text-[#27ECB0]" />
                     </div>
-                  ))}
+                    <p className="text-sm text-gray-400">
+                      <span className="font-bold text-white">2,482 Classmates</span>{" "}
+                      are currently active in this module.
+                    </p>
+                  </div>
                 </div>
               </div>
 
-              {/* AI Mentor CTA */}
-              <div className="bg-gradient-to-br from-[#1A1812] to-[#0F0F0E] p-10 rounded-[48px] border border-[#FFB322]/20 relative overflow-hidden group shadow-[0_30px_60px_rgba(0,0,0,0.5)]">
-                <div className="absolute -bottom-10 -right-10 w-48 h-48 bg-[#FFB322]/10 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-[2s]"></div>
-                <div className="relative flex items-center gap-4 mb-8">
-                  <div className="w-12 h-12 bg-[#FFB322]/10 rounded-2xl flex items-center justify-center text-xl shadow-inner">💡</div>
-                  <Heading textsize="sm" classstyle="text-sm font-black tracking-tight italic text-white uppercase">Stuck on a problem?</Heading>
-                </div>
-                <p className="text-sm text-gray-500 mb-10 leading-relaxed font-semibold">
-                  Our AI Mentor is available 24/7 to debug your backpropagation logic and answer questions.
-                </p>
-                <button className="text-[#FFB322] text-[10px] font-black tracking-[0.2em] uppercase flex items-center gap-3 hover:gap-6 transition-all duration-300 italic">
-                  Launch Assistant <IoChevronForward size={14} className="animate-pulse" />
-                </button>
-              </div>
+              {/* ── RIGHT SIDEBAR ── */}
+              <div className="w-[280px] xl:w-[300px] shrink-0 space-y-4">
 
-              {/* Classmates */}
-              <div className="bg-[#141414]/90 backdrop-blur-xl p-10 rounded-[48px] border border-white/5 flex flex-col gap-8 shadow-2xl">
-                <div className="flex items-center gap-8">
-                  <div className="flex -space-x-4">
-                    {[1,2,3,4].map(i => (
-                      <div key={i} className="w-14 h-14 rounded-full border-4 border-[#141414] bg-gray-800 flex items-center justify-center overflow-hidden shadow-xl hover:-translate-y-2 transition-transform cursor-pointer">
-                        <Image src="/logo.png" alt={`Student ${i}`} width={50} height={50} />
+                {/* Course Rewards */}
+                <div
+                  className="rounded-2xl border border-white/5 p-6 space-y-4"
+                  style={{ background: "linear-gradient(135deg, #1a1a0f 0%, #0f0f0a 100%)" }}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="w-9 h-9 bg-orange-400/10 rounded-xl flex items-center justify-center text-lg">🏆</span>
+                    <h3 className="text-sm font-bold text-white">Course Rewards</h3>
+                  </div>
+                  <p className="text-xs text-gray-500 leading-relaxed">
+                    Complete the course to unlock exclusive terminal access and blockchain credentials.
+                  </p>
+                  <div className="space-y-2.5">
+                    {[
+                      { label: "Certified NFT Diploma", icon: "🎓" },
+                      { label: "500 LMN Credits", icon: "⭐" },
+                    ].map((r, i) => (
+                      <div
+                        key={i}
+                        className="flex items-center gap-3 p-3 bg-white/5 rounded-xl border border-white/5"
+                      >
+                        <span className="text-lg">{r.icon}</span>
+                        <span className="text-xs font-semibold text-gray-300">{r.label}</span>
                       </div>
                     ))}
-                    <div className="w-14 h-14 rounded-full border-4 border-[#141414] bg-[#27ECB0] flex items-center justify-center text-xs text-black font-black uppercase shadow-xl">+2.4k</div>
-                  </div>
-                  <div>
-                    <p className="text-xl font-black text-white flex items-center gap-3">
-                      2,482
-                      <span className="w-2.5 h-2.5 rounded-full bg-[#27ECB0] animate-ping opacity-75 inline-block"></span>
-                    </p>
-                    <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Classmates active now</p>
                   </div>
                 </div>
-                <button className="w-full py-5 text-[#27ECB0] text-[10px] font-black tracking-[0.2em] uppercase hover:bg-[#27ECB0]/5 rounded-2xl border border-[#27ECB0]/20 transition-all flex items-center justify-center gap-3 active:scale-95 group/forum italic">
-                  Visit Class Forum <IoChevronForward className="group-hover/forum:translate-x-2 transition-transform" />
-                </button>
+
+                {/* Resources */}
+                <div className="bg-[#111827]/80 rounded-2xl border border-white/5 p-6 space-y-4">
+                  <h3 className="text-sm font-bold text-white">Resources</h3>
+                  <div className="space-y-2">
+                    {[
+                      { title: "Course Slides (PDF)", icon: <IoDownloadOutline size={17} /> },
+                      { title: "Python Source Code", icon: <IoCodeSlashOutline size={17} /> },
+                      { title: "Sample Datasets", icon: <IoLayersOutline size={17} /> },
+                    ].map((res, i) => (
+                      <div
+                        key={i}
+                        className="flex items-center justify-between p-3.5 bg-white/5 hover:bg-white/8 rounded-xl cursor-pointer border border-white/5 hover:border-white/10 group transition-all"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="text-gray-400 group-hover:text-white transition-colors">{res.icon}</span>
+                          <span className="text-xs font-semibold text-gray-400 group-hover:text-white transition-colors">
+                            {res.title}
+                          </span>
+                        </div>
+                        <IoDownloadOutline size={13} className="text-gray-600 group-hover:text-gray-400 transition-colors" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* AI Mentor */}
+                <div
+                  className="rounded-2xl border border-white/5 p-6 space-y-3 relative overflow-hidden"
+                  style={{ background: "#111827cc" }}
+                >
+                  <div className="absolute -bottom-8 -right-8 w-32 h-32 bg-[#FFB322]/8 rounded-full blur-3xl pointer-events-none" />
+                  <div className="relative flex items-start gap-3">
+                    <span className="w-9 h-9 bg-[#FFB322]/10 rounded-xl flex items-center justify-center text-base shrink-0 mt-0.5">💡</span>
+                    <div className="space-y-1.5">
+                      <h3 className="text-sm font-bold text-white">Stuck on a problem?</h3>
+                      <p className="text-xs text-gray-500 leading-relaxed">
+                        Our AI Mentor is available 24/7 to debug your backpropagation logic and answer questions.
+                      </p>
+                    </div>
+                  </div>
+                  <button className="relative text-[#FFB322] text-xs font-bold tracking-wide flex items-center gap-1.5 hover:gap-3 transition-all ml-12">
+                    Launch Assistant →
+                  </button>
+                </div>
+
               </div>
             </div>
           </div>
+
+          {/* ══════════════════════════════════════════════════════
+              MOBILE LAYOUT
+          ══════════════════════════════════════════════════════ */}
+          <div className="xl:hidden space-y-5">
+
+            {/* Top nav */}
+            <div className="flex items-center justify-between pt-1">
+              <button
+                onClick={() => router.back()}
+                className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center"
+              >
+                <IoArrowBack size={18} className="text-white" />
+              </button>
+              <p className="text-sm font-semibold text-white">Course Details</p>
+              <button className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center">
+                <IoHeadsetOutline size={18} className="text-white" />
+              </button>
+            </div>
+
+            {/* Thumbnail */}
+            <div className="relative rounded-2xl overflow-hidden h-44 bg-[#0d1117]">
+              {thumbnailSrc ? (
+                <img src={thumbnailSrc} alt={course.title} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-[#0d1a14] to-[#0d1117]" />
+              )}
+              {course.difficulty_level && (
+                <span className="absolute top-3 right-3 px-3 py-1 bg-[#27ECB0] text-black text-[10px] font-bold rounded-full capitalize">
+                  {course.difficulty_level}
+                </span>
+              )}
+            </div>
+
+            {/* Title + lecturer */}
+            <div className="space-y-2">
+              <h1 className="text-2xl font-extrabold text-white leading-tight">{course.title}</h1>
+              {lecturer && (
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full bg-gray-700 overflow-hidden">
+                    {lecturerPic ? (
+                      <img src={lecturerPic} alt={lecturer.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full bg-gray-600 flex items-center justify-center text-[9px] text-white font-bold">
+                        {lecturer.name?.[0]}
+                      </div>
+                    )}
+                  </div>
+                  <span className="text-gray-400 text-sm">By {lecturer.name}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Progress */}
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-3">
+                <span className="text-[#27ECB0] text-sm font-bold">{progressPercent}% Completed</span>
+                <span className="text-gray-500 text-xs">{completedCount}/{totalModules} Modules</span>
+              </div>
+              <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-[#27ECB0] rounded-full transition-all"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+            </div>
+
+            {/* CTA */}
+            <button
+              onClick={onJoinCourse}
+              disabled={!joinLink}
+              className={`w-full flex items-center justify-center gap-3 py-4 rounded-xl font-bold text-sm tracking-widest uppercase transition-all
+                ${joinLink ? "bg-[#FFB322] text-black active:scale-95" : "bg-gray-700 text-gray-400 cursor-not-allowed"}`}
+            >
+              <IoPlayCircleOutline size={20} />
+              Continue Learning
+            </button>
+
+            {/* Syllabus */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-base font-bold text-white">Course Syllabus</h2>
+                <div className="flex items-center gap-2">
+                  {course.total_hours && (
+                    <span className="text-[10px] bg-white/10 text-gray-300 px-2 py-1 rounded-full">
+                      {course.total_hours}h Total
+                    </span>
+                  )}
+                  <span className="text-[#27ECB0] text-xs font-semibold cursor-pointer">View All</span>
+                </div>
+              </div>
+              <div className="space-y-2">
+                {modules.map((m: any, idx: number) => {
+                  const isCompleted = m.inferredStatus === "COMPLETED";
+                  const isCurrent = m.inferredStatus === "CURRENT";
+                  const isLocked = m.inferredStatus === "LOCKED";
+                  return (
+                    <div
+                      key={m.id || idx}
+                      className={`flex items-center gap-0 rounded-xl border overflow-hidden transition-all
+                        ${isCompleted ? "bg-[#0d1a14] border-white/5" : ""}
+                        ${isCurrent ? "bg-[#1a1400] border-[#FFB322]/40" : ""}
+                        ${isLocked ? "bg-[#0d1117] border-white/5 opacity-50" : ""}
+                      `}
+                    >
+                      <div className={`w-[3px] self-stretch shrink-0 ${isCompleted ? "bg-[#27ECB0]" : isCurrent ? "bg-[#FFB322]" : "bg-transparent"}`} />
+                      <div className="flex-1 flex items-center justify-between px-4 py-4 gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0
+                            ${isCompleted ? "bg-[#27ECB0]/15 text-[#27ECB0]" : ""}
+                            ${isCurrent ? "bg-[#FFB322]/15 text-[#FFB322]" : ""}
+                            ${isLocked ? "bg-white/5 text-gray-600" : ""}
+                          `}>
+                            {isCompleted && <IoCheckmarkCircle size={18} />}
+                            {isCurrent && <IoPlayCircleOutline size={18} />}
+                            {isLocked && <IoLockClosedOutline size={15} />}
+                          </div>
+                          <div>
+                            <p className={`text-[9px] font-bold uppercase tracking-widest mb-0.5 ${isCurrent ? "text-[#FFB322]" : "text-[#27ECB0]"}`}>
+                              Module {String(idx + 1).padStart(2, "0")}
+                            </p>
+                            <p className={`text-xs font-semibold leading-snug ${isLocked ? "text-gray-600" : "text-white"}`}>
+                              {m.topic}
+                            </p>
+                            <p className="text-[10px] text-gray-500 mt-0.5">
+                              {isCompleted && `Completed${m.duration_minutes ? " • " + m.duration_minutes + " mins" : ""}`}
+                              {isCurrent && "Next Up"}
+                              {isLocked && `Locked${m.duration_minutes ? " • " + m.duration_minutes + " mins" : ""}`}
+                            </p>
+                          </div>
+                        </div>
+                        {isCompleted && <button className="text-[10px] text-gray-400 border border-white/10 px-3 py-1.5 rounded-lg shrink-0">Review</button>}
+                        {isCurrent && <button className="text-[10px] text-black bg-[#FFB322] font-bold px-3 py-1.5 rounded-lg shrink-0">Start</button>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Course Rewards mobile */}
+            <div className="rounded-2xl border border-[#27ECB0]/20 bg-[#0d1a14] p-5 space-y-3">
+              <div className="flex items-center gap-3">
+                <span className="w-10 h-10 bg-[#27ECB0]/10 rounded-xl flex items-center justify-center text-lg">🤖</span>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Course Rewards</h3>
+                  <p className="text-[11px] text-gray-400">Complete the final assessment to earn</p>
+                </div>
+              </div>
+              <p className="text-[#27ECB0] text-sm font-bold">
+                +5 CDR AI Units <span className="text-gray-400 font-normal">for your profile.</span>
+              </p>
+            </div>
+
+            {/* Resources mobile */}
+            <div className="space-y-3">
+              <h2 className="text-base font-bold text-white">Resources</h2>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { title: "Slides", sub: "2.4 MB", icon: <IoDownloadOutline size={22} /> },
+                  { title: "Source Code", sub: "Repository", icon: <IoCodeSlashOutline size={22} /> },
+                ].map((r, i) => (
+                  <div key={i} className="bg-[#0d1117] border border-white/5 rounded-xl p-4 flex flex-col gap-2 cursor-pointer hover:border-[#27ECB0]/30 transition-all">
+                    <span className="text-gray-400">{r.icon}</span>
+                    <span className="text-sm font-semibold text-white">{r.title}</span>
+                    <span className="text-[10px] text-gray-500">{r.sub}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Classmates mobile */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h2 className="text-base font-bold text-white">Classmates</h2>
+                <span className="text-xs text-gray-400">128 Active</span>
+              </div>
+              <div className="flex -space-x-3">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="w-9 h-9 rounded-full border-2 border-[#0d1117] bg-gray-700 overflow-hidden">
+                    <Image src="/logo.png" alt={`s${i}`} width={36} height={36} />
+                  </div>
+                ))}
+                <div className="w-9 h-9 rounded-full border-2 border-[#0d1117] bg-[#27ECB0] flex items-center justify-center text-[9px] text-black font-black">
+                  +124
+                </div>
+              </div>
+              <p className="text-center text-sm text-gray-400 py-3 border border-white/10 rounded-xl cursor-pointer hover:border-[#27ECB0]/30 transition-all">
+                Join Discussion Forum
+              </p>
+            </div>
+
+          </div>
+
         </div>
       </Wrapper>
     </>

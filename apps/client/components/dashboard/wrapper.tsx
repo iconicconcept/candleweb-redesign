@@ -82,14 +82,16 @@ const Wrapper = (props: Pages) => {
               setOpenMobileMenu((prev) => !prev);
             }} />
           </div>
-          <div className="dash__body mt-[70px] md:mt-[81px] flex items-start">
+          <div className="dash__body pt-[70px] md:pt-[81px] flex items-start">
             <aside
-              className={`sidenav w-full md:max-w-[240px] h-[calc(100vh_-_81px)] sm:h-[calc(100vh_-_70px)] fixed bg-background top-0 left-0 z-10 mt-[70px] md:mt-[81px] tb:!w-[70%] transition duration-500 ${openMobileMenu ? "lg:translate-x-0" : "lg:translate-x-[-100%]"}`}
+              className={`sidenav w-full md:max-w-[240px] h-[calc(100vh_-_81px)] sm:h-[calc(100vh_-_70px)] fixed bg-background top-[70px] md:top-[81px] left-0 z-20 tb:!w-[70%] transition duration-500 ${openMobileMenu ? "lg:translate-x-0" : "lg:translate-x-[-100%]"}`}
             >
               <Sidenav />
             </aside>
-            <div className="main__content px-9 py-5 w-full ml-[240px] tb:ml-0 lg:ml-0 lg:!p-4 tb:mb-10">
-              {props.children}
+            <div className="main__content px-9 py-5 w-full ml-[240px] tb:ml-0 lg:ml-0 lg:!p-4 tb:mb-10 max-w-[calc(100%-240px)] md:max-w-none">
+              <div className="max-w-7xl mx-auto">
+                {props.children}
+              </div>
             </div>
           </div>
           {/* <div className="mobile__nav fixed bottom-0 left-0 right-0 bg-card tb:!block ai:block hidden z-10">
