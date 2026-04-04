@@ -41,15 +41,16 @@ const GoogleSignIn = (props: Props) => {
                     sessionStorage.removeItem('authRedirect');
                     router.push(redirect);
                 } else {
-                    // Default to tutor page — never redirect to dashboard automatically
-                    router.push("/tutor");
+                    // Default to dashboard if no redirect was saved
+                    // Users should only be redirected to /tutor if they signed in from that page
+                    router.push("/dashboard");
                 }
 
             }
         } catch (error) {
             console.log(error);
-            // On error, redirect to tutor page so user can try again
-            router.push("/tutor");
+            // On error, redirect to dashboard so user can try again
+            router.push("/dashboard");
         }
     }
 
@@ -62,7 +63,7 @@ const GoogleSignIn = (props: Props) => {
             dispatchLogin();
         } else {
             // Fallback for direct navigation with no params
-            router.push("/tutor");
+            router.push("/dashboard");
         }
 
     }, [router.isReady]);

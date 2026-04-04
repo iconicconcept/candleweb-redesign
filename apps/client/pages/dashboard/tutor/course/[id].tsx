@@ -160,7 +160,7 @@ const CourseDetails = () => {
                     className="absolute inset-0 w-full h-full object-cover"
                   />
                   {/* Strong dark overlay so text is always readable */}
-                  <div className="absolute inset-0 bg-black/70" />
+                  <div className="absolute inset-0 bg-black/80" />
                 </>
               ) : (
                 <div className="absolute inset-0 bg-gradient-to-br from-[#040d0a] to-[#060e10]" />
