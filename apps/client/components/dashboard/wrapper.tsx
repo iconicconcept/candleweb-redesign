@@ -88,7 +88,7 @@ const Wrapper = (props: Pages) => {
             >
               <Sidenav />
             </aside>
-            <div className="main__content px-9 py-5 w-full ml-[240px] tb:ml-0 lg:ml-0 lg:!p-4 tb:mb-10 max-w-[calc(100%-240px)] md:max-w-none">
+            <div className="main__content px-9 py-5 w-full ml-[240px] tb:ml-0 lg:ml-0 lg:!p-4 tb:mb-10 max-w-full md:max-w-none">
               <div className="max-w-7xl mx-auto">
                 {props.children}
               </div>

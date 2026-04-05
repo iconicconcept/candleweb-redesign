@@ -13,6 +13,7 @@ import { imageUri } from "../../../utils/constants";
 import { isAuthorizationHeaderSet } from "../../../utils/check_auth";
 import { axiosApi } from "../../../lib/axiosApi";
 import { IoChevronDown, IoChevronUp } from "react-icons/io5";
+import AIAgentChat from "../../../components/dashboard/AIAgentChat";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 interface EnrolledCourse {
@@ -570,6 +571,13 @@ const TutorDashboard = () => {
           </div>
         </div>
       </Wrapper>
+
+      {/* AI Agent Chat Component */}
+      <AIAgentChat studentContext={{
+        task_info: { count: tasks?.length || 0, pending: pendingTasks.length },
+        course_details: { enrolled_courses: courses.length, courses: courses },
+        earnings_info: { revenue: revenueNaira, ai_units: aiUnits },
+      }} />
     </>
   );
 };

@@ -16,6 +16,7 @@ import taskReducer from "./slices/taskSlice";
 import courseReducer from "./slices/courseSlice";
 import tutorReducer from "./slices/tutorSlice";
 import paymentReducer from "./slices/paymentSlice";
+import agentReducer from "./slices/agentSlice";
 
 const combineReducer = combineReducers({
   auth: authReducer,
@@ -32,6 +33,7 @@ const combineReducer = combineReducers({
   courses: courseReducer,
   tutors: tutorReducer,
   payment: paymentReducer,
+  agent: agentReducer,
 });
 
 const makeStore = () =>
