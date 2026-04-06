@@ -15,7 +15,7 @@ export const Progress = ({ progress, color }: Props) => {
   return (
     <ProgressPrimitive.Root
       value={progress}
-      className="h-3 w-full overflow-hidden rounded-full bg-transparent"
+      className="h-3 w-full overflow-hidden rounded-full bg-white/10"
     >
       <ProgressPrimitive.Indicator
         style={{ width: `${progress}%`, backgroundColor: color }}

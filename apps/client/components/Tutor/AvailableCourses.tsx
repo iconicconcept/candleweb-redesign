@@ -308,12 +308,12 @@ const AvailableCourses = () => {
                     <HiArrowRight className="transition-transform duration-300 group-hover/btn:translate-x-1" />
                   </button>
 
-                  <button 
+                  {/* <button 
                     onClick={() => router.push(`/dashboard/tutor/course/${course.id}`)}
                     className="hidden md:flex w-full py-3 mb-4 rounded-full border border-white/20 text-white font-medium text-sm tracking-wide transition-all duration-300 hover:bg-white/10 hover:border-white/40 items-center justify-center gap-2 group/btn">
                     View Details
                     <HiArrowRight className="transition-transform duration-300 group-hover/btn:translate-x-1" />
-                  </button>
+                  </button> */}
 
                   {/* <div className="w-full flex flex-col items-center gap-2 pt-6 border-t border-white/5 md:border-none md:pt-0 md:mt-auto">
                     <span className="text-white/40 text-[10px] uppercase tracking-widest font-bold">Passive Revenue Potential</span>

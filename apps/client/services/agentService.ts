@@ -10,7 +10,7 @@ const AGENT_API_BASE = "http://65.21.47.124:8002";
 // const AGENT_API_BASE = "http://production-agent-url:8002";
 
 // App key for agent API
-const APP_KEY = "your-app-key";
+const APP_KEY = "cw_live_9f3aK8xP2mQ7vL4rT1zY6bN0dH5sW8eC";
 
 /**
  * Send a message to the tutor agent

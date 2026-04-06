@@ -1,6 +1,7 @@
 import React from "react";
 import { FaAndroid } from "react-icons/fa";
 import { IoClose } from "react-icons/io5";
+import { useRouter } from "next/router";
 
 interface PaymentSuccessModalProps {
   isOpen: boolean;
@@ -8,6 +9,7 @@ interface PaymentSuccessModalProps {
 }
 
 const PaymentSuccessModal: React.FC<PaymentSuccessModalProps> = ({ isOpen, onClose }) => {
+  const router = useRouter();
   if (!isOpen) return null;
 
   return (
@@ -65,12 +67,20 @@ const PaymentSuccessModal: React.FC<PaymentSuccessModalProps> = ({ isOpen, onClo
               </div>
             </a>
 
-            <button
-              onClick={onClose}
-              className="mt-4 px-10 py-3 bg-[#FFA726] hover:bg-[#FF9800] text-black font-bold rounded-full transition-all duration-300 transform hover:scale-105 shadow-[0_4px_15px_rgba(255,167,38,0.3)] min-w-[160px]"
-            >
-              OKAY
-            </button>
+            <div className="flex flex-col gap-3 w-full">
+              <button
+                onClick={() => router.push('/dashboard')}
+                className="w-full px-10 py-3 bg-primary hover:bg-primary/90 text-black font-bold rounded-full transition-all duration-300 transform hover:scale-105 shadow-[0_4px_15px_rgba(39,236,176,0.3)]"
+              >
+                GO TO DASHBOARD
+              </button>
+              <button
+                onClick={onClose}
+                className="w-full px-10 py-3 bg-white/10 hover:bg-white/20 text-white font-bold rounded-full transition-all duration-300 transform hover:scale-105 border border-white/10"
+              >
+                OKAY
+              </button>
+            </div>
           </div>
         </div>
 

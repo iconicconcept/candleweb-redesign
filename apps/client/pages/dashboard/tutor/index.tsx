@@ -1,7 +1,7 @@
 import Head from "next/head";
 import React, { useEffect, useState, useRef } from "react";
 import Wrapper from "../../../components/dashboard/wrapper";
-import { Heading, Progress, SvgIcons, joinClasses } from "ui";
+import { Heading, Progress, SvgIcons, joinClasses, Button } from "ui";
 import Image from "next/image";
 import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "../../../redux/store";
@@ -12,7 +12,7 @@ import { useRouter } from "next/router";
 import { imageUri } from "../../../utils/constants";
 import { isAuthorizationHeaderSet } from "../../../utils/check_auth";
 import { axiosApi } from "../../../lib/axiosApi";
-import { IoChevronDown, IoChevronUp } from "react-icons/io5";
+import { IoChevronDown, IoChevronUp, IoPlayCircleOutline } from "react-icons/io5";
 import AIAgentChat from "../../../components/dashboard/AIAgentChat";
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -137,7 +137,7 @@ const TutorDashboard = () => {
                     className="w-9 h-9 rounded-full border-2 border-background bg-card flex items-center justify-center overflow-hidden relative"
                   >
                     <img
-                      src={`https://api.dicebear.com/7.x/initials/svg?seed=student${i}&backgroundColor=1ea895&textColor=ffffff&fontSize=40`}
+                      src={`https://api.dicebear.com/7.x/fun-emoji/svg?seed=student${i}&backgroundColor=1ea895&textColor=ffffff&fontSize=40`}
                       alt={`Student ${i}`}
                       width={36}
                       height={36}
@@ -288,8 +288,7 @@ const TutorDashboard = () => {
                       return (
                         <div
                           key={course.id}
-                          className="bg-card rounded-xl overflow-hidden border border-white/5 group cursor-pointer hover:border-primary/30 transition-all duration-300"
-                          onClick={() => router.push(`/dashboard/tutor/course/${course.id}`)}
+                          className="bg-card rounded-xl overflow-hidden border border-white/5 group transition-all duration-300"
                         >
                           {/* Thumbnail */}
                           <div className="relative h-44 bg-[#141414] flex items-center justify-center overflow-hidden">
@@ -349,6 +348,15 @@ const TutorDashboard = () => {
                                 </p>
                               </div>
                               <Progress progress={progress} color="#27ECB0" />
+                              <Button
+                                fullwidth
+                                variant="transparent"
+                                classstyle="mt-5 !bg-[#FFB322] !text-black border-none font-bold text-sm rounded-full py-4 transition-all duration-300 active:scale-95 shadow-[0_8px_30px_rgba(255,179,34,0.3)] hover:brightness-110 flex items-center justify-center gap-2"
+                                onClick={() => router.push(`/dashboard/tutor/course/${course.id}`)}
+                                icon={<IoPlayCircleOutline size={20} />}
+                              >
+                                Start Learning
+                              </Button>
                             </div>
                           </div>
                         </div>
@@ -496,7 +504,7 @@ const TutorDashboard = () => {
                       </span>
                       <div className="w-10 h-10 rounded-full bg-primary/20 border border-white/10 flex items-center justify-center overflow-hidden flex-shrink-0 relative">
                         <img
-                          src={`https://api.dicebear.com/7.x/initials/svg?seed=${entry.account_id}&backgroundColor=1ea895&textColor=ffffff&fontSize=40`}
+                          src={`https://api.dicebear.com/7.x/fun-emoji/svg?seed=${entry.account_id}&backgroundColor=1ea895&textColor=ffffff&fontSize=40`}
                           alt={entry.account_id}
                           width={40}
                           height={40}

@@ -18,9 +18,15 @@ import {
 import { useRouter } from "next/router";
 import courseService from "../../../../services/courseService";
 import { imageUri } from "../../../../utils/constants";
+import toast from "react-hot-toast";
+import { useDispatch } from "react-redux";
+import { AppDispatch } from "../../../../redux/store";
+import { setChatOpen } from "../../../../redux/slices/agentSlice";
+import AIAgentChat from "../../../../components/dashboard/AIAgentChat";
 
 const CourseDetails = () => {
   const router = useRouter();
+  const dispatch = useDispatch<AppDispatch>();
   const { id } = router.query;
   const [course, setCourse] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -99,21 +105,29 @@ const CourseDetails = () => {
   const progressPercent = totalModules > 0 ? Math.round((completedCount / totalModules) * 100) : 0;
   const firstIncompleteIdx = scheduleModules.findIndex((m: any) => !m.is_completed);
 
-  const nextSession =
-    scheduleModules.find((m: any) => m.is_active && !m.is_completed && m.class_link) ||
-    scheduleModules[0] ||
-    null;
-  const joinLink = nextSession?.class_link || "";
+  const now = new Date();
 
-  const modules = scheduleModules.map((m: any, idx: number) => ({
-    ...m,
-    inferredStatus: m.is_completed
-      ? "COMPLETED"
-      : idx === firstIncompleteIdx
-      ? "CURRENT"
-      : "LOCKED",
-    topic: m.topic || m.title || m.course_title || `Module ${idx + 1}`,
-  }));
+  const modules = scheduleModules.map((m: any, idx: number) => {
+    const scheduledTime = new Date(m.scheduled_datetime);
+    const endTime = new Date(m.end_datetime);
+    const isLive = now >= scheduledTime && now <= endTime;
+    const isUpcoming = now < scheduledTime;
+
+    return {
+      ...m,
+      isLive,
+      isUpcoming,
+      inferredStatus: m.is_completed
+        ? "COMPLETED"
+        : idx === firstIncompleteIdx
+        ? "CURRENT"
+        : "LOCKED",
+      topic: m.topic || m.title || m.course_title || `Module ${idx + 1}`,
+    };
+  });
+
+  const nextSession = modules.find((m: any) => m.inferredStatus === "CURRENT") || modules[0] || null;
+  const joinLink = nextSession?.class_link || "";
 
   const thumbnailSrc = course.thumbnail
     ? course.thumbnail.startsWith("http")
@@ -129,7 +143,23 @@ const CourseDetails = () => {
     : null;
 
   const onJoinCourse = () => {
-    if (!joinLink) return;
+    if (!nextSession) return;
+    
+    if (nextSession.is_completed) {
+      toast.error("This module is already completed");
+      return;
+    }
+
+    if (!nextSession.isLive) {
+      toast.error("No live class is available to join yet");
+      return;
+    }
+
+    if (!joinLink) {
+      toast.error("No class link available for this session");
+      return;
+    }
+
     window.open(joinLink, "_blank");
   };
 
@@ -217,12 +247,9 @@ const CourseDetails = () => {
                   {/* Continue Learning button */}
                   <button
                     onClick={onJoinCourse}
-                    disabled={!joinLink}
                     className={`flex items-center gap-3 px-8 py-4 rounded-full font-bold text-sm transition-all w-full justify-center
-                      ${joinLink
-                        ? "bg-[#FFB322] text-black hover:brightness-110 active:scale-95 shadow-[0_8px_30px_rgba(255,179,34,0.3)]"
-                        : "bg-gray-700 text-gray-400 cursor-not-allowed"
-                      }`}
+                      bg-[#FFB322] text-black hover:brightness-110 active:scale-95 shadow-[0_8px_30px_rgba(255,179,34,0.3)]
+                      ${!nextSession ? "opacity-50 cursor-not-allowed" : ""}`}
                   >
                     <IoPlayCircleOutline size={19} />
                     Continue Learning
@@ -320,8 +347,11 @@ const CourseDetails = () => {
                               {isLocked && (
                                 <span className="text-xs text-gray-600 font-medium">Locked</span>
                               )}
-                              {isCurrent && (
-                                <button className="px-5 py-2.5 bg-[#27ECB0]/10 border border-[#27ECB0]/30 text-[#27ECB0] text-[10px] font-black uppercase tracking-[0.2em] rounded-lg hover:bg-[#27ECB0] hover:text-black transition-all">
+                              {isCurrent && m.isLive && (
+                                <button 
+                                  onClick={() => window.open(m.class_link, "_blank")}
+                                  className="px-5 py-2.5 bg-[#27ECB0]/10 border border-[#27ECB0]/30 text-[#27ECB0] text-[10px] font-black uppercase tracking-[0.2em] rounded-lg hover:bg-[#27ECB0] hover:text-black transition-all"
+                                >
                                   Start Module
                                 </button>
                               )}
@@ -344,8 +374,13 @@ const CourseDetails = () => {
                   <div className="flex items-center gap-4">
                     <div className="flex -space-x-3">
                       {[1, 2, 3, 4].map((i) => (
-                        <div key={i} className="w-10 h-10 rounded-full border-2 border-[#111827] bg-gray-700 overflow-hidden">
-                          <Image src="/logo.png" alt={`student-${i}`} width={40} height={40} />
+                        <div key={i} className="w-10 h-10 rounded-full border-2 border-[#111827] bg-gray-700 overflow-hidden relative">
+                          <img 
+                            src={`https://api.dicebear.com/7.x/fun-emoji/svg?seed=student-${i}&backgroundColor=1ea895&textColor=ffffff&fontSize=40`} 
+                            alt={`student-${i}`} 
+                            width={40} 
+                            height={40} 
+                          />
                         </div>
                       ))}
                       <div className="w-10 h-10 rounded-full border-2 border-[#111827] bg-[#27ECB0] flex items-center justify-center text-[9px] text-black font-black">
@@ -431,7 +466,10 @@ const CourseDetails = () => {
                       </p>
                     </div>
                   </div>
-                  <button className="relative text-[#FFB322] text-xs font-bold tracking-wide flex items-center gap-1.5 hover:gap-3 transition-all ml-12">
+                  <button 
+                    onClick={() => dispatch(setChatOpen(true))}
+                    className="relative text-[#FFB322] text-xs font-bold tracking-wide flex items-center gap-1.5 hover:gap-3 transition-all ml-12"
+                  >
                     Launch Assistant →
                   </button>
                 </div>
@@ -509,9 +547,9 @@ const CourseDetails = () => {
             {/* CTA */}
             <button
               onClick={onJoinCourse}
-              disabled={!joinLink}
               className={`w-full flex items-center justify-center gap-3 py-4 rounded-xl font-bold text-sm tracking-widest uppercase transition-all
-                ${joinLink ? "bg-[#FFB322] text-black active:scale-95" : "bg-gray-700 text-gray-400 cursor-not-allowed"}`}
+                bg-[#FFB322] text-black active:scale-95
+                ${!nextSession ? "opacity-50 cursor-not-allowed" : ""}`}
             >
               <IoPlayCircleOutline size={20} />
               Continue Learning
@@ -571,7 +609,14 @@ const CourseDetails = () => {
                           </div>
                         </div>
                         {isCompleted && <button className="text-[10px] text-gray-400 border border-white/10 px-3 py-1.5 rounded-lg shrink-0">Review</button>}
-                        {isCurrent && <button className="text-[10px] text-black bg-[#FFB322] font-bold px-3 py-1.5 rounded-lg shrink-0">Start</button>}
+                        {isCurrent && m.isLive && (
+                          <button 
+                            onClick={() => window.open(m.class_link, "_blank")}
+                            className="text-[10px] text-black bg-[#FFB322] font-bold px-3 py-1.5 rounded-lg shrink-0"
+                          >
+                            Start
+                          </button>
+                        )}
                       </div>
                     </div>
                   );
@@ -635,6 +680,11 @@ const CourseDetails = () => {
 
         </div>
       </Wrapper>
+
+      {/* AI Agent Chat Component */}
+      <AIAgentChat studentContext={{
+        course_details: { course: course },
+      }} />
     </>
   );
 };
