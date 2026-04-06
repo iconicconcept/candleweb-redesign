@@ -137,7 +137,7 @@ const TutorDashboard = () => {
                     className="w-9 h-9 rounded-full border-2 border-background bg-card flex items-center justify-center overflow-hidden relative"
                   >
                     <img
-                      src={`https://api.dicebear.com/7.x/fun-emoji/svg?seed=student${i}&backgroundColor=1ea895&textColor=ffffff&fontSize=40`}
+                      src={`https://api.dicebear.com/7.x/fun-emoji/svg?seed=happy&backgroundColor=1ea895&textColor=ffffff&fontSize=40`}
                       alt={`Student ${i}`}
                       width={36}
                       height={36}
@@ -504,7 +504,7 @@ const TutorDashboard = () => {
                       </span>
                       <div className="w-10 h-10 rounded-full bg-primary/20 border border-white/10 flex items-center justify-center overflow-hidden flex-shrink-0 relative">
                         <img
-                          src={`https://api.dicebear.com/7.x/fun-emoji/svg?seed=${entry.account_id}&backgroundColor=1ea895&textColor=ffffff&fontSize=40`}
+                          src={`https://api.dicebear.com/7.x/fun-emoji/svg?seed=happy&backgroundColor=1ea895&textColor=ffffff&fontSize=40`}
                           alt={entry.account_id}
                           width={40}
                           height={40}

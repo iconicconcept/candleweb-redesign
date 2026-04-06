@@ -376,7 +376,7 @@ const CourseDetails = () => {
                       {[1, 2, 3, 4].map((i) => (
                         <div key={i} className="w-10 h-10 rounded-full border-2 border-[#111827] bg-gray-700 overflow-hidden relative">
                           <img 
-                            src={`https://api.dicebear.com/7.x/fun-emoji/svg?seed=student-${i}&backgroundColor=1ea895&textColor=ffffff&fontSize=40`} 
+                            src={`https://api.dicebear.com/7.x/fun-emoji/svg?seed=happy&backgroundColor=1ea895&textColor=ffffff&fontSize=40`} 
                             alt={`student-${i}`} 
                             width={40} 
                             height={40} 
@@ -663,8 +663,13 @@ const CourseDetails = () => {
               </div>
               <div className="flex -space-x-3">
                 {[1, 2, 3, 4].map((i) => (
-                  <div key={i} className="w-9 h-9 rounded-full border-2 border-[#0d1117] bg-gray-700 overflow-hidden">
-                    <Image src="/logo.png" alt={`s${i}`} width={36} height={36} />
+                  <div key={i} className="w-9 h-9 rounded-full border-2 border-[#0d1117] bg-gray-700 overflow-hidden relative">
+                    <img 
+                      src={`https://api.dicebear.com/7.x/fun-emoji/svg?seed=happy&backgroundColor=1ea895&textColor=ffffff&fontSize=40`} 
+                      alt={`s${i}`} 
+                      width={36} 
+                      height={36} 
+                    />
                   </div>
                 ))}
                 <div className="w-9 h-9 rounded-full border-2 border-[#0d1117] bg-[#27ECB0] flex items-center justify-center text-[9px] text-black font-black">
