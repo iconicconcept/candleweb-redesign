@@ -153,7 +153,7 @@ const TaskPage = (props: Props) => {
                 </div>
             </Wrapper>
             <Modal
-                title={"Claim Task Reward"}
+                title={"Submit Task"}
                 width="500px"
                 isOpen={openVerifyModal.open}
                 onChnage={(e) =>
@@ -165,7 +165,7 @@ const TaskPage = (props: Props) => {
             >
                 <div className="cancelSub__modal flex flex-col items-start text-center">
                     {/* <Heading textsize="lg" classstyle="text-center">Claim tas</Heading> */}
-                    <Typography textsize='xs' classstyle="text-center !mb-2 !font-normal">Kindly provide means of authentication.</Typography>
+                    <Typography textsize='xs' classstyle="text-center !mb-2 !font-normal">Kindly provide the link to the completed task.</Typography>
                     <DashTextInput
                         type="text"
                         name="verify_link"

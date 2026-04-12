@@ -1,8 +1,19 @@
 import Head from "next/head";
 import React, { useEffect, useState, useRef } from "react";
 import Wrapper from "../../../components/dashboard/wrapper";
-import { Heading, Progress, SvgIcons, joinClasses, Button } from "ui";
-import Image from "next/image";
+import {
+  Button,
+  Progress,
+  SvgIcons,
+  joinClasses,
+  DashTextInput,
+  Heading,
+  maskWalletAddress,
+  Modal,
+  StreakJson,
+  Typography,
+  UserAvatarImage,
+} from "ui";
 import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "../../../redux/store";
 import taskService from "../../../services/taskService";
@@ -11,11 +22,28 @@ import useUserStore from "../../../lib/hooks/useUserStore";
 import { useRouter } from "next/router";
 import { imageUri } from "../../../utils/constants";
 import { isAuthorizationHeaderSet } from "../../../utils/check_auth";
-import { axiosApi } from "../../../lib/axiosApi";
-import { IoChevronDown, IoChevronUp, IoPlayCircleOutline } from "react-icons/io5";
+import {
+  IoChevronDown,
+  IoChevronUp,
+  IoPlayCircleOutline,
+} from "react-icons/io5";
+import { FiLink } from "react-icons/fi";
+import {
+  dismissLoader,
+  loading,
+  success,
+} from "../../../components/alert/Toast";
 import AIAgentChat from "../../../components/dashboard/AIAgentChat";
 
 // ── Types ───────────────────────────────────────────────────────────────────
+interface UserProfile {
+  username: string;
+  email: string;
+  wallet_address: string;
+  is_live_mode: boolean;
+  date_of_birth: string;
+}
+
 interface EnrolledCourse {
   id: number;
   title: string;
@@ -35,10 +63,16 @@ const formatNaira = (amount: number) =>
     maximumFractionDigits: 2,
   }).format(amount);
 
+const humanAvatar = (seed: string) =>
+  `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(
+    seed,
+  )}&backgroundColor=transparent`;
+
 const TutorDashboard = () => {
   const dispatch = useDispatch<AppDispatch>();
   const axiosToken = useAxiosAuth();
   const router = useRouter();
+  const { user } = useUserStore();
 
   const { tasks, stats, completed, leaderboards } = useSelector(
     (state: RootState) => state.task,
@@ -49,19 +83,25 @@ const TutorDashboard = () => {
   const [showAllCourses, setShowAllCourses] = useState(false);
   const [usdRate, setUsdRate] = useState<number | null>(null);
   const [coursesLoading, setCoursesLoading] = useState(true);
-
+  const [selectedTabIndex, setSelectedTabIndex] = useState<0 | 1>(0);
+  const [openVerifyModal, setOpenVerifyModal] = useState<{
+    open: boolean;
+    data?: any;
+  }>({ open: false });
+  const [verifyLink, setVerifyLink] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const fetchedTokenRef = useRef<string | null>(null);
+  const userProfile = user;
 
   // ── Revenue Calc from stats ───────────────────────────────────────────────
-  // earned_units from task/stats → multiply by some CDR rate or use as-is for display
+  // earned_units from task/stats → multiply by 64.10 NGN per AI unit
   const aiUnits = stats?.earned_units ?? 0;
-  // Revenue in Naira: treat point as naira value (from the API)
-  const revenueNaira = parseFloat(stats?.point ?? "0") || 0;
+  const AI_UNIT_VALUE_NGN = 64.1;
+  const revenueNaira = aiUnits * AI_UNIT_VALUE_NGN;
   const revenueUsd = usdRate ? (revenueNaira / usdRate).toFixed(2) : null;
-  const completedCount = completed?.length ?? 0;
   const completedBadges = ["AI", "PY", "UX"].slice(
     0,
-    Math.min(completedCount, 3),
+    Math.min(courses.length, 3),
   );
 
   // ── Fetch USD rate (open exchange rates - free tier) ──────────────────────
@@ -104,9 +144,8 @@ const TutorDashboard = () => {
   // Visible courses: first 2 or all
   const visibleCourses = showAllCourses ? courses : courses.slice(0, 2);
 
-  // Pending tasks = tasks not completed; completed tasks = completed array
   const pendingTasks = tasks ?? [];
-  const completedTaskIds = new Set((completed ?? []).map((c) => c.task_id));
+  const completedTasks = completed ?? [];
 
   return (
     <>
@@ -122,12 +161,14 @@ const TutorDashboard = () => {
           {/* ── Sub-header ──────────────────────────────────────────────── */}
           <div className="flex items-start justify-between mb-8 gap-4">
             <div>
-              <p className="text-sm text-white mb-1">Welcome, Partner</p>
-              <p className="text-sm text-white/70">
+              <p className="text-sm text-white mb-1">
+                Welcome, {userProfile?.username || "Partner"}
+              </p>
+              {/* <p className="text-sm text-white/70">
                 Your learning ecosystem is performing at{" "}
                 <span className="text-primary font-semibold">+24%</span> this
                 week.
-              </p>
+              </p> */}
             </div>
             <div className="flex items-center gap-3 flex-shrink-0">
               <div className="flex -space-x-2">
@@ -137,11 +178,11 @@ const TutorDashboard = () => {
                     className="w-9 h-9 rounded-full border-2 border-background bg-card flex items-center justify-center overflow-hidden relative"
                   >
                     <img
-                      src={`https://api.dicebear.com/7.x/fun-emoji/svg?seed=happy&backgroundColor=1ea895&textColor=ffffff&fontSize=40`}
+                      src={humanAvatar(`student-${i}`)}
                       alt={`Student ${i}`}
                       width={36}
                       height={36}
-                      className="w-full h-full"
+                      className="w-full h-full object-cover"
                       onError={(e) => {
                         e.currentTarget.style.display = "none";
                         (
@@ -168,7 +209,7 @@ const TutorDashboard = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
             {/* Card 1: Total Course Revenue */}
             <div className="bg-card rounded-xl p-6 relative overflow-hidden border border-white/5">
-              <div className="absolute top-4 right-4 opacity-5 text-white">
+              <div className="absolute top-4 right-4 opacity-30 text-white text-4xl">
                 {SvgIcons.trades}
               </div>
               <p className="text-[10px] font-black text-txtGray tracking-[0.2em] uppercase mb-4">
@@ -180,14 +221,14 @@ const TutorDashboard = () => {
               {revenueUsd && (
                 <p className="text-sm text-txtGray mb-3">≈ ${revenueUsd} USD</p>
               )}
-              <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-bold">
+              {/* <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-bold">
                 <span>↗</span> 12.5% this month
-              </div>
+              </div> */}
             </div>
 
             {/* Card 2: AI Units Earned */}
             <div className="bg-card rounded-xl p-6 relative overflow-hidden border border-white/5">
-              <div className="absolute top-4 right-4 opacity-5 text-primary">
+              <div className="absolute top-4 right-4 opacity-30 text-primary text-4xl">
                 {SvgIcons.tasks}
               </div>
               <p className="text-[10px] font-black text-txtGray tracking-[0.2em] uppercase mb-4">
@@ -209,21 +250,14 @@ const TutorDashboard = () => {
 
             {/* Card 3: Completed Courses */}
             <div className="bg-card rounded-xl p-6 relative overflow-hidden border border-white/5">
-              <div className="absolute top-4 right-4 opacity-5 text-white">
-                <svg
-                  width="60"
-                  height="60"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                >
-                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
-                </svg>
+              <div className="absolute top-4 right-4 opacity-30 text-txtGray text-4xl">
+                {SvgIcons.portfolio}
               </div>
               <p className="text-[10px] font-black text-txtGray tracking-[0.2em] uppercase mb-4">
-                Completed Courses
+                Enrolled Courses
               </p>
               <p className="text-3xl font-black text-white mb-4">
-                {completedCount}
+                {courses.length}
               </p>
               <div className="flex gap-2 flex-wrap">
                 {completedBadges.map((b) => (
@@ -279,7 +313,13 @@ const TutorDashboard = () => {
                     </p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div
+                    className={`grid gap-4 ${
+                      courses.length === 1
+                        ? "grid-cols-1"
+                        : "grid-cols-1 md:grid-cols-2"
+                    }`}
+                  >
                     {visibleCourses.map((course) => {
                       const progress = course.progress ?? 0;
                       const isActive =
@@ -288,7 +328,8 @@ const TutorDashboard = () => {
                       return (
                         <div
                           key={course.id}
-                          className="bg-card rounded-xl overflow-hidden border border-white/5 group transition-all duration-300"
+                          className={`bg-card rounded-xl overflow-hidden border border-white/5 group transition-all duration-300
+                          ${courses.length === 1 ? "row-span-2" : ""}`}
                         >
                           {/* Thumbnail */}
                           <div className="relative h-44 bg-[#141414] flex items-center justify-center overflow-hidden">
@@ -352,7 +393,11 @@ const TutorDashboard = () => {
                                 fullwidth
                                 variant="transparent"
                                 classstyle="mt-5 !bg-[#FFB322] !text-black border-none font-bold text-sm rounded-full py-4 transition-all duration-300 active:scale-95 shadow-[0_8px_30px_rgba(255,179,34,0.3)] hover:brightness-110 flex items-center justify-center gap-2"
-                                onClick={() => router.push(`/dashboard/tutor/course/${course.id}`)}
+                                onClick={() =>
+                                  router.push(
+                                    `/dashboard/tutor/course/${course.id}/`,
+                                  )
+                                }
                                 icon={<IoPlayCircleOutline size={20} />}
                               >
                                 Start Learning
@@ -366,100 +411,134 @@ const TutorDashboard = () => {
                 )}
               </div>
 
-              {/* Pending Tasks */}
               <div>
-                <Heading textsize="sm" classstyle="font-bold text-white mb-5">
-                  Pending Tasks
-                </Heading>
+                {/* Header + Tabs */}
+                <div className="flex items-center justify-between mb-5">
+                  <Heading textsize="sm" classstyle="font-bold text-white">
+                    Daily Tasks
+                  </Heading>
+
+                  <div className="flex bg-[#2D2F36] border border-[#353840] rounded-full p-1 text-xs">
+                    <button
+                      onClick={() => setSelectedTabIndex(0)}
+                      className={`px-4 py-2 rounded-full font-bold transition ${
+                        selectedTabIndex === 0
+                          ? "bg-primary text-black"
+                          : "text-white/70"
+                      }`}
+                    >
+                      Pending
+                    </button>
+
+                    <button
+                      onClick={() => setSelectedTabIndex(1)}
+                      className={`px-4 py-2 rounded-full font-bold transition ${
+                        selectedTabIndex === 1
+                          ? "bg-primary text-black"
+                          : "text-white/70"
+                      }`}
+                    >
+                      Completed
+                    </button>
+                  </div>
+                </div>
+
+                {/* BODY */}
                 <div className="space-y-3">
-                  {pendingTasks.length === 0 && (
-                    <div className="bg-card rounded-xl p-6 text-center border border-white/5">
-                      <p className="text-txtGray text-sm">No pending tasks.</p>
-                    </div>
-                  )}
-                  {pendingTasks.map((task) => {
-                    const isDone = completedTaskIds.has(task.id);
-                    return (
-                      <div
-                        key={task.id}
-                        className={joinClasses(
-                          "bg-card rounded-xl p-5 flex items-center gap-4 border transition-all duration-300",
-                          isDone
-                            ? "border-primary/20 opacity-70"
-                            : "border-white/5 hover:border-white/15",
-                        )}
-                      >
-                        {/* Checkbox */}
-                        <div
-                          className={joinClasses(
-                            "w-6 h-6 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all",
-                            isDone
-                              ? "bg-primary border-primary"
-                              : "border-white/30",
-                          )}
-                        >
-                          {isDone && (
-                            <span className="text-black text-xs font-black">
-                              ✓
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                          <p
-                            className={joinClasses(
-                              "text-sm font-semibold",
-                              isDone
-                                ? "line-through text-txtGray"
-                                : "text-white",
-                            )}
-                          >
-                            {task.title}
+                  {/* ───── ACTIVE TASKS ───── */}
+                  {selectedTabIndex === 0 && (
+                    <>
+                      {pendingTasks.length === 0 ? (
+                        <div className="bg-card rounded-xl p-6 text-center border border-white/5">
+                          <p className="text-txtGray text-sm">
+                            No active tasks.
                           </p>
-                          {task.end_date && !isDone && (
-                            <p className="text-[11px] text-txtGray mt-0.5">
-                              Due{" "}
-                              {new Date(task.end_date).toLocaleDateString(
-                                "en-US",
-                                { month: "short", day: "numeric" },
-                              )}
-                            </p>
-                          )}
-                          {isDone && (
-                            <span className="inline-block mt-1 px-2 py-0.5 bg-primary/10 text-primary text-[10px] font-black rounded uppercase tracking-wider">
-                              Completed
-                            </span>
-                          )}
                         </div>
+                      ) : (
+                        pendingTasks.map((task: any) => (
+                          <div
+                            key={task.id}
+                            className="bg-card rounded-xl p-5 flex items-center gap-4 border border-white/5 hover:border-white/15 transition"
+                          >
+                            {/* VERIFY BUTTON */}
+                            <button
+                              onClick={() =>
+                                setOpenVerifyModal({ open: true, data: task })
+                              }
+                              className="w-7 h-7 rounded-md border border-white/90 bg-white/20 flex items-center justify-center hover:border-primary hover:bg-white/10 transition cursor-pointer"
+                            >
+                              {/* <span className="text-xs text-white/70">✓</span> */}
+                            </button>
+                            
+                            {/* <button
+                              onClick={() =>
+                                setOpenVerifyModal({ open: true, data: task })
+                              }
+                              className="w-7 h-7 rounded-md border border-txt-yellow/80 bg-transparent
+                              flex items-center justify-center
+                              hover:bg-txt-yellow/10 hover:border-txt-yellow
+                              transition cursor-pointer"
+                            >
+                              {/* optional check icon when needed
+                            </button> */}
 
-                        {task.end_date &&
-                          !isDone &&
-                          (() => {
-                            const daysLeft = Math.ceil(
-                              (new Date(task.end_date).getTime() - Date.now()) /
-                                86400000,
-                            );
-                            const isUrgent = daysLeft <= 1;
-                            return (
-                              <span
-                                className={joinClasses(
-                                  "text-[10px] font-black px-2.5 py-1 rounded-full flex-shrink-0",
-                                  isUrgent
-                                    ? "bg-red-500/10 text-red-400"
-                                    : "bg-orange-500/10 text-orange-400",
-                                )}
-                              >
-                                {daysLeft <= 0
-                                  ? "Due Today"
-                                  : daysLeft === 1
-                                    ? "Due Tmrw"
-                                    : `Due in ${daysLeft}d`}
+                            <div className="flex-1">
+                              <p className="text-sm font-semibold text-white">
+                                {task.title}
+                              </p>
+
+                              {task.end_date && (
+                                <p className="text-[11px] text-txtGray mt-0.5">
+                                  Due{" "}
+                                  {new Date(task.end_date).toLocaleDateString(
+                                    "en-US",
+                                    {
+                                      month: "short",
+                                      day: "numeric",
+                                    },
+                                  )}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </>
+                  )}
+
+                  {/* ───── COMPLETED TASKS ───── */}
+                  {selectedTabIndex === 1 && (
+                    <>
+                      {completedTasks.length === 0 ? (
+                        <div className="bg-card rounded-xl p-6 text-center border border-white/5">
+                          <p className="text-txtGray text-sm">
+                            No completed tasks.
+                          </p>
+                        </div>
+                      ) : (
+                        completedTasks.map((reward: any) => (
+                          <div
+                            key={reward.id}
+                            className="bg-card rounded-xl p-5 flex items-center gap-4 border border-primary/20 opacity-70"
+                          >
+                            <div className="w-6 h-6 rounded bg-primary flex items-center justify-center">
+                              🧑
+                            </div>
+
+                            <div className="flex-1">
+                              <p className="text-sm font-semibold text-gray-400 line-through">
+                                {reward.title}
+                              </p>
+
+                              <span className="inline-block mt-1 px-2 py-0.5 bg-primary/10 text-primary text-[10px] font-black rounded uppercase">
+                                Completed
                               </span>
-                            );
-                          })()}
-                      </div>
-                    );
-                  })}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -504,10 +583,13 @@ const TutorDashboard = () => {
                       </span>
                       <div className="w-10 h-10 rounded-full bg-primary/20 border border-white/10 flex items-center justify-center overflow-hidden flex-shrink-0 relative">
                         <img
-                          src={`https://api.dicebear.com/7.x/fun-emoji/svg?seed=happy&backgroundColor=1ea895&textColor=ffffff&fontSize=40`}
-                          alt={entry.account_id}
+                          src={humanAvatar(
+                            entry.account_id ?? `leaderboard-${idx}`,
+                          )}
+                          alt={entry.account_id || `Rank ${idx + 1}`}
                           width={40}
                           height={40}
+                          className="w-full h-full object-cover"
                           onError={(e) => {
                             e.currentTarget.style.display = "none";
                             e.currentTarget.nextElementSibling?.removeAttribute(
@@ -539,7 +621,7 @@ const TutorDashboard = () => {
                       </div>
                       <div className="text-right flex-shrink-0">
                         <p className="text-sm font-black text-primary">
-                          {Math.floor(parseFloat(entry.point ?? "0"))} CDR
+                          {Math.floor(parseFloat(entry.point ?? "0"))} Pts
                         </p>
                         {idx === 0 && (
                           <p className="text-[9px] text-orange-400 font-black">
@@ -555,7 +637,11 @@ const TutorDashboard = () => {
                 <div className="bg-[#1e1e1e] rounded-xl p-5 border border-white/10 text-center space-y-4">
                   <div className="relative w-16 h-16 mx-auto">
                     <div className="w-full h-full rounded-full border-4 border-primary flex items-center justify-center overflow-hidden bg-white/10">
-                      <Image src="/logo.png" alt="You" width={56} height={56} />
+                      <img
+                        src={humanAvatar(userProfile?.username ?? "you")}
+                        alt="You"
+                        className="w-full h-full object-cover"
+                      />
                     </div>
                     <div className="absolute -bottom-1 -right-1 bg-primary text-black text-[9px] font-black px-1.5 py-0.5 rounded-full border-2 border-card">
                       #12
@@ -567,25 +653,91 @@ const TutorDashboard = () => {
                     </p>
                     <p className="text-2xl font-black text-white">Rank #12</p>
                     <p className="text-xs text-primary mt-1">
-                      Up 3 places from yesterday
+                      Keep learning to earn more
                     </p>
                   </div>
-                  <button className="w-full py-2.5 border border-white/20 rounded-lg text-[11px] font-black text-white tracking-widest uppercase hover:bg-white/5 transition-all">
+                  {/* <button className="w-full py-2.5 border border-white/20 rounded-lg text-[11px] font-black text-white tracking-widest uppercase hover:bg-white/5 transition-all">
                     Full Rankings
-                  </button>
+                  </button> */}
                 </div>
               </div>
             </div>
           </div>
         </div>
       </Wrapper>
+      <Modal
+        title={"Submit Task"}
+        width="500px"
+        isOpen={openVerifyModal.open}
+        onChnage={(e) => setOpenVerifyModal({ data: undefined, open: e })}
+      >
+        <div className="flex flex-col items-start text-center">
+          <Typography textsize="xs" classstyle="!mb-2 !font-normal">
+            Kindly provide the link to the completed task.
+          </Typography>
 
-      {/* AI Agent Chat Component */}
-      <AIAgentChat studentContext={{
-        task_info: { count: tasks?.length || 0, pending: pendingTasks.length },
-        course_details: { enrolled_courses: courses.length, courses: courses },
-        earnings_info: { revenue: revenueNaira, ai_units: aiUnits },
-      }} />
+          <DashTextInput
+            type="text"
+            name="verify_link"
+            placeholder="Paste interaction link here"
+            label="Verification link"
+            value={verifyLink}
+            Icon={<FiLink />}
+            onChange={(e) => setVerifyLink(e.target.value)}
+          />
+
+          <div className="mt-5 w-full">
+            <Button
+              onClick={async () => {
+                try {
+                  setIsLoading(true);
+                  loading("Verifying...");
+
+                  const res = await dispatch(
+                    taskService.verifyReward({
+                      api: axiosToken,
+                      data: {
+                        task_id: openVerifyModal.data?.id,
+                        link: verifyLink,
+                      },
+                    }),
+                  ).unwrap();
+
+                  if (res.status === "success") {
+                    dispatch(taskService.getTasks(axiosToken));
+                    dispatch(taskService.getReward(axiosToken));
+                    dispatch(taskService.getTaskStats(axiosToken));
+                    dispatch(taskService.getTaskStreak(axiosToken));
+                    success(res.message);
+                  }
+
+                  setOpenVerifyModal({ open: false });
+                  setVerifyLink("");
+                } finally {
+                  dismissLoader("");
+                  setIsLoading(false);
+                }
+              }}
+            >
+              Proceed
+            </Button>
+          </div>
+        </div>
+      </Modal>
+      ;{/* AI Agent Chat Component */}
+      <AIAgentChat
+        studentContext={{
+          task_info: {
+            count: tasks?.length || 0,
+            pending: pendingTasks.length,
+          },
+          course_details: {
+            enrolled_courses: courses.length,
+            courses: courses,
+          },
+          earnings_info: { revenue: revenueNaira, ai_units: aiUnits },
+        }}
+      />
     </>
   );
 };

@@ -2,12 +2,12 @@ import Head from "next/head";
 import React, { useEffect, useState } from "react";
 import Wrapper from "../../../../components/dashboard/wrapper";
 import Loader from "../../../../components/Loader";
-import Image from "next/image";
 import {
   IoCheckmarkCircle,
   IoLockClosedOutline,
   IoPlayCircleOutline,
   IoDownloadOutline,
+  IoDocumentTextOutline,
   IoCodeSlashOutline,
   IoLayersOutline,
   IoChevronForward,
@@ -24,6 +24,26 @@ import { AppDispatch } from "../../../../redux/store";
 import { setChatOpen } from "../../../../redux/slices/agentSlice";
 import AIAgentChat from "../../../../components/dashboard/AIAgentChat";
 
+const humanAvatar = (seed: string) =>
+  `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(
+    seed,
+  )}&backgroundColor=transparent`;
+
+const normalizeRouteId = (id: string | string[] | undefined) =>
+  Array.isArray(id) ? id[0] : id;
+
+const formatModuleDateTime = (datetime?: string, duration?: number) => {
+  if (!datetime) return duration ? `${duration} mins` : "";
+  const start = new Date(datetime);
+  const formatted = start.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  return duration ? `${formatted} • ${duration} mins` : formatted;
+};
+
 const CourseDetails = () => {
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
@@ -31,13 +51,64 @@ const CourseDetails = () => {
   const [course, setCourse] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedModuleId, setSelectedModuleId] = useState<number | null>(null);
+
+  const scheduleModules = Array.isArray(course?.class_schedules)
+    ? course.class_schedules
+    : [];
+  const totalModules = scheduleModules.length;
+  const completedCount = scheduleModules.filter(
+    (m: any) => m.is_completed,
+  ).length;
+  const progressPercent =
+    totalModules > 0 ? Math.round((completedCount / totalModules) * 100) : 0;
+  const firstIncompleteIdx = scheduleModules.findIndex(
+    (m: any) => !m.is_completed,
+  );
+  const now = new Date();
+
+  const modules = scheduleModules.map((m: any, idx: number) => {
+    const scheduledTime = new Date(m.scheduled_datetime);
+    const endTime = new Date(m.end_datetime);
+    const isLive = now >= scheduledTime && now <= endTime;
+    const isUpcoming = now < scheduledTime;
+
+    return {
+      ...m,
+      scheduledTime,
+      endTime,
+      isLive,
+      isUpcoming,
+      inferredStatus: m.is_completed
+        ? "COMPLETED"
+        : idx === firstIncompleteIdx
+          ? "CURRENT"
+          : "LOCKED",
+      topic: m.topic || m.title || m.course_title || `Module ${idx + 1}`,
+    };
+  });
+
+  const selectedModule =
+    modules.find((m: any) => m.id === selectedModuleId) || modules[0] || null;
 
   useEffect(() => {
-    if (!id) return;
+    if (!course) return;
+    const currentModule =
+      modules.find((m: any) => m.inferredStatus === "CURRENT") || modules[0];
+    if (currentModule) {
+      setSelectedModuleId(currentModule.id);
+    }
+  }, [course]);
+
+  useEffect(() => {
+    if (!router.isReady) return;
+    const courseId = normalizeRouteId(id);
+    if (!courseId) return;
+
     setLoading(true);
     setError(null);
     courseService
-      .getCourseById(id as string)
+      .getCourseById(courseId)
       .then((data) => {
         setCourse(data);
         setLoading(false);
@@ -46,7 +117,7 @@ const CourseDetails = () => {
         setError("Failed to load course details");
         setLoading(false);
       });
-  }, [id]);
+  }, [id, router.isReady]);
 
   if (loading) {
     return (
@@ -86,7 +157,9 @@ const CourseDetails = () => {
             📭
           </div>
           <p className="text-white font-semibold text-lg">Course not found</p>
-          <p className="text-gray-500 text-sm">This course may have been removed or doesn&apos;t exist.</p>
+          <p className="text-gray-500 text-sm">
+            This course may have been removed or doesn&apos;t exist.
+          </p>
           <button
             onClick={() => router.back()}
             className="mt-2 px-6 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm hover:bg-white/10 transition-all"
@@ -98,35 +171,23 @@ const CourseDetails = () => {
     );
   }
 
-  // ── Derived data ─────────────────────────────────────────────
-  const scheduleModules = Array.isArray(course.class_schedules) ? course.class_schedules : [];
-  const totalModules = scheduleModules.length;
-  const completedCount = scheduleModules.filter((m: any) => m.is_completed).length;
-  const progressPercent = totalModules > 0 ? Math.round((completedCount / totalModules) * 100) : 0;
-  const firstIncompleteIdx = scheduleModules.findIndex((m: any) => !m.is_completed);
+  const nextSession =
+    modules.find((m: any) => m.inferredStatus === "CURRENT") ||
+    modules[0] ||
+    null;
 
-  const now = new Date();
-
-  const modules = scheduleModules.map((m: any, idx: number) => {
-    const scheduledTime = new Date(m.scheduled_datetime);
-    const endTime = new Date(m.end_datetime);
-    const isLive = now >= scheduledTime && now <= endTime;
-    const isUpcoming = now < scheduledTime;
-
-    return {
-      ...m,
-      isLive,
-      isUpcoming,
-      inferredStatus: m.is_completed
-        ? "COMPLETED"
-        : idx === firstIncompleteIdx
-        ? "CURRENT"
-        : "LOCKED",
-      topic: m.topic || m.title || m.course_title || `Module ${idx + 1}`,
-    };
-  });
-
-  const nextSession = modules.find((m: any) => m.inferredStatus === "CURRENT") || modules[0] || null;
+  const openResource = (
+    link: string | null | undefined,
+    type: "presentation" | "recording",
+  ) => {
+    if (!link) {
+      toast.error(
+        `${type === "presentation" ? "Presentation" : "Recording"} link not yet available`,
+      );
+      return;
+    }
+    window.open(link, "_blank");
+  };
   const joinLink = nextSession?.class_link || "";
 
   const thumbnailSrc = course.thumbnail
@@ -144,7 +205,7 @@ const CourseDetails = () => {
 
   const onJoinCourse = () => {
     if (!nextSession) return;
-    
+
     if (nextSession.is_completed) {
       toast.error("This module is already completed");
       return;
@@ -170,12 +231,10 @@ const CourseDetails = () => {
       </Head>
       <Wrapper>
         <div className="dash__content text-white pb-20">
-
           {/* ══════════════════════════════════════════════════════
               DESKTOP LAYOUT
           ══════════════════════════════════════════════════════ */}
           <div className="hidden xl:block">
-
             {/* ── HERO ── */}
             <div
               className="relative w-full overflow-hidden rounded-2xl mb-6"
@@ -190,7 +249,7 @@ const CourseDetails = () => {
                     className="absolute inset-0 w-full h-full object-cover"
                   />
                   {/* Strong dark overlay so text is always readable */}
-                  <div className="absolute inset-0 bg-black/80" />
+                  <div className="absolute inset-0 bg-black/90" />
                 </>
               ) : (
                 <div className="absolute inset-0 bg-gradient-to-br from-[#040d0a] to-[#060e10]" />
@@ -198,7 +257,6 @@ const CourseDetails = () => {
 
               {/* Hero content: full-width flex row */}
               <div className="relative z-10 flex items-stretch justify-between min-h-[340px] px-10 py-10">
-
                 {/* LEFT — category + title + description */}
                 <div className="flex flex-col justify-end max-w-[55%] space-y-4">
                   {/* Pill + hours */}
@@ -223,6 +281,25 @@ const CourseDetails = () => {
                   <p className="text-gray-300 text-sm leading-relaxed max-w-md">
                     {course.description}
                   </p>
+
+                  <div className="space-y-2">
+                    {lecturer && (
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-gray-700 overflow-hidden">
+                          <img
+                            src={humanAvatar(
+                              lecturer.name || `lecturer-${lecturer.id}`,
+                            )}
+                            alt={lecturer.name}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <span className="text-gray-400 text-sm">
+                          By {lecturer.name}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* RIGHT — YOUR PROGRESS + CTA */}
@@ -260,15 +337,15 @@ const CourseDetails = () => {
 
             {/* ── BELOW HERO: syllabus+circle (left) + sidebar (right) ── */}
             <div className="flex gap-5 items-start">
-
               {/* ── LEFT COLUMN ── */}
               <div className="flex-1 min-w-0 space-y-5">
-
                 {/* Course Syllabus card */}
                 <div className="bg-[#111827]/80 rounded-2xl border border-white/5 overflow-hidden">
                   {/* Header */}
                   <div className="flex items-center justify-between px-7 py-5 border-b border-white/5">
-                    <h2 className="text-base font-bold text-white">Course Syllabus</h2>
+                    <h2 className="text-base font-bold text-white">
+                      Course Syllabus
+                    </h2>
                     <span className="text-sm text-gray-400">
                       {completedCount} / {totalModules} Modules Completed
                     </span>
@@ -277,19 +354,23 @@ const CourseDetails = () => {
                   {/* Module rows */}
                   <div className="divide-y divide-white/5">
                     {modules.length === 0 && (
-                      <p className="text-gray-500 text-sm py-8 text-center">No modules available yet.</p>
+                      <p className="text-gray-500 text-sm py-8 text-center">
+                        No modules available yet.
+                      </p>
                     )}
                     {modules.map((m: any, idx: number) => {
                       const isCompleted = m.inferredStatus === "COMPLETED";
                       const isCurrent = m.inferredStatus === "CURRENT";
                       const isLocked = m.inferredStatus === "LOCKED";
+                      const isSelected = selectedModuleId === m.id;
 
                       return (
                         <div
                           key={m.id || idx}
-                          className={`flex items-center gap-0 transition-all
-                            ${isCurrent ? "bg-[#1c1800]" : ""}
-                            ${isLocked ? "opacity-50" : ""}
+                          onClick={() => setSelectedModuleId(m.id)}
+                          className={`flex items-center gap-0 transition-all cursor-pointer
+                            ${isSelected ? "bg-[#1f1d12] border border-[#FFB322]/30" : "border-transparent"}
+                            ${isLocked ? "opacity-70" : ""}
                           `}
                         >
                           {/* Left accent bar — 3px wide */}
@@ -305,11 +386,12 @@ const CourseDetails = () => {
                               {/* Status icon — circle */}
                               <div
                                 className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 border-2
-                                  ${isCompleted
-                                    ? "bg-[#27ECB0]/15 border-[#27ECB0]/40 text-[#27ECB0]"
-                                    : isCurrent
-                                    ? "bg-[#FFB322]/10 border-[#FFB322]/40 text-[#FFB322]"
-                                    : "bg-white/5 border-white/10 text-gray-600"
+                                  ${
+                                    isCompleted
+                                      ? "bg-[#27ECB0]/15 border-[#27ECB0]/40 text-[#27ECB0]"
+                                      : isCurrent
+                                        ? "bg-[#FFB322]/10 border-[#FFB322]/40 text-[#FFB322]"
+                                        : "bg-white/5 border-white/10 text-gray-600"
                                   }`}
                               >
                                 {isCompleted && <IoCheckmarkCircle size={22} />}
@@ -331,31 +413,52 @@ const CourseDetails = () => {
                                     </span>
                                   )}
                                 </p>
-                                <p className={`text-sm font-semibold leading-snug ${isLocked ? "text-gray-500" : "text-white"}`}>
+                                <p
+                                  className={`text-sm font-semibold leading-snug ${isLocked ? "text-gray-400" : "text-white"}`}
+                                >
                                   {m.topic}
+                                </p>
+                                <p
+                                  className={`text-[11px] ${isLocked ? "text-gray-300" : "text-gray-400"} mt-1`}
+                                >
+                                  {formatModuleDateTime(
+                                    m.scheduled_datetime,
+                                    m.duration_minutes,
+                                  )}
                                 </p>
                               </div>
                             </div>
 
                             {/* Right side */}
-                            <div className="flex items-center gap-5 shrink-0">
-                              {isCompleted && m.duration_minutes && (
-                                <span className="text-sm text-gray-500 font-medium">
-                                  {m.duration_minutes}:00
-                                </span>
-                              )}
-                              {isLocked && (
-                                <span className="text-xs text-gray-600 font-medium">Locked</span>
-                              )}
-                              {isCurrent && m.isLive && (
-                                <button 
-                                  onClick={() => window.open(m.class_link, "_blank")}
-                                  className="px-5 py-2.5 bg-[#27ECB0]/10 border border-[#27ECB0]/30 text-[#27ECB0] text-[10px] font-black uppercase tracking-[0.2em] rounded-lg hover:bg-[#27ECB0] hover:text-black transition-all"
+                            {/* <div className="flex items-center gap-2 shrink-0">
+                              {m.presentation_link && (
+                                <button
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    openResource(m.presentation_link, "presentation");
+                                  }}
+                                  className="px-3 py-2 bg-white/5 border border-white/10 text-gray-200 text-[10px] font-bold uppercase tracking-[0.2em] rounded-lg hover:bg-white/10 transition-all"
                                 >
-                                  Start Module
+                                  <IoDocumentTextOutline className="inline-block mr-1" size={14} />
+                                  Pres
                                 </button>
                               )}
-                            </div>
+                              {m.recording_link && (
+                                <button
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    openResource(m.recording_link, "recording");
+                                  }}
+                                  className="px-3 py-2 bg-white/5 border border-white/10 text-gray-200 text-[10px] font-bold uppercase tracking-[0.2em] rounded-lg hover:bg-white/10 transition-all"
+                                >
+                                  <IoPlayCircleOutline className="inline-block mr-1" size={14} />
+                                  Vid
+                                </button>
+                              )}
+                              {!m.presentation_link && !m.recording_link && (
+                                <span className="text-[10px] text-gray-500 uppercase tracking-[0.2em]">No resources</span>
+                              )}
+                            </div> */}
                           </div>
                         </div>
                       );
@@ -366,20 +469,31 @@ const CourseDetails = () => {
                 {/* Learning Circle card */}
                 <div className="bg-[#111827]/80 rounded-2xl border border-white/5 px-7 py-6">
                   <div className="flex items-center justify-between mb-5">
-                    <h3 className="text-base font-bold text-white">Learning Circle</h3>
-                    <span className="text-[#27ECB0] text-xs font-semibold flex items-center gap-1 cursor-pointer hover:underline">
+                    <h3 className="text-base font-bold text-white">
+                      Learning Circle
+                    </h3>
+                    <a
+                      href="https://chat.whatsapp.com/GnGE4gOm1wc6V6KUN74qvM?mode=gi_t"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[#27ECB0] text-xs font-semibold flex items-center gap-1 cursor-pointer hover:underline"
+                    >
                       Visit Class Forum <IoChevronForward size={12} />
-                    </span>
+                    </a>
                   </div>
                   <div className="flex items-center gap-4">
                     <div className="flex -space-x-3">
                       {[1, 2, 3, 4].map((i) => (
-                        <div key={i} className="w-10 h-10 rounded-full border-2 border-[#111827] bg-gray-700 overflow-hidden relative">
-                          <img 
-                            src={`https://api.dicebear.com/7.x/fun-emoji/svg?seed=happy&backgroundColor=1ea895&textColor=ffffff&fontSize=40`} 
-                            alt={`student-${i}`} 
-                            width={40} 
-                            height={40} 
+                        <div
+                          key={i}
+                          className="w-10 h-10 rounded-full border-2 border-[#111827] bg-gray-700 overflow-hidden relative"
+                        >
+                          <img
+                            src={humanAvatar(`learning-circle-${i}`)}
+                            alt={`student-${i}`}
+                            width={40}
+                            height={40}
+                            className="w-full h-full object-cover"
                           />
                         </div>
                       ))}
@@ -388,7 +502,9 @@ const CourseDetails = () => {
                       </div>
                     </div>
                     <p className="text-sm text-gray-400">
-                      <span className="font-bold text-white">2,482 Classmates</span>{" "}
+                      <span className="font-bold text-white">
+                        2,482 Classmates
+                      </span>{" "}
                       are currently active in this module.
                     </p>
                   </div>
@@ -397,18 +513,25 @@ const CourseDetails = () => {
 
               {/* ── RIGHT SIDEBAR ── */}
               <div className="w-[280px] xl:w-[300px] shrink-0 space-y-4">
-
                 {/* Course Rewards */}
                 <div
                   className="rounded-2xl border border-white/5 p-6 space-y-4"
-                  style={{ background: "linear-gradient(135deg, #1a1a0f 0%, #0f0f0a 100%)" }}
+                  style={{
+                    background:
+                      "linear-gradient(135deg, #1a1a0f 0%, #0f0f0a 100%)",
+                  }}
                 >
                   <div className="flex items-center gap-3">
-                    <span className="w-9 h-9 bg-orange-400/10 rounded-xl flex items-center justify-center text-lg">🏆</span>
-                    <h3 className="text-sm font-bold text-white">Course Rewards</h3>
+                    <span className="w-9 h-9 bg-orange-400/10 rounded-xl flex items-center justify-center text-lg">
+                      🏆
+                    </span>
+                    <h3 className="text-sm font-bold text-white">
+                      Course Rewards
+                    </h3>
                   </div>
                   <p className="text-xs text-gray-500 leading-relaxed">
-                    Complete the course to unlock exclusive terminal access and blockchain credentials.
+                    Complete the course to unlock exclusive terminal access and
+                    blockchain credentials.
                   </p>
                   <div className="space-y-2.5">
                     {[
@@ -420,7 +543,9 @@ const CourseDetails = () => {
                         className="flex items-center gap-3 p-3 bg-white/5 rounded-xl border border-white/5"
                       >
                         <span className="text-lg">{r.icon}</span>
-                        <span className="text-xs font-semibold text-gray-300">{r.label}</span>
+                        <span className="text-xs font-semibold text-gray-300">
+                          {r.label}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -429,25 +554,43 @@ const CourseDetails = () => {
                 {/* Resources */}
                 <div className="bg-[#111827]/80 rounded-2xl border border-white/5 p-6 space-y-4">
                   <h3 className="text-sm font-bold text-white">Resources</h3>
-                  <div className="space-y-2">
-                    {[
-                      { title: "Course Slides (PDF)", icon: <IoDownloadOutline size={17} /> },
-                      { title: "Python Source Code", icon: <IoCodeSlashOutline size={17} /> },
-                      { title: "Sample Datasets", icon: <IoLayersOutline size={17} /> },
-                    ].map((res, i) => (
-                      <div
-                        key={i}
-                        className="flex items-center justify-between p-3.5 bg-white/5 hover:bg-white/8 rounded-xl cursor-pointer border border-white/5 hover:border-white/10 group transition-all"
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className="text-gray-400 group-hover:text-white transition-colors">{res.icon}</span>
-                          <span className="text-xs font-semibold text-gray-400 group-hover:text-white transition-colors">
-                            {res.title}
-                          </span>
-                        </div>
-                        <IoDownloadOutline size={13} className="text-gray-600 group-hover:text-gray-400 transition-colors" />
-                      </div>
-                    ))}
+                  <p className="text-xs text-gray-500">
+                    Selected module:{" "}
+                    <span className="font-semibold text-white">
+                      {selectedModule?.topic || "None"}
+                    </span>
+                  </p>
+                  <div className="space-y-3 overflow-hidden">
+                    <button
+                      onClick={() =>
+                        openResource(
+                          selectedModule?.presentation_link,
+                          "presentation",
+                        )
+                      }
+                      className="w-full min-w-0 flex items-center justify-between px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/5 rounded-xl text-left transition-all overflow-hidden"
+                    >
+                      <span className="flex items-center gap-2 text-gray-300 min-w-0 truncate">
+                        <IoDocumentTextOutline size={18} />
+                        <span className="truncate">Presentation</span>
+                      </span>
+                      {/* <span className="text-xs text-gray-400 uppercase tracking-[0.2em]">Open</span> */}
+                    </button>
+                    <button
+                      onClick={() =>
+                        openResource(
+                          selectedModule?.recording_link,
+                          "recording",
+                        )
+                      }
+                      className="w-full min-w-0 flex items-center justify-between px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/5 rounded-xl text-left transition-all overflow-hidden"
+                    >
+                      <span className="flex items-center gap-2 text-gray-300 min-w-0 truncate">
+                        <IoPlayCircleOutline size={18} />
+                        <span className="truncate">Recording</span>
+                      </span>
+                      {/* <span className="text-xs text-gray-400 uppercase tracking-[0.2em]">Open</span> */}
+                    </button>
                   </div>
                 </div>
 
@@ -458,22 +601,26 @@ const CourseDetails = () => {
                 >
                   <div className="absolute -bottom-8 -right-8 w-32 h-32 bg-[#FFB322]/8 rounded-full blur-3xl pointer-events-none" />
                   <div className="relative flex items-start gap-3">
-                    <span className="w-9 h-9 bg-[#FFB322]/10 rounded-xl flex items-center justify-center text-base shrink-0 mt-0.5">💡</span>
+                    <span className="w-9 h-9 bg-[#FFB322]/10 rounded-xl flex items-center justify-center text-base shrink-0 mt-0.5">
+                      💡
+                    </span>
                     <div className="space-y-1.5">
-                      <h3 className="text-sm font-bold text-white">Stuck on a problem?</h3>
+                      <h3 className="text-sm font-bold text-white">
+                        Stuck on a problem?
+                      </h3>
                       <p className="text-xs text-gray-500 leading-relaxed">
-                        Our AI Mentor is available 24/7 to debug your backpropagation logic and answer questions.
+                        Our AI Mentor is available 24/7 to debug your
+                        backpropagation logic and answer questions.
                       </p>
                     </div>
                   </div>
-                  <button 
+                  <button
                     onClick={() => dispatch(setChatOpen(true))}
                     className="relative text-[#FFB322] text-xs font-bold tracking-wide flex items-center gap-1.5 hover:gap-3 transition-all ml-12"
                   >
                     Launch Assistant →
                   </button>
                 </div>
-
               </div>
             </div>
           </div>
@@ -482,7 +629,6 @@ const CourseDetails = () => {
               MOBILE LAYOUT
           ══════════════════════════════════════════════════════ */}
           <div className="xl:hidden space-y-5">
-
             {/* Top nav */}
             <div className="flex items-center justify-between pt-1">
               <button
@@ -500,7 +646,11 @@ const CourseDetails = () => {
             {/* Thumbnail */}
             <div className="relative rounded-2xl overflow-hidden h-44 bg-[#0d1117]">
               {thumbnailSrc ? (
-                <img src={thumbnailSrc} alt={course.title} className="w-full h-full object-cover" />
+                <img
+                  src={thumbnailSrc}
+                  alt={course.title}
+                  className="w-full h-full object-cover"
+                />
               ) : (
                 <div className="w-full h-full bg-gradient-to-br from-[#0d1a14] to-[#0d1117]" />
               )}
@@ -513,19 +663,23 @@ const CourseDetails = () => {
 
             {/* Title + lecturer */}
             <div className="space-y-2">
-              <h1 className="text-2xl font-extrabold text-white leading-tight">{course.title}</h1>
+              <h1 className="text-2xl font-extrabold text-white leading-tight">
+                {course.title}
+              </h1>
               {lecturer && (
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-6 rounded-full bg-gray-700 overflow-hidden">
-                    {lecturerPic ? (
-                      <img src={lecturerPic} alt={lecturer.name} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full bg-gray-600 flex items-center justify-center text-[9px] text-white font-bold">
-                        {lecturer.name?.[0]}
-                      </div>
-                    )}
+                    <img
+                      src={humanAvatar(
+                        lecturer.name || `lecturer-${lecturer.id}`,
+                      )}
+                      alt={lecturer.name}
+                      className="w-full h-full object-cover"
+                    />
                   </div>
-                  <span className="text-gray-400 text-sm">By {lecturer.name}</span>
+                  <span className="text-gray-400 text-sm">
+                    By {lecturer.name}
+                  </span>
                 </div>
               )}
             </div>
@@ -533,8 +687,12 @@ const CourseDetails = () => {
             {/* Progress */}
             <div className="space-y-1.5">
               <div className="flex items-center gap-3">
-                <span className="text-[#27ECB0] text-sm font-bold">{progressPercent}% Completed</span>
-                <span className="text-gray-500 text-xs">{completedCount}/{totalModules} Modules</span>
+                <span className="text-[#27ECB0] text-sm font-bold">
+                  {progressPercent}% Completed
+                </span>
+                <span className="text-gray-500 text-xs">
+                  {completedCount}/{totalModules} Modules
+                </span>
               </div>
               <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
                 <div
@@ -558,14 +716,18 @@ const CourseDetails = () => {
             {/* Syllabus */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <h2 className="text-base font-bold text-white">Course Syllabus</h2>
+                <h2 className="text-base font-bold text-white">
+                  Course Syllabus
+                </h2>
                 <div className="flex items-center gap-2">
                   {course.total_hours && (
                     <span className="text-[10px] bg-white/10 text-gray-300 px-2 py-1 rounded-full">
                       {course.total_hours}h Total
                     </span>
                   )}
-                  <span className="text-[#27ECB0] text-xs font-semibold cursor-pointer">View All</span>
+                  <span className="text-[#27ECB0] text-xs font-semibold cursor-pointer">
+                    View All
+                  </span>
                 </div>
               </div>
               <div className="space-y-2">
@@ -573,44 +735,67 @@ const CourseDetails = () => {
                   const isCompleted = m.inferredStatus === "COMPLETED";
                   const isCurrent = m.inferredStatus === "CURRENT";
                   const isLocked = m.inferredStatus === "LOCKED";
+                  const isSelected = selectedModuleId === m.id;
                   return (
                     <div
                       key={m.id || idx}
-                      className={`flex items-center gap-0 rounded-xl border overflow-hidden transition-all
-                        ${isCompleted ? "bg-[#0d1a14] border-white/5" : ""}
-                        ${isCurrent ? "bg-[#1a1400] border-[#FFB322]/40" : ""}
-                        ${isLocked ? "bg-[#0d1117] border-white/5 opacity-50" : ""}
+                      onClick={() => setSelectedModuleId(m.id)}
+                      className={`flex items-center gap-0 rounded-xl border overflow-hidden transition-all cursor-pointer
+                        ${isSelected ? "bg-[#1f1d12] border border-[#FFB322]/30" : "border-transparent"}
+                        ${isCompleted ? "bg-[#0d1a14]" : ""}
+                        ${isCurrent ? "bg-[#1a1400]" : ""}
+                        ${isLocked ? "bg-[#0d1117] opacity-60" : ""}
                       `}
                     >
-                      <div className={`w-[3px] self-stretch shrink-0 ${isCompleted ? "bg-[#27ECB0]" : isCurrent ? "bg-[#FFB322]" : "bg-transparent"}`} />
+                      <div
+                        className={`w-[3px] self-stretch shrink-0 ${isCompleted ? "bg-[#27ECB0]" : isCurrent ? "bg-[#FFB322]" : "bg-transparent"}`}
+                      />
                       <div className="flex-1 flex items-center justify-between px-4 py-4 gap-3">
                         <div className="flex items-center gap-3">
-                          <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0
+                          <div
+                            className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0
                             ${isCompleted ? "bg-[#27ECB0]/15 text-[#27ECB0]" : ""}
                             ${isCurrent ? "bg-[#FFB322]/15 text-[#FFB322]" : ""}
                             ${isLocked ? "bg-white/5 text-gray-600" : ""}
-                          `}>
+                          `}
+                          >
                             {isCompleted && <IoCheckmarkCircle size={18} />}
                             {isCurrent && <IoPlayCircleOutline size={18} />}
                             {isLocked && <IoLockClosedOutline size={15} />}
                           </div>
                           <div>
-                            <p className={`text-[9px] font-bold uppercase tracking-widest mb-0.5 ${isCurrent ? "text-[#FFB322]" : "text-[#27ECB0]"}`}>
+                            <p
+                              className={`text-[9px] font-bold uppercase tracking-widest mb-0.5 ${isCurrent ? "text-[#FFB322]" : "text-[#27ECB0]"}`}
+                            >
                               Module {String(idx + 1).padStart(2, "0")}
                             </p>
-                            <p className={`text-xs font-semibold leading-snug ${isLocked ? "text-gray-600" : "text-white"}`}>
+                            <p
+                              className={`text-xs font-semibold leading-snug ${isLocked ? "text-gray-400" : "text-white"}`}
+                            >
                               {m.topic}
                             </p>
-                            <p className="text-[10px] text-gray-500 mt-0.5">
-                              {isCompleted && `Completed${m.duration_minutes ? " • " + m.duration_minutes + " mins" : ""}`}
-                              {isCurrent && "Next Up"}
-                              {isLocked && `Locked${m.duration_minutes ? " • " + m.duration_minutes + " mins" : ""}`}
+                            <p className="text-[10px] text-gray-300 mt-0.5">
+                              {formatModuleDateTime(
+                                m.scheduled_datetime,
+                                m.duration_minutes,
+                              )}
+                            </p>
+                            <p className="text-[10px] text-gray-300 mt-0.5">
+                              {isCompleted
+                                ? "Completed"
+                                : isCurrent
+                                  ? "Next Up"
+                                  : "Locked"}
                             </p>
                           </div>
                         </div>
-                        {isCompleted && <button className="text-[10px] text-gray-400 border border-white/10 px-3 py-1.5 rounded-lg shrink-0">Review</button>}
+                        {isCompleted && (
+                          <button className="text-[10px] text-gray-400 border border-white/10 px-3 py-1.5 rounded-lg shrink-0">
+                            Review
+                          </button>
+                        )}
                         {isCurrent && m.isLive && (
-                          <button 
+                          <button
                             onClick={() => window.open(m.class_link, "_blank")}
                             className="text-[10px] text-black bg-[#FFB322] font-bold px-3 py-1.5 rounded-lg shrink-0"
                           >
@@ -627,31 +812,63 @@ const CourseDetails = () => {
             {/* Course Rewards mobile */}
             <div className="rounded-2xl border border-[#27ECB0]/20 bg-[#0d1a14] p-5 space-y-3">
               <div className="flex items-center gap-3">
-                <span className="w-10 h-10 bg-[#27ECB0]/10 rounded-xl flex items-center justify-center text-lg">🤖</span>
+                <span className="w-10 h-10 bg-[#27ECB0]/10 rounded-xl flex items-center justify-center text-lg">
+                  🤖
+                </span>
                 <div>
-                  <h3 className="text-sm font-bold text-white">Course Rewards</h3>
-                  <p className="text-[11px] text-gray-400">Complete the final assessment to earn</p>
+                  <h3 className="text-sm font-bold text-white">
+                    Course Rewards
+                  </h3>
+                  <p className="text-[11px] text-gray-400">
+                    Complete the final assessment to earn
+                  </p>
                 </div>
               </div>
               <p className="text-[#27ECB0] text-sm font-bold">
-                +5 CDR AI Units <span className="text-gray-400 font-normal">for your profile.</span>
+                +5 CDR AI Units{" "}
+                <span className="text-gray-400 font-normal">
+                  for your profile.
+                </span>
               </p>
             </div>
 
             {/* Resources mobile */}
-            <div className="space-y-3">
+            <div className="space-y-3 overflow-hidden">
               <h2 className="text-base font-bold text-white">Resources</h2>
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  { title: "Slides", sub: "2.4 MB", icon: <IoDownloadOutline size={22} /> },
-                  { title: "Source Code", sub: "Repository", icon: <IoCodeSlashOutline size={22} /> },
-                ].map((r, i) => (
-                  <div key={i} className="bg-[#0d1117] border border-white/5 rounded-xl p-4 flex flex-col gap-2 cursor-pointer hover:border-[#27ECB0]/30 transition-all">
-                    <span className="text-gray-400">{r.icon}</span>
-                    <span className="text-sm font-semibold text-white">{r.title}</span>
-                    <span className="text-[10px] text-gray-500">{r.sub}</span>
-                  </div>
-                ))}
+              <p className="text-xs text-gray-500">
+                Selected module:{" "}
+                <span className="font-semibold text-white">
+                  {selectedModule?.topic || "None"}
+                </span>
+              </p>
+              <div className="grid grid-cols-1 gap-3">
+                <button
+                  onClick={() =>
+                    openResource(
+                      selectedModule?.presentation_link,
+                      "presentation",
+                    )
+                  }
+                  className="w-full min-w-0 bg-[#0d1117] border border-white/5 rounded-xl p-4 flex items-center justify-between gap-3 hover:border-[#27ECB0]/30 transition-all overflow-hidden"
+                >
+                  <span className="flex items-center gap-2 text-gray-300 min-w-0 truncate">
+                    <IoDocumentTextOutline size={22} />
+                    <span className="truncate">Presentation</span>
+                  </span>
+                  {/* <span className="text-xs text-gray-400 uppercase tracking-[0.2em]">Open</span> */}
+                </button>
+                <button
+                  onClick={() =>
+                    openResource(selectedModule?.recording_link, "recording")
+                  }
+                  className="w-full min-w-0 bg-[#0d1117] border border-white/5 rounded-xl p-4 flex items-center justify-between gap-3 hover:border-[#27ECB0]/30 transition-all overflow-hidden"
+                >
+                  <span className="flex items-center gap-2 text-gray-300 min-w-0 truncate">
+                    <IoPlayCircleOutline size={22} />
+                    <span className="truncate">Recording</span>
+                  </span>
+                  {/* <span className="text-xs text-gray-400 uppercase tracking-[0.2em]">Open</span> */}
+                </button>
               </div>
             </div>
 
@@ -663,12 +880,16 @@ const CourseDetails = () => {
               </div>
               <div className="flex -space-x-3">
                 {[1, 2, 3, 4].map((i) => (
-                  <div key={i} className="w-9 h-9 rounded-full border-2 border-[#0d1117] bg-gray-700 overflow-hidden relative">
-                    <img 
-                      src={`https://api.dicebear.com/7.x/fun-emoji/svg?seed=happy&backgroundColor=1ea895&textColor=ffffff&fontSize=40`} 
-                      alt={`s${i}`} 
-                      width={36} 
-                      height={36} 
+                  <div
+                    key={i}
+                    className="w-9 h-9 rounded-full border-2 border-[#0d1117] bg-gray-700 overflow-hidden relative"
+                  >
+                    <img
+                      src={humanAvatar(`classmate-${i}`)}
+                      alt={`s${i}`}
+                      width={36}
+                      height={36}
+                      className="w-full h-full object-cover"
                     />
                   </div>
                 ))}
@@ -676,20 +897,25 @@ const CourseDetails = () => {
                   +124
                 </div>
               </div>
-              <p className="text-center text-sm text-gray-400 py-3 border border-white/10 rounded-xl cursor-pointer hover:border-[#27ECB0]/30 transition-all">
+              <a
+                href="https://chat.whatsapp.com/GnGE4gOm1wc6V6KUN74qvM?mode=gi_t"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-center text-sm text-gray-400 py-3 border border-white/10 rounded-xl cursor-pointer hover:border-[#27ECB0]/30 transition-all"
+              >
                 Join Discussion Forum
-              </p>
+              </a>
             </div>
-
           </div>
-
         </div>
       </Wrapper>
 
       {/* AI Agent Chat Component */}
-      <AIAgentChat studentContext={{
-        course_details: { course: course },
-      }} />
+      <AIAgentChat
+        studentContext={{
+          course_details: { course: course },
+        }}
+      />
     </>
   );
 };

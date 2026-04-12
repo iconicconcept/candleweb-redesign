@@ -32,6 +32,7 @@ export interface User {
   access_token?: string;
   first_name?: string;
   last_name?: string;
+  phone?: string;
 }
 
 export interface UserExchange {

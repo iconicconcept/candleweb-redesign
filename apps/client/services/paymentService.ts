@@ -6,6 +6,8 @@ interface InitiatePaymentPayload {
   email: string;
   first_name: string;
   last_name: string;
+  phone: string;
+  referrer_username?: string
   pricing_tier_id?: number;
   callback_url?: string;
 }
