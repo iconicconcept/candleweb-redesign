@@ -901,7 +901,7 @@ const CourseDetails = () => {
                 href="https://chat.whatsapp.com/GnGE4gOm1wc6V6KUN74qvM?mode=gi_t"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-center text-sm text-gray-400 py-3 border border-white/10 rounded-xl cursor-pointer hover:border-[#27ECB0]/30 transition-all"
+                className="block text-center text-sm text-gray-400 py-3 hover:bg-[#27ECB0]/5 border border-white/10 rounded-xl cursor-pointer hover:border-[#27ECB0]/30 transition-all"
               >
                 Join Discussion Forum
               </a>
