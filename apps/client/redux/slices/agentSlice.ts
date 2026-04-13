@@ -9,6 +9,7 @@ const initialState: AgentChatState = {
   isLoading: false,
   error: null,
   isChatOpen: false,
+  agentType: "tutor",
 };
 
 export const agentSlice = createSlice({
@@ -45,6 +46,20 @@ export const agentSlice = createSlice({
       state.messages = [];
       state.error = null;
     },
+    updateLastMessageResponse: (state, action: PayloadAction<string>) => {
+      if (state.messages.length > 0) {
+        const lastIndex = state.messages.length - 1;
+        // Explicitly spread to ensure un-memoized new reference
+        state.messages[lastIndex] = {
+          ...state.messages[lastIndex],
+          response: action.payload,
+          updated_at: new Date().toISOString(),
+        };
+      }
+    },
+    setAgentType: (state, action: PayloadAction<"tutor" | "customer-care">) => {
+      state.agentType = action.payload;
+    },
   },
 });
 
@@ -58,6 +73,8 @@ export const {
   toggleChatOpen,
   setChatOpen,
   createNewChat,
+  updateLastMessageResponse,
+  setAgentType,
 } = agentSlice.actions;
 
 export default agentSlice.reducer;

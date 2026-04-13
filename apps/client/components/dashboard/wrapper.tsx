@@ -13,6 +13,7 @@ import CheckLogin from "./CheckLogin";
 import exchangeServices from "../../services/exchangeService";
 import { isAuthorizationHeaderSet } from "../../utils/check_auth";
 import useUserStore from "../../lib/hooks/useUserStore";
+import AIAgentChat from "./AIAgentChat";
 
 interface Pages {
   children?: React.ReactNode;
@@ -118,6 +119,7 @@ const Wrapper = (props: Pages) => {
             </ul>
           </div> */}
         </div>
+        <AIAgentChat />
       </CheckLogin>
     </>
   );

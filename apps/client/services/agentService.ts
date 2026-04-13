@@ -10,13 +10,14 @@ import { axiosApi } from "../lib/axiosApi";
 /**
  * Send a message to the tutor agent
  */
-const sendTutorMessage = createAsyncThunk(
-  "agent/sendTutorMessage",
+const sendMessage = createAsyncThunk(
+  "agent/sendMessage",
   async (
     payload: {
       api: AxiosInstance;
       userId: string;
       query: string;
+      agentType: "tutor" | "customer-care";
       studentContext?: StudentContext;
       accessToken: string;
     },
@@ -24,11 +25,12 @@ const sendTutorMessage = createAsyncThunk(
   ) => {
     try {
       const response = await axios.post<ChatResponse>(
-        "/api/tutor-chat/",
+        "/api/agent-chat/",
         {
+          agentType: payload.agentType,
           user_id: payload.userId,
           query: payload.query,
-          student_context: payload.studentContext || {},
+          ...(payload.agentType === "tutor" ? { student_context: payload.studentContext || {} } : {}),
         },
         {
           headers: {
@@ -40,11 +42,17 @@ const sendTutorMessage = createAsyncThunk(
 
       return response.data.response;
     } catch (err: any) {
-      const errorMessage =
-        err.response?.data?.message ||
-        err.message ||
-        "Failed to get response from agent";
-      error(errorMessage);
+      let errorMessage = "Failed to get response from agent";
+      
+      // Specifically handle rate limiting 429
+      if (err.response?.status === 429 && err.response?.data?.detail) {
+        errorMessage = err.response.data.detail;
+      } else {
+        errorMessage = err.response?.data?.message || err.message || errorMessage;
+        // Don't toast 429, we handle it inline. Do toast other errors.
+        error(errorMessage);
+      }
+      
       return thunkApi.rejectWithValue(errorMessage);
     }
   },
@@ -102,7 +110,7 @@ const sendConversationFeedback = createAsyncThunk(
 );
 
 const agentService = {
-  sendTutorMessage,
+  sendMessage,
   fetchChats,
   sendConversationFeedback,
 };

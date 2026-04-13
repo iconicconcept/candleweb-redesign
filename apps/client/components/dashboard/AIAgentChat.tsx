@@ -7,50 +7,54 @@ import {
   createNewChat,
   setIsLoading,
   setError,
+  setAgentType,
 } from "../../redux/slices/agentSlice";
 import agentService from "../../services/agentService";
 import useAxiosAuth from "../../lib/hooks/useAxiosAuth";
 import useUserStore from "../../lib/hooks/useUserStore";
 import { ChatMessage } from "../../types/agent";
-import { IoClose, IoSend, IoPaperPlane } from "react-icons/io5";
+import { IoClose, IoPaperPlane } from "react-icons/io5";
 import { MdSmartToy } from "react-icons/md";
+import { BsThreeDots } from "react-icons/bs";
 
 interface AIAgentChatProps {
-  studentContext?: any;
+  studentContext?: Record<string, any>;
 }
 
-export default function AIAgentChat({ studentContext }: AIAgentChatProps) {
+export default function AIAgentChat({ studentContext: additionalStudentContext }: AIAgentChatProps = {}) {
   const dispatch = useDispatch<AppDispatch>();
   const axiosToken = useAxiosAuth();
   const { user } = useUserStore();
 
-  const { isChatOpen, isLoading, messages, error } = useSelector(
+  const { isChatOpen, isLoading, messages, error, agentType } = useSelector(
     (state: RootState) => state.agent,
   );
+  
+  const { tasks, stats } = useSelector((state: RootState) => state.task);
 
   const [inputValue, setInputValue] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const isSending = useRef(false);
 
-  // Auto scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Focus input when chat opens
   useEffect(() => {
     if (isChatOpen) {
       setTimeout(() => inputRef.current?.focus(), 300);
     }
   }, [isChatOpen]);
 
-  const handleSendMessage = async () => {
-    if (!inputValue.trim() || isLoading) return;
+  const handleSendMessage = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!inputValue.trim() || isLoading || isSending.current) return;
 
     const userMessage = inputValue.trim();
     setInputValue("");
+    isSending.current = true;
 
-    // Add user message to chat
     const userMsg: ChatMessage = {
       id: Date.now(),
       chat_id: 0,
@@ -64,35 +68,57 @@ export default function AIAgentChat({ studentContext }: AIAgentChatProps) {
     dispatch(setIsLoading(true));
     dispatch(setError(null));
 
+    // Construct robust context
+    const aiUnits = stats?.earned_units ?? 0;
+    const AI_UNIT_VALUE_NGN = 64.1;
+    const studentContext = {
+      task_info: {
+        count: tasks?.length || 0,
+      },
+      earnings_info: { revenue: aiUnits * AI_UNIT_VALUE_NGN, ai_units: aiUnits },
+      ...(additionalStudentContext || {}),
+    };
+
     try {
-      // Call tutor agent API
       const response = await dispatch(
-        agentService.sendTutorMessage({
+        agentService.sendMessage({
           api: axiosToken,
           userId: user?.username || "user",
           query: userMessage,
-          studentContext: studentContext || {},
+          agentType: agentType,
+          studentContext,
           accessToken: user?.access_token || "",
         }),
-      );
+      ).unwrap();
 
-      if (response.payload && typeof response.payload === "string") {
+      let responseText = "";
+      if (response && typeof response === "string") {
+        responseText = response;
+      } else if (response && typeof response === "object" && (response as any).response) {
+        responseText = (response as any).response;
+      }
+
+      if (responseText) {
         const agentMsg: ChatMessage = {
           id: Date.now() + 1,
           chat_id: 0,
-          user_query: userMessage,
-          response: response.payload,
+          user_query: "", // empty user query block
+          response: responseText,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         };
-
         dispatch(addMessage(agentMsg));
+      } else {
+        console.error("Unknown response structure:", response);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error sending message:", err);
-      dispatch(setError("Failed to get response. Please try again."));
+      // Ensure the error gets saved to state to render inline red-text
+      dispatch(setError(err || "Failed to get response. Please try again."));
     } finally {
       dispatch(setIsLoading(false));
+      isSending.current = false;
+      setTimeout(() => inputRef.current?.focus(), 100);
     }
   };
 
@@ -103,86 +129,94 @@ export default function AIAgentChat({ studentContext }: AIAgentChatProps) {
     }
   };
 
-  const handleClose = () => {
-    dispatch(setChatOpen(false));
+  const handleAgentChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    dispatch(setAgentType(e.target.value as "tutor" | "customer-care"));
   };
 
-  const handleNewChat = () => {
-    dispatch(createNewChat());
+  const formatTime = (isoString: string) => {
+    return new Date(isoString).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).toUpperCase();
   };
 
   return (
     <>
-      {/* Chat Toggle Button - Always visible */}
       {!isChatOpen && (
         <button
           onClick={() => dispatch(setChatOpen(true))}
-          className="fixed bottom-6 right-6 z-40 p-4 rounded-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg hover:shadow-xl transition-all duration-300 group"
+          className="fixed bottom-6 right-6 z-40 p-[14px] rounded-2xl bg-primary hover:bg-primary/90 shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:shadow-xl transition-all duration-300 group inline-flex border border-white/10"
           title="Open AI Tutor"
         >
-          <MdSmartToy size={24} className="text-white animate-bounce" />
-          <div className="hidden group-hover:block absolute bottom-full right-0 mb-3 bg-black/90 text-white text-xs px-3 py-2 rounded whitespace-nowrap">
-            AI Learning Assistant
-          </div>
+          <MdSmartToy size={32} className="text-[#0d1017]" />
         </button>
       )}
 
-      {/* Chat Panel */}
       {isChatOpen && (
-        <div className="fixed z-50 bg-card border border-white/10 shadow-2xl flex flex-col overflow-hidden animate-fade-in top-0 left-0 right-0 bottom-0 w-full h-full sm:inset-auto sm:bottom-6 sm:right-6 sm:w-96 sm:h-[600px] sm:max-h-[90vh] sm:rounded-2xl xl:inset-y-0 xl:right-0 xl:bottom-auto xl:left-auto xl:w-1/2 xl:max-w-2xl xl:h-full xl:rounded-none xl:rounded-l-2xl xl:border-l xl:border-b-0 xl:border-r-0 xl:border-t-0">
+        <div className="fixed z-50 bg-[#121212] border border-white/5 shadow-2xl flex flex-col overflow-hidden animate-fade-in 
+            bottom-6 right-6 w-[420px] h-[650px] max-h-[90vh] rounded-[20px] inset-auto
+            tb:bottom-0 tb:right-0 tb:left-0 tb:top-0 tb:w-full tb:h-full tb:max-h-none tb:rounded-none tb:inset-0">
+          
           {/* Header */}
-          <div className="bg-gradient-to-r from-primary/20 to-primary/10 border-b border-primary/20 px-6 py-4 flex items-center justify-between">
+          <div className="px-6 py-5 flex items-center justify-between border-b border-white/5 bg-[#121212]">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-full bg-primary/20">
-                <MdSmartToy className="text-primary" size={20} />
+              <div className="p-2.5 rounded-xl bg-primary/20 flex-shrink-0">
+                <MdSmartToy className="text-primary" size={24} />
               </div>
-              <div>
-                <p className="text-sm font-semibold text-white">
-                  Learning Assistant
+              <div className="flex-1 min-w-0">
+                <p className="text-[15px] font-bold text-white">
+                  Al Co-pilot
                 </p>
-                <p className="text-xs text-txtGray">
-                  {isLoading ? "Thinking..." : "Ready to help"}
-                </p>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+                  <p className="text-[9px] text-primary tracking-widest uppercase font-bold">
+                    SYSTEMS ONLINE
+                  </p>
+                </div>
               </div>
             </div>
-            <button
-              onClick={handleClose}
-              className="p-2 hover:bg-white/5 rounded-lg transition-colors"
-              title="Close chat"
-            >
-              <IoClose size={20} className="text-white" />
-            </button>
+            <div className="flex items-center gap-1">
+               <button className="p-2 hover:bg-white/5 rounded-lg transition-colors">
+                 <BsThreeDots size={18} className="text-white/70" />
+               </button>
+               <button
+                 onClick={() => dispatch(setChatOpen(false))}
+                 className="p-2 hover:bg-white/5 rounded-lg transition-colors"
+               >
+                 <IoClose size={20} className="text-white" />
+               </button>
+            </div>
           </div>
 
           {/* Messages Container */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-black/20">
+          <div className="flex-1 overflow-y-auto p-5 space-y-6 bg-black/10">
             {messages.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center px-4">
-                <div className="p-4 rounded-full bg-primary/10 mb-4">
-                  <MdSmartToy size={32} className="text-primary" />
-                </div>
-                <p className="text-sm text-txtGray mb-2">
-                  Welcome to your AI Learning Assistant
-                </p>
                 <p className="text-xs text-txtGray/70">
-                  Ask questions about your courses, concepts, or anything
-                  you&apos;d like to understand better
+                  You requested system communications.
                 </p>
               </div>
             ) : (
               messages.map((msg: ChatMessage) => (
-                <div key={msg.id} className="space-y-2">
+                <div key={msg.id} className="space-y-4">
                   {/* User Message */}
-                  <div className="flex justify-end">
-                    <div className="max-w-xs bg-primary/30 hover:bg-primary/40 text-white px-4 py-2 rounded-2xl rounded-tr-none text-sm break-words transition-colors">
-                      {msg.user_query}
+                  {msg.user_query && msg.user_query.trim() !== "" && (
+                    <div className="flex flex-col items-end">
+                      <div className="flex items-center gap-2 mb-1.5 mr-1">
+                        <span className="text-[10px] text-txtGray font-medium">{formatTime(msg.created_at)}</span>
+                        <span className="text-[10px] text-[#ffb86c] font-black uppercase tracking-wider">YOU</span>
+                      </div>
+                      <div className="max-w-[85%] bg-[#1c140d] border border-[#ffb86c]/20 text-white/90 px-4 py-3.5 rounded-2xl rounded-tr-sm text-[13px] break-words leading-relaxed shadow-sm">
+                        {msg.user_query}
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Agent Response */}
-                  {msg.response && (
-                    <div className="flex justify-start">
-                      <div className="max-w-xs bg-white/5 hover:bg-white/10 text-white px-4 py-2 rounded-2xl rounded-tl-none text-sm break-words transition-colors border border-white/10">
+                  {msg.response && msg.response.trim() !== "" && (
+                    <div className="flex flex-col items-start">
+                      <div className="flex items-center gap-2 mb-1.5 ml-1">
+                        <span className="text-[10px] text-primary font-black uppercase tracking-wider">CO-PILOT</span>
+                        <span className="text-[10px] text-txtGray font-medium">{formatTime(msg.updated_at)}</span>
+                      </div>
+                      <div className="max-w-[85%] bg-[#1a1a1a] border border-white/5 text-white/90 px-4 py-3.5 rounded-2xl rounded-tl-sm text-[13px] break-words leading-relaxed shadow-sm">
                         {msg.response}
                       </div>
                     </div>
@@ -192,26 +226,19 @@ export default function AIAgentChat({ studentContext }: AIAgentChatProps) {
             )}
 
             {isLoading && (
-              <div className="flex justify-start">
-                <div className="bg-white/5 text-white px-4 py-3 rounded-2xl rounded-tl-none border border-white/10">
-                  <div className="flex gap-1">
-                    <div className="w-2 h-2 bg-primary rounded-full animate-bounce" />
-                    <div
-                      className="w-2 h-2 bg-primary rounded-full animate-bounce"
-                      style={{ animationDelay: "0.1s" }}
-                    />
-                    <div
-                      className="w-2 h-2 bg-primary rounded-full animate-bounce"
-                      style={{ animationDelay: "0.2s" }}
-                    />
+              <div className="flex flex-col items-start">
+                  <div className="flex items-center gap-2 mb-1.5 ml-1">
+                    <span className="text-[10px] text-primary font-black uppercase tracking-wider">CO-PILOT</span>
                   </div>
-                </div>
+                  <div className="bg-[#1a1a1a] text-txtGray/70 text-[13px] px-5 py-3 rounded-2xl rounded-tl-sm border border-white/5 shadow-sm font-medium">
+                    Loading response...
+                  </div>
               </div>
             )}
 
             {error && (
-              <div className="flex justify-center">
-                <div className="bg-red-500/20 border border-red-500/30 text-red-200 px-4 py-2 rounded-lg text-xs">
+              <div className="flex justify-center mt-4">
+                <div className="bg-red-500/10 border border-red-500/30 text-red-500 font-medium px-4 py-2.5 rounded-xl text-xs w-full text-center">
                   {error}
                 </div>
               </div>
@@ -220,85 +247,59 @@ export default function AIAgentChat({ studentContext }: AIAgentChatProps) {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input Area */}
-          <div className="border-t border-white/10 bg-black/40 p-4 space-y-2">
-            {/* New Chat Button */}
-            {messages.length > 0 && (
-              <button
-                onClick={handleNewChat}
-                className="w-full text-xs text-primary hover:text-primary/80 font-medium py-2 px-3 rounded-lg hover:bg-primary/5 transition-all border border-primary/20"
-              >
-                + New Conversation
-              </button>
-            )}
+          {/* Form & Input Area */}
+          <div className="bg-[#0b0c0f] p-5 pb-4 flex flex-col gap-3 z-10 border-t border-white/5 relative">
+            
+            {/* Dropdown for Agent */}
+            <div className="px-1 flex items-center justify-start">
+              <div className="flex items-center gap-2 bg-[#1a1a1a] px-3 py-1.5 rounded-lg border border-white/5">
+                 <MdSmartToy size={14} className="text-primary" />
+                 <select 
+                    value={agentType}
+                    onChange={handleAgentChange}
+                    className="bg-transparent text-[11px] text-white/80 font-bold outline-none cursor-pointer tracking-wide appearance-none pr-3"
+                 >
+                   <option value="tutor" className="bg-card p-1">Tutor</option>
+                   <option value="customer-care" className="bg-card p-109">Customer care</option>
+                 </select>
+              </div>
+            </div>
 
-            {/* Input Field */}
-            <div className="flex gap-2">
+            <form onSubmit={handleSendMessage} className="relative mt-1">
               <input
                 ref={inputRef}
                 type="text"
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder="Ask me anything..."
+                placeholder="Ask anything about your portfolio..."
                 disabled={isLoading}
-                className="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 focus:border-primary/50 rounded-full px-4 py-2 text-sm text-white placeholder-txtGray/50 focus:outline-none transition-colors disabled:opacity-50"
+                className="w-full bg-[#1e1e1e] border border-white/5 focus:border-primary/30 rounded-full pl-5 pr-[52px] py-3.5 text-[13px] text-white placeholder-txtGray/60 focus:outline-none transition-colors disabled:opacity-50 shadow-inner"
               />
               <button
-                onClick={handleSendMessage}
+                type="submit"
                 disabled={!inputValue.trim() || isLoading}
-                className="p-2 rounded-full bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:shadow-lg hover:shadow-primary/30"
+                className="absolute right-2 top-2 bottom-2 aspect-square rounded-full bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center transition-all shadow-[0_0_15px_rgba(39,236,176,0.3)] hover:shadow-[0_0_20px_rgba(39,236,176,0.5)]"
                 title="Send message"
               >
-                <IoPaperPlane size={16} className="text-white" />
+                <IoPaperPlane size={16} className="text-[#0d1017] ml-0.5" />
               </button>
-            </div>
+            </form>
+            
+            <p className="text-[9px] text-txtGray/40 text-center uppercase tracking-widest mt-1.5 font-bold">
+              Candle AI Agents v1
+            </p>
           </div>
         </div>
       )}
 
-      {/* Overlay */}
+      {/* Overlay for mobile ONLY (optional, to dim background) */}
       {isChatOpen && (
         <div
-          className="fixed inset-0 z-40 pointer-events-auto"
-          onClick={handleClose}
-          style={{ background: "rgba(0,0,0,0.2)" }}
+          className="fixed inset-0 z-40 bg-black/60 pointer-events-auto sm:bg-transparent"
+          onClick={() => dispatch(setChatOpen(false))}
         />
       )}
-
-      <style jsx>{`
-        @keyframes slide-in-bottom {
-          from {
-            transform: translateY(20px);
-            opacity: 0;
-          }
-          to {
-            transform: translateY(0);
-            opacity: 1;
-          }
-        }
-
-        @keyframes slide-in-right {
-          from {
-            transform: translateX(100%);
-            opacity: 0;
-          }
-          to {
-            transform: translateX(0);
-            opacity: 1;
-          }
-        }
-
-        .animate-fade-in {
-          animation: slide-in-bottom 0.3s ease-out;
-        }
-
-        @media (min-width: 768px) {
-          .animate-fade-in {
-            animation: slide-in-right 0.3s ease-out;
-          }
-        }
-      `}</style>
     </>
   );
 }

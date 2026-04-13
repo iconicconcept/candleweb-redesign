@@ -10,6 +10,20 @@ import {
 } from "../redux/slices/taskSlice";
 import { error, success } from "../components/alert/Toast";
 
+const getErrorMessage = (err: any): string => {
+  const e = err as AxiosError;
+  const data = e.response?.data as any;
+  if (!data) return e.message ?? e.toString();
+  if (typeof data === "string") return data;
+  if (data.message) return data.message;
+  if (typeof data === "object") {
+    const firstValue = Object.values(data)[0];
+    if (Array.isArray(firstValue) && firstValue.length > 0) return String(firstValue[0]);
+    if (typeof firstValue === "string") return firstValue;
+  }
+  return e.message ?? e.toString();
+};
+
 const getTasks = createAsyncThunk(
   "/tasks",
   async (api: AxiosInstance, thunkApi) => {
@@ -24,8 +38,7 @@ const getTasks = createAsyncThunk(
       thunkApi.dispatch(setTask(data ?? []));
       return data;
     } catch (err: any) {
-      const e = err as AxiosError;
-      return thunkApi.rejectWithValue((e.response?.data as any).message);
+      return thunkApi.rejectWithValue(getErrorMessage(err));
     }
   }
 );
@@ -42,8 +55,7 @@ const getReward = createAsyncThunk(
 
       return data;
     } catch (err: any) {
-      const e = err as AxiosError;
-      return thunkApi.rejectWithValue((e.response?.data as any).message);
+      return thunkApi.rejectWithValue(getErrorMessage(err));
     }
   }
 );
@@ -66,14 +78,9 @@ const verifyReward = createAsyncThunk(
 
       return data;
     } catch (err: any) {
-      const e = err as AxiosError;
-      error(
-        (e.response?.data as any).message ??
-          (e?.response?.data as any) ??
-          e.message ??
-          e.toString()
-      );
-      return thunkApi.rejectWithValue((e.response?.data as any).message);
+      const errMsg = getErrorMessage(err);
+      error(errMsg);
+      return thunkApi.rejectWithValue(errMsg);
     }
   }
 );
@@ -99,9 +106,9 @@ const claimReward = createAsyncThunk(
 
       return data;
     } catch (err: any) {
-      const e = err as AxiosError;
-      error((e.response?.data as any).message);
-      return thunkApi.rejectWithValue((e.response?.data as any).message);
+      const errMsg = getErrorMessage(err);
+      error(errMsg);
+      return thunkApi.rejectWithValue(errMsg);
     }
   }
 );
@@ -118,8 +125,7 @@ const getTaskStats = createAsyncThunk(
 
       return data;
     } catch (err: any) {
-      const e = err as AxiosError;
-      return thunkApi.rejectWithValue((e.response?.data as any).message);
+      return thunkApi.rejectWithValue(getErrorMessage(err));
     }
   }
 );
@@ -134,8 +140,7 @@ const getTaskStreak = createAsyncThunk(
 
       return data;
     } catch (err: any) {
-      const e = err as AxiosError;
-      return thunkApi.rejectWithValue((e.response?.data as any).message);
+      return thunkApi.rejectWithValue(getErrorMessage(err));
     }
   }
 );
@@ -150,8 +155,7 @@ const getLeaderboard = createAsyncThunk(
 
       return data;
     } catch (err: any) {
-      const e = err as AxiosError;
-      return thunkApi.rejectWithValue((e.response?.data as any).message);
+      return thunkApi.rejectWithValue(getErrorMessage(err));
     }
   }
 );

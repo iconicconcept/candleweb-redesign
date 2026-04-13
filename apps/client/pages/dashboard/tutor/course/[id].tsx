@@ -23,11 +23,10 @@ import { useDispatch } from "react-redux";
 import { AppDispatch } from "../../../../redux/store";
 import { setChatOpen } from "../../../../redux/slices/agentSlice";
 import AIAgentChat from "../../../../components/dashboard/AIAgentChat";
+import { UserAvatarImage } from "ui";
+import Image from "next/image";
 
-const humanAvatar = (seed: string) =>
-  `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(
-    seed,
-  )}&backgroundColor=transparent`;
+// We will use UserAvatarImage instead of humanAvatar
 
 const normalizeRouteId = (id: string | string[] | undefined) =>
   Array.isArray(id) ? id[0] : id;
@@ -52,6 +51,7 @@ const CourseDetails = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedModuleId, setSelectedModuleId] = useState<number | null>(null);
+  const [showAllModules, setShowAllModules] = useState(false);
 
   const scheduleModules = Array.isArray(course?.class_schedules)
     ? course.class_schedules
@@ -99,6 +99,8 @@ const CourseDetails = () => {
       setSelectedModuleId(currentModule.id);
     }
   }, [course]);
+
+  const displayModules = showAllModules ? modules : modules.slice(0, 10);
 
   useEffect(() => {
     if (!router.isReady) return;
@@ -175,6 +177,18 @@ const CourseDetails = () => {
     modules.find((m: any) => m.inferredStatus === "CURRENT") ||
     modules[0] ||
     null;
+
+  const defaultBenefits = [
+    { label: "Certified NFT Diploma", icon: "🎓" },
+    { label: "500 LMN Credits", icon: "⭐" },
+  ];
+
+  const displayBenefits =
+    course?.benefits && course.benefits.length > 0
+      ? course.benefits.map((b: any) =>
+          typeof b === "string" ? { label: b, icon: "⭐" } : b,
+        )
+      : defaultBenefits;
 
   const openResource = (
     link: string | null | undefined,
@@ -286,11 +300,11 @@ const CourseDetails = () => {
                     {lecturer && (
                       <div className="flex items-center gap-2">
                         <div className="w-6 h-6 rounded-full bg-gray-700 overflow-hidden">
-                          <img
-                            src={humanAvatar(
-                              lecturer.name || `lecturer-${lecturer.id}`,
-                            )}
+                          <Image
+                            src={UserAvatarImage}
                             alt={lecturer.name}
+                            width={24}
+                            height={24}
                             className="w-full h-full object-cover"
                           />
                         </div>
@@ -346,9 +360,23 @@ const CourseDetails = () => {
                     <h2 className="text-base font-bold text-white">
                       Course Syllabus
                     </h2>
-                    <span className="text-sm text-gray-400">
-                      {completedCount} / {totalModules} Modules Completed
-                    </span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm text-gray-400">
+                        {completedCount} / {totalModules} Modules Completed
+                      </span>
+                      {course.total_hours && (
+                        <span className="text-[10px] bg-white/10 text-gray-300 px-2 py-1 rounded-full">
+                          {course.total_hours}h Total
+                        </span>
+                      )}
+                      {modules.length > 10 && (
+                        <span 
+                          onClick={() => setShowAllModules(!showAllModules)}
+                          className="text-[#27ECB0] text-xs font-semibold cursor-pointer">
+                          {showAllModules ? "View Less" : "View All"}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {/* Module rows */}
@@ -358,7 +386,7 @@ const CourseDetails = () => {
                         No modules available yet.
                       </p>
                     )}
-                    {modules.map((m: any, idx: number) => {
+                    {displayModules.map((m: any, idx: number) => {
                       const isCompleted = m.inferredStatus === "COMPLETED";
                       const isCurrent = m.inferredStatus === "CURRENT";
                       const isLocked = m.inferredStatus === "LOCKED";
@@ -407,11 +435,6 @@ const CourseDetails = () => {
                                   `}
                                 >
                                   Module {String(idx + 1).padStart(2, "0")}
-                                  {isCurrent && (
-                                    <span className="ml-2 text-gray-400 normal-case font-normal tracking-normal">
-                                      — Next Up
-                                    </span>
-                                  )}
                                 </p>
                                 <p
                                   className={`text-sm font-semibold leading-snug ${isLocked ? "text-gray-400" : "text-white"}`}
@@ -425,6 +448,13 @@ const CourseDetails = () => {
                                     m.scheduled_datetime,
                                     m.duration_minutes,
                                   )}
+                                </p>
+                                <p className="text-[10px] text-gray-300 mt-0.5">
+                                  {isCompleted
+                                    ? "Completed"
+                                    : isCurrent
+                                      ? "Next Up"
+                                      : "Locked"}
                                 </p>
                               </div>
                             </div>
@@ -488,8 +518,8 @@ const CourseDetails = () => {
                           key={i}
                           className="w-10 h-10 rounded-full border-2 border-[#111827] bg-gray-700 overflow-hidden relative"
                         >
-                          <img
-                            src={humanAvatar(`learning-circle-${i}`)}
+                          <Image
+                            src={UserAvatarImage}
                             alt={`student-${i}`}
                             width={40}
                             height={40}
@@ -534,15 +564,12 @@ const CourseDetails = () => {
                     blockchain credentials.
                   </p>
                   <div className="space-y-2.5">
-                    {[
-                      { label: "Certified NFT Diploma", icon: "🎓" },
-                      { label: "500 LMN Credits", icon: "⭐" },
-                    ].map((r, i) => (
+                    {displayBenefits.map((r: any, i: number) => (
                       <div
                         key={i}
-                        className="flex items-center gap-3 p-3 bg-white/5 rounded-xl border border-white/5"
+                        className="flex items-center gap-3 p-3 bg-white/5 rounded-xl border border-white/10"
                       >
-                        <span className="text-lg">{r.icon}</span>
+                        <span className="text-lg">{r.icon || "🎁"}</span>
                         <span className="text-xs font-semibold text-gray-300">
                           {r.label}
                         </span>
@@ -669,11 +696,11 @@ const CourseDetails = () => {
               {lecturer && (
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-6 rounded-full bg-gray-700 overflow-hidden">
-                    <img
-                      src={humanAvatar(
-                        lecturer.name || `lecturer-${lecturer.id}`,
-                      )}
+                    <Image
+                      src={UserAvatarImage}
                       alt={lecturer.name}
+                      width={24}
+                      height={24}
                       className="w-full h-full object-cover"
                     />
                   </div>
@@ -720,18 +747,25 @@ const CourseDetails = () => {
                   Course Syllabus
                 </h2>
                 <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-gray-400">
+                    {completedCount} / {totalModules} Modules
+                  </span>
                   {course.total_hours && (
                     <span className="text-[10px] bg-white/10 text-gray-300 px-2 py-1 rounded-full">
                       {course.total_hours}h Total
                     </span>
                   )}
-                  <span className="text-[#27ECB0] text-xs font-semibold cursor-pointer">
-                    View All
-                  </span>
+                  {modules.length > 10 && (
+                    <span 
+                      onClick={() => setShowAllModules(!showAllModules)}
+                      className="text-[#27ECB0] text-xs font-semibold cursor-pointer">
+                      {showAllModules ? "View Less" : "View All"}
+                    </span>
+                  )}
                 </div>
               </div>
               <div className="space-y-2">
-                {modules.map((m: any, idx: number) => {
+                {displayModules.map((m: any, idx: number) => {
                   const isCompleted = m.inferredStatus === "COMPLETED";
                   const isCurrent = m.inferredStatus === "CURRENT";
                   const isLocked = m.inferredStatus === "LOCKED";
@@ -810,26 +844,30 @@ const CourseDetails = () => {
             </div>
 
             {/* Course Rewards mobile */}
-            <div className="rounded-2xl border border-[#27ECB0]/20 bg-[#0d1a14] p-5 space-y-3">
+            <div className="rounded-2xl border border-[#27ECB0]/20 bg-[#0d1a14] p-5 space-y-4">
               <div className="flex items-center gap-3">
                 <span className="w-10 h-10 bg-[#27ECB0]/10 rounded-xl flex items-center justify-center text-lg">
-                  🤖
+                  🏆
                 </span>
                 <div>
                   <h3 className="text-sm font-bold text-white">
                     Course Rewards
                   </h3>
                   <p className="text-[11px] text-gray-400">
-                    Complete the final assessment to earn
+                    Complete the course to unlock
                   </p>
                 </div>
               </div>
-              <p className="text-[#27ECB0] text-sm font-bold">
-                +5 CDR AI Units{" "}
-                <span className="text-gray-400 font-normal">
-                  for your profile.
-                </span>
-              </p>
+              <div className="space-y-2">
+                {displayBenefits.map((r: any, i: number) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <span className="text-lg">{r.icon || "🎁"}</span>
+                    <p className="text-[#27ECB0] text-sm font-bold">
+                      {r.label}
+                    </p>
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* Resources mobile */}
@@ -884,8 +922,8 @@ const CourseDetails = () => {
                     key={i}
                     className="w-9 h-9 rounded-full border-2 border-[#0d1117] bg-gray-700 overflow-hidden relative"
                   >
-                    <img
-                      src={humanAvatar(`classmate-${i}`)}
+                    <Image
+                      src={UserAvatarImage}
                       alt={`s${i}`}
                       width={36}
                       height={36}

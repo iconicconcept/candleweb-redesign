@@ -16,11 +16,20 @@ const GoogleSignIn = (props: Props) => {
         if (hasFired.current) return;
         hasFired.current = true;
 
+        // Extract redirect immediately so we can use it securely in all code branches
+        let redirect = localStorage.getItem('authRedirect') || sessionStorage.getItem('authRedirect');
+        
+        // Ensure ONLY tutor landing page redirects are preserved as fallback, otherwise default to dashboard.
+        // This stops stale redirects from other pages causing bugs.
+        if (!redirect?.includes('/tutor')) {
+            redirect = '/dashboard';
+        }
+
         try {
             const queryString = new URLSearchParams(router.query as Record<string, string>).toString();
             const { data } = await axiosApi.get(`/user/google/callback/?` + queryString, { withCredentials: true });
+            
             if (data.status === "success") {
-
                 const { data: userData } = await axiosApi.get("/user/profile/", {
                     headers: {
                         Authorization: `Bearer ${data.access_token}`
@@ -33,24 +42,16 @@ const GoogleSignIn = (props: Props) => {
                     access_token: data.access_token
                 });
 
-                // Try localStorage first, then sessionStorage as fallback
-                // (some browsers clear localStorage during OAuth redirect cycles)
-                const redirect = localStorage.getItem('authRedirect') || sessionStorage.getItem('authRedirect');
-                if (redirect) {
-                    localStorage.removeItem('authRedirect');
-                    sessionStorage.removeItem('authRedirect');
-                    router.push(redirect);
-                } else {
-                    // Default to dashboard if no redirect was saved
-                    // Users should only be redirected to /tutor if they signed in from that page
-                    router.push("/dashboard");
-                }
-
+                localStorage.removeItem('authRedirect');
+                sessionStorage.removeItem('authRedirect');
+                router.push(redirect);
+            } else {
+                 router.push(redirect);
             }
         } catch (error) {
             console.log(error);
-            // On error, redirect to dashboard so user can try again
-            router.push("/dashboard");
+            // On error or network failure, securely fallback to the appropriate domain!
+            router.push(redirect);
         }
     }
 
@@ -63,7 +64,11 @@ const GoogleSignIn = (props: Props) => {
             dispatchLogin();
         } else {
             // Fallback for direct navigation with no params
-            router.push("/dashboard");
+            let redirect = localStorage.getItem('authRedirect') || sessionStorage.getItem('authRedirect');
+            if (!redirect?.includes('/tutor')) {
+                redirect = '/dashboard';
+            }
+            router.push(redirect);
         }
 
     }, [router.isReady]);

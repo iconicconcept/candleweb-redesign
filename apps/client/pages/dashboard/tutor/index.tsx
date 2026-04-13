@@ -1,4 +1,5 @@
 import Head from "next/head";
+import Image from "next/image";
 import React, { useEffect, useState, useRef } from "react";
 import Wrapper from "../../../components/dashboard/wrapper";
 import {
@@ -33,7 +34,6 @@ import {
   loading,
   success,
 } from "../../../components/alert/Toast";
-import AIAgentChat from "../../../components/dashboard/AIAgentChat";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 interface UserProfile {
@@ -63,10 +63,7 @@ const formatNaira = (amount: number) =>
     maximumFractionDigits: 2,
   }).format(amount);
 
-const humanAvatar = (seed: string) =>
-  `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(
-    seed,
-  )}&backgroundColor=transparent`;
+// We will use UserAvatarImage instead of humanAvatar
 
 const TutorDashboard = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -177,25 +174,13 @@ const TutorDashboard = () => {
                     key={i}
                     className="w-9 h-9 rounded-full border-2 border-background bg-card flex items-center justify-center overflow-hidden relative"
                   >
-                    <img
-                      src={humanAvatar(`student-${i}`)}
+                    <Image
+                      src={UserAvatarImage}
                       alt={`Student ${i}`}
                       width={36}
                       height={36}
                       className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.currentTarget.style.display = "none";
-                        (
-                          e.currentTarget.nextElementSibling as HTMLElement
-                        )?.style.setProperty("display", "flex");
-                      }}
                     />
-                    <span
-                      className="text-xs font-black text-primary absolute"
-                      style={{ display: "none" }}
-                    >
-                      S{i}
-                    </span>
                   </div>
                 ))}
                 <div className="w-9 h-9 rounded-full border-2 border-background bg-primary flex items-center justify-center text-[10px] text-black font-bold">
@@ -582,27 +567,13 @@ const TutorDashboard = () => {
                         {idx + 1}
                       </span>
                       <div className="w-10 h-10 rounded-full bg-primary/20 border border-white/10 flex items-center justify-center overflow-hidden flex-shrink-0 relative">
-                        <img
-                          src={humanAvatar(
-                            entry.account_id ?? `leaderboard-${idx}`,
-                          )}
+                        <Image
+                          src={UserAvatarImage}
                           alt={entry.account_id || `Rank ${idx + 1}`}
                           width={40}
                           height={40}
                           className="w-full h-full object-cover"
-                          onError={(e) => {
-                            e.currentTarget.style.display = "none";
-                            e.currentTarget.nextElementSibling?.removeAttribute(
-                              "hidden",
-                            );
-                          }}
                         />
-                        <span
-                          className="text-sm font-black text-primary"
-                          hidden
-                        >
-                          {entry.account_id?.charAt(0).toUpperCase() ?? "?"}
-                        </span>
                         {idx === 0 && (
                           <div className="absolute -top-1 -right-1 w-5 h-5 bg-orange-500 rounded-full border-2 border-card flex items-center justify-center text-[8px] font-black text-white">
                             1
@@ -637,9 +608,11 @@ const TutorDashboard = () => {
                 <div className="bg-[#1e1e1e] rounded-xl p-5 border border-white/10 text-center space-y-4">
                   <div className="relative w-16 h-16 mx-auto">
                     <div className="w-full h-full rounded-full border-4 border-primary flex items-center justify-center overflow-hidden bg-white/10">
-                      <img
-                        src={humanAvatar(userProfile?.username ?? "you")}
+                      <Image
+                        src={UserAvatarImage}
                         alt="You"
+                        width={64}
+                        height={64}
                         className="w-full h-full object-cover"
                       />
                     </div>
@@ -713,6 +686,9 @@ const TutorDashboard = () => {
 
                   setOpenVerifyModal({ open: false });
                   setVerifyLink("");
+                } catch (err) {
+                  // Error is already handled and toasted by the taskService
+                  console.error("Verification failed:", err);
                 } finally {
                   dismissLoader("");
                   setIsLoading(false);
@@ -724,20 +700,6 @@ const TutorDashboard = () => {
           </div>
         </div>
       </Modal>
-      ;{/* AI Agent Chat Component */}
-      <AIAgentChat
-        studentContext={{
-          task_info: {
-            count: tasks?.length || 0,
-            pending: pendingTasks.length,
-          },
-          course_details: {
-            enrolled_courses: courses.length,
-            courses: courses,
-          },
-          earnings_info: { revenue: revenueNaira, ai_units: aiUnits },
-        }}
-      />
     </>
   );
 };

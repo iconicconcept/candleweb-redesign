@@ -38,4 +38,5 @@ export interface AgentChatState {
   isLoading: boolean;
   error: string | null;
   isChatOpen: boolean;
+  agentType: "tutor" | "customer-care";
 }
