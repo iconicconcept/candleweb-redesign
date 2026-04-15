@@ -137,6 +137,12 @@ export default function AIAgentChat({ studentContext: additionalStudentContext }
     return new Date(isoString).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).toUpperCase();
   };
 
+  const getAgentDisplayName = () => {
+    if (agentType === "customer-care") return "CandleAI";
+    if (agentType === "tutor") return "Tutor";
+    return "AI";
+  };
+
   return (
     <>
       {!isChatOpen && (
@@ -213,7 +219,10 @@ export default function AIAgentChat({ studentContext: additionalStudentContext }
                   {msg.response && msg.response.trim() !== "" && (
                     <div className="flex flex-col items-start">
                       <div className="flex items-center gap-2 mb-1.5 ml-1">
-                        <span className="text-[10px] text-primary font-black uppercase tracking-wider">CO-PILOT</span>
+                        <span className="text-[10px] text-primary font-black uppercase tracking-wider">
+                          {/* CO-PILOT */}
+                           {getAgentDisplayName().toUpperCase()}
+                          </span>
                         <span className="text-[10px] text-txtGray font-medium">{formatTime(msg.updated_at)}</span>
                       </div>
                       <div className="max-w-[85%] bg-[#1a1a1a] border border-white/5 text-white/90 px-4 py-3.5 rounded-2xl rounded-tl-sm text-[13px] break-words leading-relaxed shadow-sm">
@@ -228,7 +237,10 @@ export default function AIAgentChat({ studentContext: additionalStudentContext }
             {isLoading && (
               <div className="flex flex-col items-start">
                   <div className="flex items-center gap-2 mb-1.5 ml-1">
-                    <span className="text-[10px] text-primary font-black uppercase tracking-wider">CO-PILOT</span>
+                    <span className="text-[10px] text-primary font-black uppercase tracking-wider">
+                      {/* CO-PILOT */}
+                      {getAgentDisplayName().toUpperCase()}
+                    </span>
                   </div>
                   <div className="bg-[#1a1a1a] text-txtGray/70 text-[13px] px-5 py-3 rounded-2xl rounded-tl-sm border border-white/5 shadow-sm font-medium">
                     Loading response...
@@ -260,7 +272,7 @@ export default function AIAgentChat({ studentContext: additionalStudentContext }
                     className="bg-transparent text-[11px] text-white/80 font-bold outline-none cursor-pointer tracking-wide appearance-none pr-3"
                  >
                    <option value="tutor" className="bg-card p-1">Tutor</option>
-                   <option value="customer-care" className="bg-card p-109">Customer care</option>
+                   <option value="customer-care" className="bg-card p-109">CandleAI</option>
                  </select>
               </div>
             </div>
@@ -287,7 +299,7 @@ export default function AIAgentChat({ studentContext: additionalStudentContext }
             </form>
             
             <p className="text-[9px] text-txtGray/40 text-center uppercase tracking-widest mt-1.5 font-bold">
-              Candle AI Agents v1
+              Candleweb AI Agent V1
             </p>
           </div>
         </div>

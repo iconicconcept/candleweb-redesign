@@ -89,6 +89,17 @@ const TutorDashboard = () => {
   const [isLoading, setIsLoading] = useState(false);
   const fetchedTokenRef = useRef<string | null>(null);
   const userProfile = user;
+  const currentUsername = userProfile?.username;
+
+  const sortedLeaderboard = [...leaderboards].sort(
+    (a, b) => parseFloat(b.point ?? "0") - parseFloat(a.point ?? "0"),
+  );
+
+  const userRankIndex = sortedLeaderboard.findIndex(
+    (entry) => entry.account_id === currentUsername,
+  );
+
+  const userRank = userRankIndex !== -1 ? userRankIndex + 1 : null;
 
   // ── Revenue Calc from stats ───────────────────────────────────────────────
   // earned_units from task/stats → multiply by 64.10 NGN per AI unit
@@ -192,13 +203,13 @@ const TutorDashboard = () => {
 
           {/* ── 3 Stats Cards ───────────────────────────────────────────── */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-            {/* Card 1: Total Course Revenue */}
+            {/* Card 1: Total Student Revenue */}
             <div className="bg-card rounded-xl p-6 relative overflow-hidden border border-white/5">
               <div className="absolute top-4 right-4 opacity-30 text-white text-4xl">
                 {SvgIcons.trades}
               </div>
               <p className="text-[10px] font-black text-txtGray tracking-[0.2em] uppercase mb-4">
-                Total Course Revenue
+                Total Student Earning
               </p>
               <p className="text-3xl font-black text-white mb-1">
                 {formatNaira(revenueNaira)}
@@ -624,10 +635,29 @@ const TutorDashboard = () => {
                     <p className="text-[9px] text-txtGray tracking-widest uppercase mb-1">
                       Your Performance
                     </p>
-                    <p className="text-2xl font-black text-white">Rank #12</p>
+                    {/* <p className="text-2xl font-black text-white">Rank #12</p>
                     <p className="text-xs text-primary mt-1">
                       Keep learning to earn more
-                    </p>
+                    </p> */}
+                    {userRank ? (
+                      <>
+                        <p className="text-2xl font-black text-white">
+                          Rank #{userRank}
+                        </p>
+                        <p className="text-xs text-primary mt-1">
+                          Keep learning to earn more
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-sm font-bold text-white">
+                          You&apos,re not part of the top earners
+                        </p>
+                        <p className="text-xs text-primary mt-1">
+                          Perform more tasks to level up
+                        </p>
+                      </>
+                    )}
                   </div>
                   {/* <button className="w-full py-2.5 border border-white/20 rounded-lg text-[11px] font-black text-white tracking-widest uppercase hover:bg-white/5 transition-all">
                     Full Rankings
