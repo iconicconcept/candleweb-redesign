@@ -34,6 +34,7 @@ import {
   loading,
   success,
 } from "../../../components/alert/Toast";
+import { TaskCompletedCard } from "../../../components/dashboard/tasks/TaskStreakCard";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 interface UserProfile {
@@ -195,7 +196,7 @@ const TutorDashboard = () => {
                   </div>
                 ))}
                 <div className="w-9 h-9 rounded-full border-2 border-background bg-primary flex items-center justify-center text-[10px] text-black font-bold">
-                  +12
+                  +2.4k
                 </div>
               </div>
             </div>
@@ -465,7 +466,7 @@ const TutorDashboard = () => {
                             >
                               {/* <span className="text-xs text-white/70">✓</span> */}
                             </button>
-                            
+
                             {/* <button
                               onClick={() =>
                                 setOpenVerifyModal({ open: true, data: task })
@@ -504,7 +505,7 @@ const TutorDashboard = () => {
 
                   {/* ───── COMPLETED TASKS ───── */}
                   {selectedTabIndex === 1 && (
-                    <>
+                    <div className="space-y-3">
                       {completedTasks.length === 0 ? (
                         <div className="bg-card rounded-xl p-6 text-center border border-white/5">
                           <p className="text-txtGray text-sm">
@@ -512,28 +513,41 @@ const TutorDashboard = () => {
                           </p>
                         </div>
                       ) : (
-                        completedTasks.map((reward: any) => (
-                          <div
-                            key={reward.id}
-                            className="bg-card rounded-xl p-5 flex items-center gap-4 border border-primary/20 opacity-70"
-                          >
-                            <div className="w-6 h-6 rounded bg-primary flex items-center justify-center">
-                              🧑
-                            </div>
+                        completedTasks.map((reward: any, index: number) => (
+                          <TaskCompletedCard
+                            key={index + (reward.id ?? 1)}
+                            reward={reward}
+                            onVerify={async () => {
+                              try {
+                                loading("Claiming reward...");
 
-                            <div className="flex-1">
-                              <p className="text-sm font-semibold text-gray-400 line-through">
-                                {reward.title}
-                              </p>
+                                const res = await dispatch(
+                                  taskService.claimReward({
+                                    api: axiosToken,
+                                    id: reward.id,
+                                  }),
+                                ).unwrap();
 
-                              <span className="inline-block mt-1 px-2 py-0.5 bg-primary/10 text-primary text-[10px] font-black rounded uppercase">
-                                Completed
-                              </span>
-                            </div>
-                          </div>
+                                if (res?.status === "success") {
+                                  dispatch(taskService.getTasks(axiosToken));
+                                  dispatch(taskService.getReward(axiosToken));
+                                  dispatch(
+                                    taskService.getTaskStats(axiosToken),
+                                  );
+                                  dispatch(
+                                    taskService.getTaskStreak(axiosToken),
+                                  );
+                                }
+                              } catch (err) {
+                                console.error(err);
+                              } finally {
+                                dismissLoader("");
+                              }
+                            }}
+                          />
                         ))
                       )}
-                    </>
+                    </div>
                   )}
                 </div>
               </div>
@@ -628,7 +642,7 @@ const TutorDashboard = () => {
                       />
                     </div>
                     <div className="absolute -bottom-1 -right-1 bg-primary text-black text-[9px] font-black px-1.5 py-0.5 rounded-full border-2 border-card">
-                      #12
+                      {userRank ? <>#{userRank}</> : ""}
                     </div>
                   </div>
                   <div>
@@ -651,7 +665,7 @@ const TutorDashboard = () => {
                     ) : (
                       <>
                         <p className="text-sm font-bold text-white">
-                          You&apos,re not part of the top earners
+                          You&apos;re not part of the top earners
                         </p>
                         <p className="text-xs text-primary mt-1">
                           Perform more tasks to level up

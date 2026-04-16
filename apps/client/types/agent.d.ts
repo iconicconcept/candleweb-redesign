@@ -7,6 +7,7 @@ export interface ChatMessage {
   duration?: string;
   created_at: string;
   updated_at: string;
+  agent_type?: "tutor" | "customer-care";
 }
 
 export interface Chat {

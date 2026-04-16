@@ -21,7 +21,9 @@ interface AIAgentChatProps {
   studentContext?: Record<string, any>;
 }
 
-export default function AIAgentChat({ studentContext: additionalStudentContext }: AIAgentChatProps = {}) {
+export default function AIAgentChat({
+  studentContext: additionalStudentContext,
+}: AIAgentChatProps = {}) {
   const dispatch = useDispatch<AppDispatch>();
   const axiosToken = useAxiosAuth();
   const { user } = useUserStore();
@@ -29,7 +31,7 @@ export default function AIAgentChat({ studentContext: additionalStudentContext }
   const { isChatOpen, isLoading, messages, error, agentType } = useSelector(
     (state: RootState) => state.agent,
   );
-  
+
   const { tasks, stats } = useSelector((state: RootState) => state.task);
 
   const [inputValue, setInputValue] = useState("");
@@ -62,6 +64,7 @@ export default function AIAgentChat({ studentContext: additionalStudentContext }
       response: "",
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
+      agent_type: agentType,
     };
 
     dispatch(addMessage(userMsg));
@@ -75,7 +78,10 @@ export default function AIAgentChat({ studentContext: additionalStudentContext }
       task_info: {
         count: tasks?.length || 0,
       },
-      earnings_info: { revenue: aiUnits * AI_UNIT_VALUE_NGN, ai_units: aiUnits },
+      earnings_info: {
+        revenue: aiUnits * AI_UNIT_VALUE_NGN,
+        ai_units: aiUnits,
+      },
       ...(additionalStudentContext || {}),
     };
 
@@ -94,7 +100,11 @@ export default function AIAgentChat({ studentContext: additionalStudentContext }
       let responseText = "";
       if (response && typeof response === "string") {
         responseText = response;
-      } else if (response && typeof response === "object" && (response as any).response) {
+      } else if (
+        response &&
+        typeof response === "object" &&
+        (response as any).response
+      ) {
         responseText = (response as any).response;
       }
 
@@ -106,6 +116,7 @@ export default function AIAgentChat({ studentContext: additionalStudentContext }
           response: responseText,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
+          agent_type: agentType,
         };
         dispatch(addMessage(agentMsg));
       } else {
@@ -134,12 +145,14 @@ export default function AIAgentChat({ studentContext: additionalStudentContext }
   };
 
   const formatTime = (isoString: string) => {
-    return new Date(isoString).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).toUpperCase();
+    return new Date(isoString)
+      .toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+      .toUpperCase();
   };
 
-  const getAgentDisplayName = () => {
-    if (agentType === "customer-care") return "CandleAI";
-    if (agentType === "tutor") return "Tutor";
+  const getAgentNameFromMessage = (type?: string) => {
+    if (type === "customer-care") return "CandleAI";
+    if (type === "tutor") return "Tutor";
     return "AI";
   };
 
@@ -156,10 +169,11 @@ export default function AIAgentChat({ studentContext: additionalStudentContext }
       )}
 
       {isChatOpen && (
-        <div className="fixed z-50 bg-[#121212] border border-white/5 shadow-2xl flex flex-col overflow-hidden animate-fade-in 
+        <div
+          className="fixed z-50 bg-[#121212] border border-white/5 shadow-2xl flex flex-col overflow-hidden animate-fade-in 
             bottom-6 right-6 w-[420px] h-[650px] max-h-[90vh] rounded-[20px] inset-auto
-            tb:bottom-0 tb:right-0 tb:left-0 tb:top-0 tb:w-full tb:h-full tb:max-h-none tb:rounded-none tb:inset-0">
-          
+            tb:bottom-0 tb:right-0 tb:left-0 tb:top-0 tb:w-full tb:h-full tb:max-h-none tb:rounded-none tb:inset-0"
+        >
           {/* Header */}
           <div className="px-6 py-5 flex items-center justify-between border-b border-white/5 bg-[#121212]">
             <div className="flex items-center gap-3">
@@ -167,9 +181,7 @@ export default function AIAgentChat({ studentContext: additionalStudentContext }
                 <MdSmartToy className="text-primary" size={24} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[15px] font-bold text-white">
-                  Al Co-pilot
-                </p>
+                <p className="text-[15px] font-bold text-white">Al Co-pilot</p>
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-primary" />
                   <p className="text-[9px] text-primary tracking-widest uppercase font-bold">
@@ -179,15 +191,15 @@ export default function AIAgentChat({ studentContext: additionalStudentContext }
               </div>
             </div>
             <div className="flex items-center gap-1">
-               <button className="p-2 hover:bg-white/5 rounded-lg transition-colors">
-                 <BsThreeDots size={18} className="text-white/70" />
-               </button>
-               <button
-                 onClick={() => dispatch(setChatOpen(false))}
-                 className="p-2 hover:bg-white/5 rounded-lg transition-colors"
-               >
-                 <IoClose size={20} className="text-white" />
-               </button>
+              <button className="p-2 hover:bg-white/5 rounded-lg transition-colors">
+                <BsThreeDots size={18} className="text-white/70" />
+              </button>
+              <button
+                onClick={() => dispatch(setChatOpen(false))}
+                className="p-2 hover:bg-white/5 rounded-lg transition-colors"
+              >
+                <IoClose size={20} className="text-white" />
+              </button>
             </div>
           </div>
 
@@ -206,8 +218,12 @@ export default function AIAgentChat({ studentContext: additionalStudentContext }
                   {msg.user_query && msg.user_query.trim() !== "" && (
                     <div className="flex flex-col items-end">
                       <div className="flex items-center gap-2 mb-1.5 mr-1">
-                        <span className="text-[10px] text-txtGray font-medium">{formatTime(msg.created_at)}</span>
-                        <span className="text-[10px] text-[#ffb86c] font-black uppercase tracking-wider">YOU</span>
+                        <span className="text-[10px] text-txtGray font-medium">
+                          {formatTime(msg.created_at)}
+                        </span>
+                        <span className="text-[10px] text-[#ffb86c] font-black uppercase tracking-wider">
+                          YOU
+                        </span>
                       </div>
                       <div className="max-w-[85%] bg-[#1c140d] border border-[#ffb86c]/20 text-white/90 px-4 py-3.5 rounded-2xl rounded-tr-sm text-[13px] break-words leading-relaxed shadow-sm">
                         {msg.user_query}
@@ -221,9 +237,13 @@ export default function AIAgentChat({ studentContext: additionalStudentContext }
                       <div className="flex items-center gap-2 mb-1.5 ml-1">
                         <span className="text-[10px] text-primary font-black uppercase tracking-wider">
                           {/* CO-PILOT */}
-                           {getAgentDisplayName().toUpperCase()}
-                          </span>
-                        <span className="text-[10px] text-txtGray font-medium">{formatTime(msg.updated_at)}</span>
+                          {getAgentNameFromMessage(
+                            msg.agent_type,
+                          ).toUpperCase()}
+                        </span>
+                        <span className="text-[10px] text-txtGray font-medium">
+                          {formatTime(msg.updated_at)}
+                        </span>
                       </div>
                       <div className="max-w-[85%] bg-[#1a1a1a] border border-white/5 text-white/90 px-4 py-3.5 rounded-2xl rounded-tl-sm text-[13px] break-words leading-relaxed shadow-sm">
                         {msg.response}
@@ -236,15 +256,17 @@ export default function AIAgentChat({ studentContext: additionalStudentContext }
 
             {isLoading && (
               <div className="flex flex-col items-start">
-                  <div className="flex items-center gap-2 mb-1.5 ml-1">
-                    <span className="text-[10px] text-primary font-black uppercase tracking-wider">
-                      {/* CO-PILOT */}
-                      {getAgentDisplayName().toUpperCase()}
-                    </span>
-                  </div>
-                  <div className="bg-[#1a1a1a] text-txtGray/70 text-[13px] px-5 py-3 rounded-2xl rounded-tl-sm border border-white/5 shadow-sm font-medium">
-                    Loading response...
-                  </div>
+                <div className="flex items-center gap-2 mb-1.5 ml-1">
+                  <span className="text-[10px] text-primary font-black uppercase tracking-wider">
+                    {/* CO-PILOT */}
+                    {getAgentNameFromMessage(agentType).toUpperCase()}
+                  </span>
+                </div>
+                <div className="bg-[#1a1a1a] px-4 py-3 rounded-2xl rounded-tl-sm border border-white/5 shadow-sm inline-flex items-center gap-1">
+                  <span className="w-2 h-2 bg-white/90 rounded-full animate-pulse" />
+                  <span className="w-2 h-2 bg-white/90 rounded-full animate-pulse delay-150" />
+                  <span className="w-2 h-2 bg-white/90 rounded-full animate-pulse delay-300" />
+                </div>
               </div>
             )}
 
@@ -261,19 +283,22 @@ export default function AIAgentChat({ studentContext: additionalStudentContext }
 
           {/* Form & Input Area */}
           <div className="bg-[#0b0c0f] p-5 pb-4 flex flex-col gap-3 z-10 border-t border-white/5 relative">
-            
             {/* Dropdown for Agent */}
             <div className="px-1 flex items-center justify-start">
               <div className="flex items-center gap-2 bg-[#1a1a1a] px-3 py-1.5 rounded-lg border border-white/5">
-                 <MdSmartToy size={14} className="text-primary" />
-                 <select 
-                    value={agentType}
-                    onChange={handleAgentChange}
-                    className="bg-transparent text-[11px] text-white/80 font-bold outline-none cursor-pointer tracking-wide appearance-none pr-3"
-                 >
-                   <option value="tutor" className="bg-card p-1">Tutor</option>
-                   <option value="customer-care" className="bg-card p-109">CandleAI</option>
-                 </select>
+                <MdSmartToy size={14} className="text-primary" />
+                <select
+                  value={agentType}
+                  onChange={handleAgentChange}
+                  className="bg-transparent text-[11px] text-white/80 font-bold outline-none cursor-pointer tracking-wide appearance-none pr-3"
+                >
+                  <option value="tutor" className="bg-card p-1">
+                    Tutor
+                  </option>
+                  <option value="customer-care" className="bg-card p-109">
+                    CandleAI
+                  </option>
+                </select>
               </div>
             </div>
 
@@ -297,7 +322,7 @@ export default function AIAgentChat({ studentContext: additionalStudentContext }
                 <IoPaperPlane size={16} className="text-[#0d1017] ml-0.5" />
               </button>
             </form>
-            
+
             <p className="text-[9px] text-txtGray/40 text-center uppercase tracking-widest mt-1.5 font-bold">
               Candleweb AI Agent V1
             </p>

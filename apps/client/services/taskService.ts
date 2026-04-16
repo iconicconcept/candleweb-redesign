@@ -18,7 +18,8 @@ const getErrorMessage = (err: any): string => {
   if (data.message) return data.message;
   if (typeof data === "object") {
     const firstValue = Object.values(data)[0];
-    if (Array.isArray(firstValue) && firstValue.length > 0) return String(firstValue[0]);
+    if (Array.isArray(firstValue) && firstValue.length > 0)
+      return String(firstValue[0]);
     if (typeof firstValue === "string") return firstValue;
   }
   return e.message ?? e.toString();
@@ -40,7 +41,7 @@ const getTasks = createAsyncThunk(
     } catch (err: any) {
       return thunkApi.rejectWithValue(getErrorMessage(err));
     }
-  }
+  },
 );
 
 const getReward = createAsyncThunk(
@@ -57,14 +58,14 @@ const getReward = createAsyncThunk(
     } catch (err: any) {
       return thunkApi.rejectWithValue(getErrorMessage(err));
     }
-  }
+  },
 );
 
 const verifyReward = createAsyncThunk(
   "/verify/reward",
   async (
     payload: { api: AxiosInstance; data: { task_id?: number; link?: string } },
-    thunkApi
+    thunkApi,
   ) => {
     try {
       const { data } = await payload.api.post("/task/reward/", {
@@ -82,7 +83,7 @@ const verifyReward = createAsyncThunk(
       error(errMsg);
       return thunkApi.rejectWithValue(errMsg);
     }
-  }
+  },
 );
 
 const claimReward = createAsyncThunk(
@@ -90,18 +91,18 @@ const claimReward = createAsyncThunk(
   async (payload: { api: AxiosInstance; id: string }, thunkApi) => {
     try {
       const { data } = await payload.api.get(
-        `/task/reward/claim/${payload.id}/`
+        `/task/reward/claim/${payload.id}/`,
       );
 
       if (data.status === "error") {
         error(data.message);
         return;
       }
-      getTasks(payload.api);
-      getReward(payload.api);
-      getTaskStats(payload.api);
-      getTaskStreak(payload.api);
-      getLeaderboard(payload.api);
+      thunkApi.dispatch(getTasks(payload.api));
+      thunkApi.dispatch(getReward(payload.api));
+      thunkApi.dispatch(getTaskStats(payload.api));
+      thunkApi.dispatch(getTaskStreak(payload.api));
+      thunkApi.dispatch(getLeaderboard(payload.api));
       success(data.message ?? "Reward has been claimed.");
 
       return data;
@@ -110,7 +111,7 @@ const claimReward = createAsyncThunk(
       error(errMsg);
       return thunkApi.rejectWithValue(errMsg);
     }
-  }
+  },
 );
 
 const getTaskStats = createAsyncThunk(
@@ -127,7 +128,7 @@ const getTaskStats = createAsyncThunk(
     } catch (err: any) {
       return thunkApi.rejectWithValue(getErrorMessage(err));
     }
-  }
+  },
 );
 
 const getTaskStreak = createAsyncThunk(
@@ -142,7 +143,7 @@ const getTaskStreak = createAsyncThunk(
     } catch (err: any) {
       return thunkApi.rejectWithValue(getErrorMessage(err));
     }
-  }
+  },
 );
 
 const getLeaderboard = createAsyncThunk(
@@ -157,7 +158,7 @@ const getLeaderboard = createAsyncThunk(
     } catch (err: any) {
       return thunkApi.rejectWithValue(getErrorMessage(err));
     }
-  }
+  },
 );
 
 const taskService = {

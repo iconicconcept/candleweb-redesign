@@ -914,7 +914,7 @@ const CourseDetails = () => {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <h2 className="text-base font-bold text-white">Classmates</h2>
-                <span className="text-xs text-gray-400">128 Active</span>
+                {/* <span className="text-xs text-gray-400">128 Active</span> */}
               </div>
               <div className="flex -space-x-3">
                 {[1, 2, 3, 4].map((i) => (
@@ -932,7 +932,7 @@ const CourseDetails = () => {
                   </div>
                 ))}
                 <div className="w-9 h-9 rounded-full border-2 border-[#0d1117] bg-[#27ECB0] flex items-center justify-center text-[9px] text-black font-black">
-                  +124
+                  +2.4k
                 </div>
               </div>
               <a
