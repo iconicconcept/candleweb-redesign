@@ -16,6 +16,7 @@ import { ChatMessage } from "../../types/agent";
 import { IoClose, IoPaperPlane } from "react-icons/io5";
 import { MdSmartToy } from "react-icons/md";
 import { BsThreeDots } from "react-icons/bs";
+import { RobotIcon } from "../RobotIcon";
 
 interface AIAgentChatProps {
   studentContext?: Record<string, any>;
@@ -164,7 +165,10 @@ export default function AIAgentChat({
           className="fixed bottom-6 right-6 z-40 p-[14px] rounded-2xl bg-primary hover:bg-primary/90 shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:shadow-xl transition-all duration-300 group inline-flex border border-white/10"
           title="Open AI Tutor"
         >
-          <MdSmartToy size={32} className="text-[#0d1017]" />
+          <div className="relative w-8 h-8">
+            <RobotIcon showMessage />
+            <div className="absolute bottom-[8px] left-1/2 -translate-x-1/2 w-4 h-1 bg-[#0d1017]" />
+          </div>
         </button>
       )}
 
@@ -178,7 +182,7 @@ export default function AIAgentChat({
           <div className="px-6 py-5 flex items-center justify-between border-b border-white/5 bg-[#121212]">
             <div className="flex items-center gap-3">
               <div className="p-2.5 rounded-xl bg-primary/20 flex-shrink-0">
-                <MdSmartToy className="text-primary" size={24} />
+                <RobotIcon size={24} className="text-primary" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-[15px] font-bold text-white">Al Co-pilot</p>
@@ -262,10 +266,10 @@ export default function AIAgentChat({
                     {getAgentNameFromMessage(agentType).toUpperCase()}
                   </span>
                 </div>
-                <div className="bg-[#1a1a1a] px-4 py-3 rounded-2xl rounded-tl-sm border border-white/5 shadow-sm inline-flex items-center gap-1">
-                  <span className="w-2 h-2 bg-white/90 rounded-full animate-pulse" />
-                  <span className="w-2 h-2 bg-white/90 rounded-full animate-pulse delay-150" />
-                  <span className="w-2 h-2 bg-white/90 rounded-full animate-pulse delay-300" />
+                <div className="flex gap-1">
+                  <span className="w-1.5 h-1.5 bg-primary rounded-full animate-[bounce_1.2s_ease-in-out_infinite]" />
+                  <span className="w-1.5 h-1.5 bg-primary rounded-full animate-[bounce_1.2s_ease-in-out_infinite] [animation-delay:0.2s]" />
+                  <span className="w-1.5 h-1.5 bg-primary rounded-full animate-[bounce_1.2s_ease-in-out_infinite] [animation-delay:0.4s]" />
                 </div>
               </div>
             )}

@@ -573,7 +573,7 @@ const TutorDashboard = () => {
                       Loading leaderboard...
                     </p>
                   )}
-                  {leaderboards.slice(0, 4).map((entry, idx) => (
+                  {leaderboards.slice(0, 10).map((entry, idx) => (
                     <div
                       key={idx}
                       className={joinClasses(
@@ -617,7 +617,7 @@ const TutorDashboard = () => {
                       </div>
                       <div className="text-right flex-shrink-0">
                         <p className="text-sm font-black text-primary">
-                          {Math.floor(parseFloat(entry.point ?? "0"))} Pts
+                          {Math.floor(parseFloat(entry.point ?? "0"))} <span className="text-[10px]">Points</span>
                         </p>
                         {idx === 0 && (
                           <p className="text-[9px] text-orange-400 font-black">
@@ -642,7 +642,7 @@ const TutorDashboard = () => {
                       />
                     </div>
                     <div className="absolute -bottom-1 -right-1 bg-primary text-black text-[9px] font-black px-1.5 py-0.5 rounded-full border-2 border-card">
-                      {userRank ? <>#{userRank}</> : ""}
+                      {userRank && <>#{userRank}</> }
                     </div>
                   </div>
                   <div>

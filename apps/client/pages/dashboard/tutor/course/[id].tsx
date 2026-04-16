@@ -56,22 +56,17 @@ const CourseDetails = () => {
   const scheduleModules = Array.isArray(course?.class_schedules)
     ? course.class_schedules
     : [];
-  const totalModules = scheduleModules.length;
-  const completedCount = scheduleModules.filter(
-    (m: any) => m.is_completed,
-  ).length;
-  const progressPercent =
-    totalModules > 0 ? Math.round((completedCount / totalModules) * 100) : 0;
-  const firstIncompleteIdx = scheduleModules.findIndex(
-    (m: any) => !m.is_completed,
-  );
+
   const now = new Date();
 
   const modules = scheduleModules.map((m: any, idx: number) => {
     const scheduledTime = new Date(m.scheduled_datetime);
     const endTime = new Date(m.end_datetime);
+
     const isLive = now >= scheduledTime && now <= endTime;
     const isUpcoming = now < scheduledTime;
+
+    const isActuallyCompleted = m.is_completed || now > endTime;
 
     return {
       ...m,
@@ -79,28 +74,62 @@ const CourseDetails = () => {
       endTime,
       isLive,
       isUpcoming,
-      inferredStatus: m.is_completed
+      isActuallyCompleted,
+
+      inferredStatus: isActuallyCompleted
         ? "COMPLETED"
-        : idx === firstIncompleteIdx
+        : isLive
           ? "CURRENT"
           : "LOCKED",
+
       topic: m.topic || m.title || m.course_title || `Module ${idx + 1}`,
     };
   });
 
+  const firstIncompleteIndex = modules.findIndex(
+  (m: any) => !m.isActuallyCompleted
+);
+
+const enhancedModules = modules.map((m: any, idx: number) => {
+  const isNext = idx === firstIncompleteIndex;
+  const isUpcomingAfterNext = idx > firstIncompleteIndex;
+
+  return {
+    ...m,
+    isNext,
+    isUpcomingAfterNext,
+  };
+});
+
+  useEffect(() => {
+    if (!modules.length) return;
+
+    if (selectedModuleId === null) {
+      const live =
+        modules.find((m: any) => m.isLive) ||
+        modules.find((m: any) => m.isUpcoming) ||
+        modules[0];
+
+      setSelectedModuleId(live.id);
+    }
+  }, [modules]);
+
+  const totalModules = scheduleModules.length;
+  const completedCount = modules.filter(
+    (m: any) => m.isActuallyCompleted,
+  ).length;
+  const progressPercent =
+    totalModules > 0 ? Math.round((completedCount / totalModules) * 100) : 0;
+  const firstIncompleteIdx = scheduleModules.findIndex(
+    (m: any) => !m.is_completed,
+  );
+
   const selectedModule =
     modules.find((m: any) => m.id === selectedModuleId) || modules[0] || null;
 
-  useEffect(() => {
-    if (!course) return;
-    const currentModule =
-      modules.find((m: any) => m.inferredStatus === "CURRENT") || modules[0];
-    if (currentModule) {
-      setSelectedModuleId(currentModule.id);
-    }
-  }, [course]);
-
-  const displayModules = showAllModules ? modules : modules.slice(0, 10);
+  const displayModules = showAllModules
+    ? enhancedModules
+    : enhancedModules.slice(0, 10);
 
   useEffect(() => {
     if (!router.isReady) return;
@@ -174,8 +203,9 @@ const CourseDetails = () => {
   }
 
   const nextSession =
-    modules.find((m: any) => m.inferredStatus === "CURRENT") ||
-    modules[0] ||
+    modules.find((m: any) => m.isLive) || // 1. live class first
+    modules.find((m: any) => m.isUpcoming) || // 2. next scheduled
+    modules[modules.length - 1] ||
     null;
 
   const defaultBenefits = [
@@ -202,7 +232,7 @@ const CourseDetails = () => {
     }
     window.open(link, "_blank");
   };
-  const joinLink = nextSession?.class_link || "";
+  const joinLink = nextSession?.class_link || selectedModule?.class_link || "";
 
   const thumbnailSrc = course.thumbnail
     ? course.thumbnail.startsWith("http")
@@ -218,24 +248,30 @@ const CourseDetails = () => {
     : null;
 
   const onJoinCourse = () => {
-    if (!nextSession) return;
+    const target = nextSession;
 
-    if (nextSession.is_completed) {
-      toast.error("This module is already completed");
+    if (!target) {
+      toast.error("No active class available");
       return;
     }
 
-    if (!nextSession.isLive) {
-      toast.error("No live class is available to join yet");
+    if (!target.class_link) {
+      toast.error("No class link available yet");
       return;
     }
 
-    if (!joinLink) {
-      toast.error("No class link available for this session");
+    const now = new Date();
+    const start = new Date(target.scheduled_datetime);
+    const end = new Date(target.end_datetime);
+
+    const isLive = now >= start && now <= end;
+
+    if (!isLive && !target.is_completed) {
+      toast.error("This class is not live yet");
       return;
     }
 
-    window.open(joinLink, "_blank");
+    window.open(target.class_link, "_blank");
   };
 
   return (
@@ -370,9 +406,10 @@ const CourseDetails = () => {
                         </span>
                       )}
                       {modules.length > 10 && (
-                        <span 
+                        <span
                           onClick={() => setShowAllModules(!showAllModules)}
-                          className="text-[#27ECB0] text-xs font-semibold cursor-pointer">
+                          className="text-[#27ECB0] text-xs font-semibold cursor-pointer"
+                        >
                           {showAllModules ? "View Less" : "View All"}
                         </span>
                       )}
@@ -390,6 +427,7 @@ const CourseDetails = () => {
                       const isCompleted = m.inferredStatus === "COMPLETED";
                       const isCurrent = m.inferredStatus === "CURRENT";
                       const isLocked = m.inferredStatus === "LOCKED";
+                      const isNext = m.isNext;
                       const isSelected = selectedModuleId === m.id;
 
                       return (
@@ -398,13 +436,16 @@ const CourseDetails = () => {
                           onClick={() => setSelectedModuleId(m.id)}
                           className={`flex items-center gap-0 transition-all cursor-pointer
                             ${isSelected ? "bg-[#1f1d12] border border-[#FFB322]/30" : "border-transparent"}
+                            //${isNext ? "bg-[#FFB322]/10 border-l-2 border-[#FFB322]" : ""}
+                            ${isCurrent ? "bg-[#1a1400]" : ""}
+                            ${isCompleted ? "bg-[#0d1a14]" : ""}
                             ${isLocked ? "opacity-70" : ""}
                           `}
                         >
                           {/* Left accent bar — 3px wide */}
                           <div
                             className={`w-[3px] self-stretch shrink-0
-                              ${isCompleted ? "bg-[#27ECB0]" : isCurrent ? "bg-[#FFB322]" : "bg-transparent"}
+                              ${isCompleted ? "bg-[#27ECB0]" : isCurrent ? "bg-[#FFB322]" : isNext ? "bg-[#FFB322]" : "bg-transparent"}
                             `}
                           />
 
@@ -419,12 +460,13 @@ const CourseDetails = () => {
                                       ? "bg-[#27ECB0]/15 border-[#27ECB0]/40 text-[#27ECB0]"
                                       : isCurrent
                                         ? "bg-[#FFB322]/10 border-[#FFB322]/40 text-[#FFB322]"
-                                        : "bg-white/5 border-white/10 text-gray-600"
+                                        : "bg-white/5 border-white/10 text-gray-400"
                                   }`}
                               >
                                 {isCompleted && <IoCheckmarkCircle size={22} />}
                                 {isCurrent && <IoPlayCircleOutline size={20} />}
                                 {isLocked && <IoLockClosedOutline size={17} />}
+                                {/* {isNext && <IoDownloadOutline size={20} />} */}
                               </div>
 
                               {/* Module label + title */}
@@ -437,7 +479,7 @@ const CourseDetails = () => {
                                   Module {String(idx + 1).padStart(2, "0")}
                                 </p>
                                 <p
-                                  className={`text-sm font-semibold leading-snug ${isLocked ? "text-gray-400" : "text-white"}`}
+                                  className={`text-sm font-semibold leading-snug ${isLocked ? "text-gray-300" : "text-white"}`}
                                 >
                                   {m.topic}
                                 </p>
@@ -450,11 +492,13 @@ const CourseDetails = () => {
                                   )}
                                 </p>
                                 <p className="text-[10px] text-gray-300 mt-0.5">
-                                  {isCompleted
+                                  {m.isActuallyCompleted
                                     ? "Completed"
-                                    : isCurrent
-                                      ? "Next Up"
-                                      : "Locked"}
+                                    : m.isNext
+                                      ? "Up Next"
+                                      : m.isLive
+                                        ? "Live Now"
+                                        : "Upcoming"}
                                 </p>
                               </div>
                             </div>
@@ -756,9 +800,10 @@ const CourseDetails = () => {
                     </span>
                   )}
                   {modules.length > 10 && (
-                    <span 
+                    <span
                       onClick={() => setShowAllModules(!showAllModules)}
-                      className="text-[#27ECB0] text-xs font-semibold cursor-pointer">
+                      className="text-[#27ECB0] text-xs font-semibold cursor-pointer"
+                    >
                       {showAllModules ? "View Less" : "View All"}
                     </span>
                   )}
@@ -769,6 +814,7 @@ const CourseDetails = () => {
                   const isCompleted = m.inferredStatus === "COMPLETED";
                   const isCurrent = m.inferredStatus === "CURRENT";
                   const isLocked = m.inferredStatus === "LOCKED";
+                  const isNext = m.isNext;
                   const isSelected = selectedModuleId === m.id;
                   return (
                     <div
@@ -776,35 +822,38 @@ const CourseDetails = () => {
                       onClick={() => setSelectedModuleId(m.id)}
                       className={`flex items-center gap-0 rounded-xl border overflow-hidden transition-all cursor-pointer
                         ${isSelected ? "bg-[#1f1d12] border border-[#FFB322]/30" : "border-transparent"}
+                        ${isNext ? "bg-[#FFB322]/5 border-l-2 border-[#FFB322]" : "border-[#FFB322]"}
                         ${isCompleted ? "bg-[#0d1a14]" : ""}
                         ${isCurrent ? "bg-[#1a1400]" : ""}
                         ${isLocked ? "bg-[#0d1117] opacity-60" : ""}
                       `}
                     >
                       <div
-                        className={`w-[3px] self-stretch shrink-0 ${isCompleted ? "bg-[#27ECB0]" : isCurrent ? "bg-[#FFB322]" : "bg-transparent"}`}
+                        className={`w-[3px] self-stretch shrink-0 ${isCompleted ? "bg-[#27ECB0]" : isNext ? "bg-[#FFB322]" : isCurrent ? "bg-[#FFB322]" : "bg-transparent"}`}
                       />
                       <div className="flex-1 flex items-center justify-between px-4 py-4 gap-3">
                         <div className="flex items-center gap-3">
                           <div
                             className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0
                             ${isCompleted ? "bg-[#27ECB0]/15 text-[#27ECB0]" : ""}
+                            // ${isNext ? "bg-[#FFB322]/15 border-l-2 border-[#FFB322]" : ""}
                             ${isCurrent ? "bg-[#FFB322]/15 text-[#FFB322]" : ""}
-                            ${isLocked ? "bg-white/5 text-gray-600" : ""}
+                            ${isLocked ? "bg-white/5 text-gray-400" : ""}
                           `}
                           >
                             {isCompleted && <IoCheckmarkCircle size={18} />}
                             {isCurrent && <IoPlayCircleOutline size={18} />}
                             {isLocked && <IoLockClosedOutline size={15} />}
+                            {/* {isNext && <IoDownloadOutline size={20} />} */}
                           </div>
                           <div>
                             <p
-                              className={`text-[9px] font-bold uppercase tracking-widest mb-0.5 ${isCurrent ? "text-[#FFB322]" : "text-[#27ECB0]"}`}
+                              className={`text-[9px] font-bold uppercase tracking-widest mb-0.5 ${isCurrent ? "text-[#FFB322]"  : "text-[#27ECB0]"}`}
                             >
                               Module {String(idx + 1).padStart(2, "0")}
                             </p>
                             <p
-                              className={`text-xs font-semibold leading-snug ${isLocked ? "text-gray-400" : "text-white"}`}
+                              className={`text-xs font-semibold leading-snug ${isLocked ? "text-gray-300" : "text-white"}`}
                             >
                               {m.topic}
                             </p>
@@ -815,19 +864,21 @@ const CourseDetails = () => {
                               )}
                             </p>
                             <p className="text-[10px] text-gray-300 mt-0.5">
-                              {isCompleted
+                              {m.isActuallyCompleted
                                 ? "Completed"
-                                : isCurrent
-                                  ? "Next Up"
-                                  : "Locked"}
+                                : m.isNext
+                                  ? "Up Next"
+                                  : m.isLive
+                                    ? "Live Now"
+                                    : "Upcoming"}
                             </p>
                           </div>
                         </div>
-                        {isCompleted && (
+                        {/* {isCompleted && (
                           <button className="text-[10px] text-gray-400 border border-white/10 px-3 py-1.5 rounded-lg shrink-0">
                             Review
                           </button>
-                        )}
+                        )} */}
                         {isCurrent && m.isLive && (
                           <button
                             onClick={() => window.open(m.class_link, "_blank")}
