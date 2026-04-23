@@ -121,7 +121,16 @@ export const Header = ({ Icon, Logo, route }: IHeaderProps) => {
           access_token: data.access_token,
         });
 
-        router.push("/dashboard");
+        let redirect = localStorage.getItem('authRedirect') || sessionStorage.getItem('authRedirect');
+        if (redirect) {
+            localStorage.removeItem('authRedirect');
+            sessionStorage.removeItem('authRedirect');
+            router.push(redirect);
+        } else if (router.asPath.includes('/tutor')) {
+            router.push(router.asPath);
+        } else {
+            router.push("/dashboard");
+        }
       }
     } catch (err: any) {
       // If there was an error during the login process, it will be caught here
@@ -138,7 +147,7 @@ export const Header = ({ Icon, Logo, route }: IHeaderProps) => {
   };
 
   return (
-    <div className="nav__container fixed top-0 left-0 right-0 z-999">
+    <div className="nav__container fixed top-0 left-0 right-0 z-[999]">
       <div
         className={`nav__content px-7 md:px-20 ms:px-9 h-16 md:h-20 flex items-center justify-between w-full ${
           navbar ? "bg-background" : ""
@@ -261,7 +270,16 @@ export const Header = ({ Icon, Logo, route }: IHeaderProps) => {
                     access_token: user.access_token,
                   });
 
-                  router.push("/dashboard");
+                  let redirect = localStorage.getItem('authRedirect') || sessionStorage.getItem('authRedirect');
+                  if (redirect) {
+                      localStorage.removeItem('authRedirect');
+                      sessionStorage.removeItem('authRedirect');
+                      router.push(redirect);
+                  } else if (router.asPath.includes('/tutor')) {
+                      router.push(router.asPath);
+                  } else {
+                      router.push("/dashboard");
+                  }
                   return;
                 }
 
@@ -288,7 +306,12 @@ export const Header = ({ Icon, Logo, route }: IHeaderProps) => {
                 "yellow_gradient_btn !font-bold !bg-txt-yellow !border-txt-yellow hover:!bg-txt-yellow hover:!border-txt-yellow"
               }
               onClick={async () => {
-                router.push("/register");
+                if (router.asPath.includes('/tutor')) {
+                  localStorage.setItem('authRedirect', router.asPath);
+                  router.push(`/register?redirect=${encodeURIComponent(router.asPath)}`);
+                } else {
+                  router.push("/register");
+                }
               }}
             >
               Get Started
@@ -299,30 +322,48 @@ export const Header = ({ Icon, Logo, route }: IHeaderProps) => {
         {Object.keys(user).length > 0 && (
           <div
             className="user_info relative flex items-center gap-3 cursor-pointer w-full max-w-[150px] pb-2 tb:justify-end"
-            onMouseEnter={() => setDropdown(true)}
-            onMouseLeave={() => setDropdown(false)}
+            onMouseEnter={() => {
+              if (typeof window !== 'undefined' && window.innerWidth > 1024) {
+                setDropdown(true);
+              }
+            }}
+            onMouseLeave={() => {
+              if (typeof window !== 'undefined' && window.innerWidth > 1024) {
+                setDropdown(false);
+              }
+            }}
           >
-            <Image
-              src={UserAvatarImage}
-              alt="User Avatar"
-              width={52}
-              height={52}
-              className="rounded-full w-10 h-10 tb:!w-8 tb:!h-8"
-            />
-            <div className="flex items-center gap-1">
-              {" "}
-              <Typography classstyle=" font-medium outfit sm:!hidden">
-                {user.username}
-              </Typography>
-              <IoIosArrowDown
-                className={`transition duration-200 text-sm ${dropdown ? "rotate-180" : ""} sm:!hidden`}
+            <div 
+              className="flex items-center gap-3 w-full tb:justify-end"
+              onClick={() => {
+                if (typeof window !== 'undefined' && window.innerWidth <= 1024) {
+                  setDropdown(!dropdown);
+                }
+              }}
+            >
+              <Image
+                src={UserAvatarImage}
+                alt="User Avatar"
+                width={52}
+                height={52}
+                className="rounded-full w-10 h-10 tb:!w-8 tb:!h-8"
               />
+              <div className="flex items-center gap-1">
+                {" "}
+                <Typography classstyle=" font-medium outfit sm:!hidden">
+                  {user.username}
+                </Typography>
+                <IoIosArrowDown
+                  className={`transition duration-200 text-sm ${dropdown ? "rotate-180" : ""} sm:!hidden`}
+                />
+              </div>
             </div>
             <div
-              className={`hover__nav--items absolute top-12 right-0 left-0 bg-[#1E2024] border-[0.5px] border-[#848484] rounded-xl p-3 items-center flex-col  ${dropdown ? "flex" : "hidden"}`}
+              className={`hover__nav--items absolute top-12 right-0 left-0 sm:top-10 sm:-right-2 sm:left-auto sm:w-[150px] bg-[#1E2024] border-[0.5px] border-[#848484] rounded-xl p-3 items-center flex-col z-[999] ${dropdown ? "flex" : "hidden"}`}
             >
               <Link
                 href={"/dashboard"}
+                onClick={() => setDropdown(false)}
                 className="transition duration-200 block px-5 py-2 font-medium rounded-full bg-[#282A30] text-[#BCBDBF] w-full text-center hover:scale-[0.95]"
               >
                 Dashboard
@@ -330,6 +371,7 @@ export const Header = ({ Icon, Logo, route }: IHeaderProps) => {
               <div className="h-2"></div>
               <Link
                 href={"/dashboard/settings"}
+                onClick={() => setDropdown(false)}
                 className="transition duration-200 block px-5 py-2 font-medium rounded-full bg-[#282A30] text-[#BCBDBF] w-full text-center hover:scale-[0.95]"
               >
                 Settings
@@ -340,6 +382,7 @@ export const Header = ({ Icon, Logo, route }: IHeaderProps) => {
                 variant="transparent"
                 classstyle="!text-[#BCBDBF]"
                 onClick={() => {
+                  setDropdown(false);
                   removeUser();
                   dispatch(setIsSuccessful(false));
                   dispatch(setSubscription([]));
@@ -490,7 +533,16 @@ export const Header = ({ Icon, Logo, route }: IHeaderProps) => {
                   variant="transparent"
                   onClick={async () => {
                     if (user.access_token !== undefined) {
-                      router.push("/dashboard");
+                      let redirect = localStorage.getItem('authRedirect') || sessionStorage.getItem('authRedirect');
+                      if (redirect) {
+                          localStorage.removeItem('authRedirect');
+                          sessionStorage.removeItem('authRedirect');
+                          router.push(redirect);
+                      } else if (router.asPath.includes('/tutor')) {
+                          router.push(router.asPath);
+                      } else {
+                          router.push("/dashboard");
+                      }
                       return;
                     }
 
@@ -520,7 +572,12 @@ export const Header = ({ Icon, Logo, route }: IHeaderProps) => {
                   "yellow_gradient_btn !font-bold !bg-txt-yellow !border-txt-yellow hover:!bg-txt-yellow hover:!border-txt-yellow"
                 }
                 onClick={async () => {
-                  router.push("/register");
+                  if (router.asPath.includes('/tutor')) {
+                    localStorage.setItem('authRedirect', router.asPath);
+                    router.push(`/register?redirect=${encodeURIComponent(router.asPath)}`);
+                  } else {
+                    router.push("/register");
+                  }
                 }}
               >
                 Get Started

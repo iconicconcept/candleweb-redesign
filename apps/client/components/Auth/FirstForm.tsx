@@ -57,8 +57,10 @@ export const FirstForm = ({ regDetails, onInputChange, onNextClick, connectedAcc
                     access_token: data.access_token
                 });
 
-                const redirect = router.query.redirect as string;
+                const redirect = router.query.redirect as string || localStorage.getItem('authRedirect') || sessionStorage.getItem('authRedirect');
                 if (redirect) {
+                    localStorage.removeItem('authRedirect');
+                    sessionStorage.removeItem('authRedirect');
                     router.push(redirect);
                 } else {
                     router.push("/dashboard");
@@ -198,8 +200,10 @@ export const FirstForm = ({ regDetails, onInputChange, onNextClick, connectedAcc
                     onClick={async () => {
 
                         if (Object.values(user).length > 0) {
-                            const redirect = router.query.redirect as string;
+                            const redirect = router.query.redirect as string || localStorage.getItem('authRedirect') || sessionStorage.getItem('authRedirect');
                             if (redirect) {
+                                localStorage.removeItem('authRedirect');
+                                sessionStorage.removeItem('authRedirect');
                                 router.push(redirect);
                             } else {
                                 router.push("/dashboard");
@@ -276,8 +280,10 @@ export const LastForm = ({ regDetails, onInputChange, onNextClick }: Props) => {
                     access_token: data.access_token
                 });
 
-                const redirect = router.query.redirect as string;
+                const redirect = router.query.redirect as string || localStorage.getItem('authRedirect') || sessionStorage.getItem('authRedirect');
                 if (redirect) {
+                    localStorage.removeItem('authRedirect');
+                    sessionStorage.removeItem('authRedirect');
                     router.push(redirect);
                 } else {
                     router.push("/dashboard");
@@ -439,8 +445,10 @@ export const LastForm = ({ regDetails, onInputChange, onNextClick }: Props) => {
                     onClick={async () => {
 
                         if (Object.values(user).length > 0) {
-                            const redirect = router.query.redirect as string;
+                            const redirect = router.query.redirect as string || localStorage.getItem('authRedirect') || sessionStorage.getItem('authRedirect');
                             if (redirect) {
+                                localStorage.removeItem('authRedirect');
+                                sessionStorage.removeItem('authRedirect');
                                 router.push(redirect);
                             } else {
                                 router.push("/dashboard");

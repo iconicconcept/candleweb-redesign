@@ -489,7 +489,7 @@ const AvailableCourses = () => {
                   Referral Username (Optional)
                 </label>
                 <input
-                  type="tel"
+                  type="text"
                   value={tempReferralUsername}
                   onChange={(e) => setTempReferralUsername(e.target.value)}
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3.5 text-white placeholder:text-white/20 focus:outline-none focus:border-primary/50 focus:bg-white/10 transition-colors text-sm"

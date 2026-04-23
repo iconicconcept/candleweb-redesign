@@ -4,7 +4,7 @@ import { Button, Checkbox, Heading, StreakImage, Typography } from 'ui'
 import { RiTimerLine } from 'react-icons/ri'
 import { RewardTaskProp, TaskProp } from '../../../types/task'
 import { imageUri } from '../../../utils/constants'
-import { FiExternalLink } from 'react-icons/fi'
+import { FiExternalLink, FiChevronDown, FiChevronUp } from 'react-icons/fi'
 import { dismissLoader, loading, success } from '../../alert/Toast'
 import { AppDispatch } from '../../../redux/store'
 import { useDispatch } from 'react-redux'
@@ -22,6 +22,7 @@ export const TaskStreakCard = ({ hasTimer, task, onVerify }: Props) => {
     const [state, setState] = React.useState({
         onCheck: false,
         isLoading: false,
+        isExpanded: false,
     });
 
     const checkReward = async () => {
@@ -40,12 +41,29 @@ export const TaskStreakCard = ({ hasTimer, task, onVerify }: Props) => {
             <div className="task__streak--avatarInfo flex gap-5 items-center">
                 <Image src={imageUri + task?.header} alt="Streak bike ride image" width={52} height={52} className="rounded-full w-20 h-20 tb:!w-16 tb:!h-16" />
                 <div className="task__streak--Info--info flex flex-col sm:items-start">
-                    <Heading textsize='md' boldness='med' classstyle='inter cursor-pointer flex gap-2 items-center' onClick={() => {
-                        window.open(task?.url, '_blank');
-                    }}>{task?.title} <span><FiExternalLink className='text-sm' /></span> </Heading>
-                    <Typography textsize='xs' classstyle='inter sm:!text-xs cursor-pointer' onClick={() => {
-                        window.open(task?.url, '_blank');
-                    }} color='gray' dangerouslySetInnerHTML={{ __html: task?.description ?? "" }}></Typography>
+                    <div className="flex items-center gap-3">
+                        <Heading textsize='md' boldness='med' classstyle='inter cursor-pointer flex gap-2 items-center' onClick={() => {
+                            window.open(task?.url, '_blank');
+                        }}>{task?.title} <span><FiExternalLink className='text-sm' /></span> </Heading>
+                        <button onClick={(e) => {
+                             e.stopPropagation();
+                             setState({...state, isExpanded: !state.isExpanded})
+                        }} className="text-white focus:outline-none">
+                             {state.isExpanded ? <FiChevronUp className="text-xl"/> : <FiChevronDown className="text-xl"/>}
+                        </button>
+                    </div>
+                    {state.isExpanded && (
+                        <div className="mt-2 flex flex-col gap-1 w-full">
+                            <Typography textsize='xs' classstyle='inter sm:!text-xs cursor-pointer' onClick={() => {
+                                window.open(task?.url, '_blank');
+                            }} color='gray' dangerouslySetInnerHTML={{ __html: task?.description ?? "" }}></Typography>
+                            {task?.url && (
+                                <a href={task.url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline break-all">
+                                    {task.url}
+                                </a>
+                            )}
+                        </div>
+                    )}
                     <div className="h-1"></div>
                     <div className="flex gap-3">
 
@@ -113,6 +131,7 @@ export const TaskCompletedCard = ({ hasTimer, reward }: Props) => {
     const dispatch = useDispatch<AppDispatch>();
 
     const tokenApi = useAxiosAuth();
+    const [isExpanded, setIsExpanded] = React.useState(false);
 
     const claimReward = async () => {
         try {
@@ -140,8 +159,25 @@ export const TaskCompletedCard = ({ hasTimer, reward }: Props) => {
             <div className="task__streak--avatarInfo flex gap-5 items-center">
                 <Image src={reward?.header ?? StreakImage} alt="Streak bike ride image" width={52} height={52} className="rounded-full w-20 h-20 tb:!w-16 tb:!h-16" />
                 <div className="task__streak--Info--info flex flex-col items-start">
-                    <Heading textsize='md' boldness='med' classstyle='inter' >{reward?.title}</Heading>
-                    <Typography textsize='xs' classstyle='inter sm:!text-xs' color='gray' dangerouslySetInnerHTML={{ __html: reward?.description ?? "" }}></Typography>
+                    <div className="flex items-center gap-3">
+                        <Heading textsize='md' boldness='med' classstyle='inter' >{reward?.title}</Heading>
+                        <button onClick={(e) => {
+                             e.stopPropagation();
+                             setIsExpanded(!isExpanded)
+                        }} className="text-white focus:outline-none">
+                             {isExpanded ? <FiChevronUp className="text-xl"/> : <FiChevronDown className="text-xl"/>}
+                        </button>
+                    </div>
+                    {isExpanded && (
+                        <div className="mt-2 flex flex-col gap-1 w-full">
+                            <Typography textsize='xs' classstyle='inter sm:!text-xs' color='gray' dangerouslySetInnerHTML={{ __html: reward?.description ?? "" }}></Typography>
+                            {reward?.verification_link && (
+                                <a href={reward.verification_link} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline break-all">
+                                    {reward.verification_link}
+                                </a>
+                            )}
+                        </div>
+                    )}
                     <div className="h-1"></div>
                     <div className="flex gap-3">
 
@@ -153,14 +189,16 @@ export const TaskCompletedCard = ({ hasTimer, reward }: Props) => {
                         </div>
                     </div>
                     <div className="sm:block sm:mt-2 hidden">
-                        <Button disabled={reward?.is_reward_claimed} classstyle='!rounded-lg !py-2 !px-4 !bg-txt-yellow !border !border-txt-yellow sm:!px-2 sm:!py-1 sm:!rounded-2xl' onClick={async () => claimReward()}>Claim Reward</Button>
-
+                        <Button disabled={reward?.is_reward_claimed} classstyle='!rounded-lg !py-2 !px-4 !bg-txt-yellow !border !border-txt-yellow sm:!px-2 sm:!py-1 sm:!rounded-2xl' onClick={async () => claimReward()}>
+                            {reward?.is_reward_claimed ? 'Claimed!' : 'Claim Reward'}
+                        </Button>
                     </div>
                 </div>
             </div>
             <div className="sm:hidden">
-                <Button disabled={reward?.is_reward_claimed} classstyle='!rounded-lg !py-2 !px-4 !bg-txt-yellow !border !border-txt-yellow sm:!px-2 sm:!py-1 sm:!rounded-2xl' onClick={async () => claimReward()}>Claim Reward</Button>
-
+                <Button disabled={reward?.is_reward_claimed} classstyle='!rounded-lg !py-2 !px-4 !bg-txt-yellow !border !border-txt-yellow sm:!px-2 sm:!py-1 sm:!rounded-2xl' onClick={async () => claimReward()}>
+                    {reward?.is_reward_claimed ? 'Claimed' : 'Claim Reward'}
+                </Button>
             </div>
             {hasTimer && <div className="task__streak--timer absolute top-0 right-0 flex items-center gap-1 bg-red-600 rounded-bl-3xl px-3 py-1">
                 <RiTimerLine className='' />

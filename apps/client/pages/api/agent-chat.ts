@@ -9,9 +9,15 @@ export default async function handler(
     return res.status(405).json({ message: "Method not allowed" });
   }
 
-  const { AGENT_API_BASE, AGENT_APP_KEY } = process.env;
+  const  AGENT_APP_KEY = "cw_live_9f3aK8xP2mQ7vL4rT1zY6bN0dH5sW8eC";
 
-  if (!AGENT_API_BASE || !AGENT_APP_KEY) {
+  // if (!AGENT_API_BASE || !AGENT_APP_KEY) {
+  //   return res
+  //     .status(500)
+  //     .json({ message: "Agent API configuration missing in .env" });
+  // }
+
+  if ( !AGENT_APP_KEY) {
     return res
       .status(500)
       .json({ message: "Agent API configuration missing in .env" });
@@ -35,7 +41,7 @@ export default async function handler(
 
   try {
     const response = await axios.post(
-      `${AGENT_API_BASE}/chat/agent/${agentType}/`,
+      `http://65.21.47.124:8002/chat/agent/${agentType}/`,
       forwardPayload,
       {
         headers: {

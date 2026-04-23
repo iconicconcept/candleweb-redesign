@@ -34,7 +34,7 @@ import {
   loading,
   success,
 } from "../../../components/alert/Toast";
-import { TaskCompletedCard } from "../../../components/dashboard/tasks/TaskStreakCard";
+import { TaskCompletedCard, TaskStreakCard } from "../../../components/dashboard/tasks/TaskStreakCard";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 interface UserProfile {
@@ -452,53 +452,17 @@ const TutorDashboard = () => {
                           </p>
                         </div>
                       ) : (
-                        pendingTasks.map((task: any) => (
-                          <div
-                            key={task.id}
-                            className="bg-card rounded-xl p-5 flex items-center gap-4 border border-white/5 hover:border-white/15 transition"
-                          >
-                            {/* VERIFY BUTTON */}
-                            <button
-                              onClick={() =>
-                                setOpenVerifyModal({ open: true, data: task })
-                              }
-                              className="w-7 h-7 rounded-md border border-white/90 bg-white/20 flex items-center justify-center hover:border-primary hover:bg-white/10 transition cursor-pointer"
-                            >
-                              {/* <span className="text-xs text-white/70">✓</span> */}
-                            </button>
-
-                            {/* <button
-                              onClick={() =>
-                                setOpenVerifyModal({ open: true, data: task })
-                              }
-                              className="w-7 h-7 rounded-md border border-txt-yellow/80 bg-transparent
-                              flex items-center justify-center
-                              hover:bg-txt-yellow/10 hover:border-txt-yellow
-                              transition cursor-pointer"
-                            >
-                              {/* optional check icon when needed
-                            </button> */}
-
-                            <div className="flex-1">
-                              <p className="text-sm font-semibold text-white">
-                                {task.title}
-                              </p>
-
-                              {task.end_date && (
-                                <p className="text-[11px] text-txtGray mt-0.5">
-                                  Due{" "}
-                                  {new Date(task.end_date).toLocaleDateString(
-                                    "en-US",
-                                    {
-                                      month: "short",
-                                      day: "numeric",
-                                    },
-                                  )}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        ))
+                        <div className="space-y-3">
+                          {pendingTasks.map((task: any, index: number) => (
+                            <TaskStreakCard
+                              key={index + (task.id ?? 1)}
+                              task={task}
+                              onVerify={async () => {
+                                setOpenVerifyModal({ open: true, data: task });
+                              }}
+                            />
+                          ))}
+                        </div>
                       )}
                     </>
                   )}
