@@ -5,7 +5,7 @@ import { error } from "../components/alert/Toast";
 import { ChatResponse, StudentContext } from "../types/agent";
 import { axiosApi } from "../lib/axiosApi";
 
-// The Agent API is now proxied through /api/tutor-chat/ for security and CORS resolution.
+// The Agent API is now called directly as the backend has been configured to accept CORS.
 
 /**
  * Send a message to the tutor agent
@@ -24,10 +24,10 @@ const sendMessage = createAsyncThunk(
     thunkApi,
   ) => {
     try {
+      const AGENT_APP_KEY = "cw_live_9f3aK8xP2mQ7vL4rT1zY6bN0dH5sW8eC";
       const response = await axios.post<ChatResponse>(
-        "/api/agent-chat/",
+        `http://65.21.47.124:8002/chat/agent/${payload.agentType}/`,
         {
-          agentType: payload.agentType,
           user_id: payload.userId,
           query: payload.query,
           ...(payload.agentType === "tutor" ? { student_context: payload.studentContext || {} } : {}),
@@ -36,11 +36,12 @@ const sendMessage = createAsyncThunk(
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${payload.accessToken}`,
+            "X-App-Key": AGENT_APP_KEY,
           },
         },
       );
 
-      return response.data.response;
+      return response.data.response || response.data;
     } catch (err: any) {
       let errorMessage = "Failed to get response from agent";
       

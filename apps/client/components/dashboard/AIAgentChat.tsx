@@ -13,7 +13,7 @@ import agentService from "../../services/agentService";
 import useAxiosAuth from "../../lib/hooks/useAxiosAuth";
 import useUserStore from "../../lib/hooks/useUserStore";
 import { ChatMessage } from "../../types/agent";
-import { IoClose, IoPaperPlane } from "react-icons/io5";
+import { IoClose, IoPaperPlane, IoChevronDown } from "react-icons/io5";
 import { MdSmartToy } from "react-icons/md";
 import { BsThreeDots } from "react-icons/bs";
 import { RobotIcon } from "../RobotIcon";
@@ -289,20 +289,23 @@ export default function AIAgentChat({
           <div className="bg-[#0b0c0f] p-5 pb-4 flex flex-col gap-3 z-10 border-t border-white/5 relative">
             {/* Dropdown for Agent */}
             <div className="px-1 flex items-center justify-start">
-              <div className="flex items-center gap-2 bg-[#1a1a1a] px-3 py-1.5 rounded-lg border border-white/5">
+              <div className="relative flex items-center gap-2 bg-[#1a1a1a] px-3 py-1.5 rounded-lg border border-white/5 transition-colors hover:bg-[#222]">
                 <MdSmartToy size={14} className="text-primary" />
-                <select
-                  value={agentType}
-                  onChange={handleAgentChange}
-                  className="bg-transparent text-[11px] text-white/80 font-bold outline-none cursor-pointer tracking-wide appearance-none pr-3"
-                >
-                  <option value="tutor" className="bg-card p-1">
-                    Tutor
-                  </option>
-                  <option value="customer-care" className="bg-card p-109">
-                    CandleAI
-                  </option>
-                </select>
+                <div className="relative flex items-center">
+                  <select
+                    value={agentType}
+                    onChange={handleAgentChange}
+                    className="bg-transparent text-[11px] text-white/80 font-bold outline-none cursor-pointer tracking-wide appearance-none pr-5 z-10 relative"
+                  >
+                    <option value="tutor" className="bg-[#121212] p-2">
+                      Tutor
+                    </option>
+                    <option value="customer-care" className="bg-[#121212] p-2">
+                      CandleAI
+                    </option>
+                  </select>
+                  <IoChevronDown size={12} className="text-white/60 absolute right-0 pointer-events-none" />
+                </div>
               </div>
             </div>
 
