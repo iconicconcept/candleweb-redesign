@@ -144,8 +144,12 @@ const enhancedModules = modules.map((m: any, idx: number) => {
         setCourse(data);
         setLoading(false);
       })
-      .catch(() => {
-        setError("Failed to load course details");
+      .catch((err: any) => {
+        const message =
+          err?.response?.data?.message ||
+          err?.message ||
+          "Failed to load course details";
+        setError(message);
         setLoading(false);
       });
   }, [id, router.isReady]);
@@ -538,6 +542,16 @@ const enhancedModules = modules.map((m: any, idx: number) => {
                       );
                     })}
                   </div>
+                  {modules.length > 10 && (
+                    <div className="px-7 py-4 border-t border-white/5 flex justify-start">
+                      <button
+                        onClick={() => setShowAllModules(!showAllModules)}
+                        className="text-[#27ECB0] text-sm font-semibold hover:text-[#27ECB0]/80 transition-colors"
+                      >
+                        {showAllModules ? "View Less" : "View All Modules"}
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Learning Circle card */}
@@ -891,6 +905,16 @@ const enhancedModules = modules.map((m: any, idx: number) => {
                     </div>
                   );
                 })}
+                {modules.length > 10 && (
+                  <div className="flex justify-center pt-4 mt-2 border-t border-white/5">
+                    <button
+                      onClick={() => setShowAllModules(!showAllModules)}
+                      className="text-[#27ECB0] text-sm font-semibold hover:text-[#27ECB0]/80 transition-colors"
+                    >
+                      {showAllModules ? "View Less" : "View All Modules"}
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 

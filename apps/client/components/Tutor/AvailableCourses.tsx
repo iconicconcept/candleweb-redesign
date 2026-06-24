@@ -200,15 +200,26 @@ const AvailableCourses = () => {
     }
   };
 
-  const displayedCourses = showAll ? courses : courses.slice(0, 3);
+  const openCourses = courses.filter(
+    (course: any) => course.is_enrollment_open !== false,
+  );
+  const closedCourses = courses.filter(
+    (course: any) => course.is_enrollment_open === false,
+  );
+  const displayedCourses = showAll ? openCourses : openCourses.slice(0, 3);
 
   return (
     <section
       id="courses"
       className="available-courses__section relative w-full py-16 md:py-24 bg-black/70 overflow-hidden"
     >
-      {(isLoading || isInitiating || isVerifying || isCheckingProfile) && (
+      {/* {(isLoading || isInitiating || isVerifying || isCheckingProfile) && (
         <Loader />
+      )} */}
+      {(isLoading || isInitiating || isVerifying || isCheckingProfile) && (
+        <div className="fixed inset-0 z-[9999] pointer-events-all">
+          <Loader />
+        </div>
       )}
       <div className="relative z-10 w-full px-6 md:px-20 lg:max-w-[1200px] lg:mx-auto">
         {/* Section Header */}
@@ -232,7 +243,7 @@ const AvailableCourses = () => {
 
         {/* Course Cards Container */}
         <div className="flex flex-col gap-8 md:gap-10">
-          {!isLoading && courses.length === 0 ? (
+          {!isLoading && openCourses.length === 0 ? (
             <div
               className={`transition-all duration-1000 flex justify-center w-full ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"}`}
             >
@@ -241,179 +252,202 @@ const AvailableCourses = () => {
                   <FaAward className="text-primary text-3xl opacity-50" />
                 </div>
                 <h3 className="text-white font-bold text-2xl mb-2">
-                  No Courses Available
+                  No Open Courses Available
                 </h3>
                 <p className="text-white/60 max-w-md mx-auto">
-                  We&apos;re currently curating new high-quality courses. Please
-                  check back soon for our latest educational offerings.
+                  There are no courses available for enrollment right now. Check
+                  back soon for new openings.
                 </p>
               </div>
             </div>
           ) : (
-            displayedCourses?.map((course: any, index: any) => (
-              <div
-                key={course.id}
-                className={`group relative bg-gray-900/10 border border-white/5 rounded-[24px] overflow-hidden backdrop-blur-3xl transition-all duration-700 hover:border-primary/20 hover:bg-gray-800/20 ${
-                  isVisible
-                    ? "opacity-100 translate-y-0"
-                    : "opacity-0 translate-y-20"
-                }`}
-                style={{ transitionDelay: `${index * 200}ms` }}
-              >
-                <div className="flex flex-col md:flex-row h-full">
-                  {/* Image Section - Top on mobile, Left on desktop */}
-                  <div className="relative w-full md:w-[330px] lg:w-[380px] aspect-[16/10] md:aspect-auto overflow-hidden bg-white/5 flex items-center justify-center">
-                    {course.image ? (
-                      <Image
-                        src={
-                          course.image.startsWith("http")
-                            ? course.image
-                            : imageUri + course.image
-                        }
-                        alt={course.title}
-                        fill
-                        className="object-cover transition-transform duration-700 group-hover:scale-110"
-                        sizes="(max-width: 768px) 100vw, 400px"
-                      />
-                    ) : (
-                      <div className="flex flex-col items-center justify-center text-white/20">
-                        <FaAward className="text-6xl mb-2" />
-                        <span className="text-sm">No Preview</span>
-                      </div>
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-transparent to-transparent md:hidden"></div>
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent to-[#0a0a0a]/20 hidden md:block"></div>
-                  </div>
+            displayedCourses?.map((course: any, index: any) => {
+              const enrolledCount =
+                typeof course.max_students === "number" &&
+                typeof course.available_slots === "number"
+                  ? Math.max(course.max_students - course.available_slots, 0)
+                  : course.current_enrollment_count || 0;
 
-                  {/* Content Section - Middle */}
-                  <div className="flex-1 p-5 lg:p-10 flex flex-col justify-between">
-                    <div>
-                      <h3
-                        className="text-white font-bold text-xl lg:text-2xl mb-4 group-hover:text-primary transition-colors duration-300 cursor-pointer"
-                        onClick={() => {
-                          if (!isLoggedIn) {
-                            googleAuth("/tutor#courses");
-                            return;
+              return (
+                <div
+                  key={course.id}
+                  className={`group relative bg-gray-900/10 border border-white/5 rounded-[24px] overflow-hidden backdrop-blur-3xl transition-all duration-700 hover:border-primary/20 hover:bg-gray-800/20 ${
+                    isVisible
+                      ? "opacity-100 translate-y-0"
+                      : "opacity-0 translate-y-20"
+                  }`}
+                  style={{ transitionDelay: `${index * 200}ms` }}
+                >
+                  <div className="flex flex-col md:flex-row h-full">
+                    {/* Image Section - Top on mobile, Left on desktop */}
+                    <div className="relative w-full md:w-[330px] lg:w-[380px] aspect-[16/10] md:aspect-auto overflow-hidden bg-white/5 flex items-center justify-center">
+                      {course.image ? (
+                        <Image
+                          src={
+                            course.image.startsWith("http")
+                              ? course.image
+                              : imageUri + course.image
                           }
-                          router.push(`/dashboard/tutor/course/${course.id}`);
-                        }}
-                      >
-                        {course.title}
-                      </h3>
-                      <p className="text-white/50 text-sm lg:text-base mb-6 leading-relaxed max-w-2xl">
-                        {course.description}
-                      </p>
+                          alt={course.title}
+                          fill
+                          className="object-cover transition-transform duration-700 group-hover:scale-110"
+                          sizes="(max-width: 768px) 100vw, 400px"
+                        />
+                      ) : (
+                        <div className="flex flex-col items-center justify-center text-white/20">
+                          <FaAward className="text-6xl mb-2" />
+                          <span className="text-sm">No Preview</span>
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-transparent to-transparent md:hidden"></div>
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent to-[#0a0a0a]/20 hidden md:block"></div>
+                    </div>
 
-                      {/* Features Grid */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-y-3 gap-x-6 mb-8">
-                        {course.features && course.features.length > 0 ? (
-                          course.features
-                            .slice(0, 8)
-                            .map((feature: any, i: any) => (
-                              <div
-                                key={i}
-                                className="flex items-center gap-2 text-white/70 text-sm"
-                              >
-                                <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20">
-                                  <FaCheck className="text-primary text-[10px]" />
+                    {/* Content Section - Middle */}
+                    <div className="flex-1 p-5 lg:p-10 flex flex-col justify-between">
+                      <div>
+                        <h3
+                          className="text-white font-bold text-xl lg:text-2xl mb-4 group-hover:text-primary transition-colors duration-300 cursor-pointer"
+                          onClick={() => {
+                            if (!isLoggedIn) {
+                              googleAuth("/tutor#courses");
+                              return;
+                            }
+                            router.push(`/dashboard/tutor/course/${course.id}`);
+                          }}
+                        >
+                          {course.title}
+                        </h3>
+                        <p className="text-white/50 text-sm lg:text-base mb-6 leading-relaxed max-w-2xl">
+                          {course.description}
+                        </p>
+
+                        {/* Features Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-y-3 gap-x-6 mb-8">
+                          {course.features && course.features.length > 0 ? (
+                            course.features
+                              .slice(0, 8)
+                              .map((feature: any, i: any) => (
+                                <div
+                                  key={i}
+                                  className="flex items-center gap-2 text-white/70 text-sm"
+                                >
+                                  <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20">
+                                    <FaCheck className="text-primary text-[10px]" />
+                                  </div>
+                                  <span className="truncate">{feature}</span>
                                 </div>
-                                <span className="truncate">{feature}</span>
-                              </div>
-                            ))
-                        ) : (
-                          <span className="text-white/30 text-sm italic">
-                            No specific features listed
+                              ))
+                          ) : (
+                            <span className="text-white/30 text-sm italic">
+                              No specific features listed
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Meta Info Row */}
+                      <div className="flex items-center gap-6 text-white/40 text-xs font-medium uppercase tracking-wider flex-wrap">
+                        <div className="flex items-center gap-2">
+                          <FaClock className="text-primary/60" />
+                          <span>{course.duration}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <FaVideo className="text-primary/60" />
+                          <span>{course.lessons} Hours</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <FaUsers className="text-primary/60" />
+                          <span>
+                            {course.current_enrollment_count ?? 0} Enrolled
                           </span>
-                        )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <FaAward className="text-primary/60" />
+                          <span>{course.certification}</span>
+                        </div>
                       </div>
                     </div>
 
-                    {/* Meta Info Row */}
-                    <div className="flex items-center gap-6 text-white/40 text-xs font-medium uppercase tracking-wider flex-wrap">
-                      <div className="flex items-center gap-2">
-                        <FaClock className="text-primary/60" />
-                        <span>{course.duration}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <FaVideo className="text-primary/60" />
-                        <span>{course.lessons} Hours</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <FaUsers className="text-primary/60" />
-                        {/* <span>{course.current_enrollment_count || 0} Enrolled</span> */}
-                        <span>98 Enrolled</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <FaAward className="text-primary/60" />
-                        <span>{course.certification}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Pricing & CTA Section - Right on desktop, bottom on mobile */}
-                  <div className="w-full md:w-[300px] lg:w-[340px] p-6 lg:p-10 border-t border-white/5 md:border-t-0 md:border-l flex flex-col items-center justify-center text-center bg-white/[0.03] md:bg-black/20">
-                    <div className="w-full flex flex-col items-center gap-3 justify-center mb-4">
-                      <div className="text-center">
-                        <span className="block text-primary md:text-white font-bold text-3xl md:text-3xl lg:text-4xl mb-0.5 md:mb-1">
-                          ₦{course.price.toFixed(2)}
-                        </span>
-                        {/* Live USD equivalent */}
-                        {toUSD(course.price) && (
-                          <span className="inline-flex items-center text-center gap-1 mb-0.5 px-2.5 py-1 rounded-full bg-green-500/10 border border-green-500/20 text-green-400 text-xs font-semibold">
-                            <FaDollarSign className="text-[10px]" />
-                            {toUSD(course.price)}
+                    {/* Pricing & CTA Section - Right on desktop, bottom on mobile */}
+                    <div className="w-full md:w-[300px] lg:w-[340px] p-6 lg:p-10 border-t border-white/5 md:border-t-0 md:border-l flex flex-col items-center justify-center text-center bg-white/[0.03] md:bg-black/20">
+                      <div className="w-full flex flex-col items-center gap-3 justify-center mb-4">
+                        <div className="text-center">
+                          <span className="block text-primary md:text-white font-bold text-3xl md:text-3xl lg:text-4xl mb-0.5 md:mb-1">
+                            ₦{course.price.toFixed(2)}
                           </span>
-                        )}
-                        <span className="hidden md:block text-white/40 text-[10px] uppercase tracking-widest font-bold mt-1">
-                          One-time payment
-                        </span>
-                        <span className="md:hidden text-center mt-1 text-white/40 text-[10px] uppercase tracking-widest font-bold block">
-                          One-time payment
-                        </span>
+                          {/* Live USD equivalent */}
+                          {toUSD(course.price) && (
+                            <span className="inline-flex items-center text-center gap-1 mb-0.5 px-2.5 py-1 rounded-full bg-green-500/10 border border-green-500/20 text-green-400 text-xs font-semibold">
+                              <FaDollarSign className="text-[10px]" />
+                              {toUSD(course.price)}
+                            </span>
+                          )}
+                          <span className="hidden md:block text-white/40 text-[10px] uppercase tracking-widest font-bold mt-1">
+                            One-time payment
+                          </span>
+                          <span className="md:hidden text-center mt-1 text-white/40 text-[10px] uppercase tracking-widest font-bold block">
+                            One-time payment
+                          </span>
+                        </div>
+
+                        <button
+                          onClick={() => handlePayment(course)}
+                          disabled={
+                            isInitiating || isVerifying || isCheckingProfile
+                          }
+                          className={`... ${
+                            isInitiating || isVerifying || isCheckingProfile
+                              ? "opacity-50 cursor-not-allowed pointer-events-none"
+                              : "md:hidden px-8 py-3 rounded-full bg-primary text-black font-bold text-sm transition-all duration-300 active:scale-95 shadow-lg shadow-primary/20"
+                          }`}
+                        >
+                          {purchasedCourseIds.includes(course.id)
+                            ? "Dashboard"
+                            : "Pay Now"}
+                        </button>
                       </div>
 
                       <button
                         onClick={() => handlePayment(course)}
-                        className="md:hidden px-8 py-3 rounded-full bg-primary text-black font-bold text-sm transition-all duration-300 active:scale-95 shadow-lg shadow-primary/20"
+                        disabled={
+                          isInitiating || isVerifying || isCheckingProfile
+                        }
+                        className={`... ${
+                          isInitiating || isVerifying || isCheckingProfile
+                            ? "opacity-50 cursor-not-allowed pointer-events-none"
+                            : "hidden md:flex w-full py-4 mb-6 rounded-full border border-red-300 text-black font-bold text-sm tracking-wide transition-all duration-300 bg-primary hover:text-black hover:scale-105 active:scale-95 items-center justify-center gap-2 group/btn"
+                        }`}
                       >
                         {purchasedCourseIds.includes(course.id)
                           ? "Dashboard"
                           : "Pay Now"}
+                        <HiArrowRight className="transition-transform duration-300 group-hover/btn:translate-x-1" />
                       </button>
-                    </div>
 
-                    <button
-                      onClick={() => handlePayment(course)}
-                      className="hidden md:flex w-full py-4 mb-6 rounded-full border border-red-300 text-black font-bold text-sm tracking-wide transition-all duration-300 bg-primary hover:text-black hover:scale-105 active:scale-95 items-center justify-center gap-2 group/btn"
-                    >
-                      {purchasedCourseIds.includes(course.id)
-                        ? "Dashboard"
-                        : "Pay Now"}
-                      <HiArrowRight className="transition-transform duration-300 group-hover/btn:translate-x-1" />
-                    </button>
-
-                    {/* <button 
+                      {/* <button 
                     onClick={() => router.push(`/dashboard/tutor/course/${course.id}`)}
                     className="hidden md:flex w-full py-3 mb-4 rounded-full border border-white/20 text-white font-medium text-sm tracking-wide transition-all duration-300 hover:bg-white/10 hover:border-white/40 items-center justify-center gap-2 group/btn">
                     View Details
                     <HiArrowRight className="transition-transform duration-300 group-hover/btn:translate-x-1" />
                   </button> */}
 
-                    {/* <div className="w-full flex flex-col items-center gap-2 pt-6 border-t border-white/5 md:border-none md:pt-0 md:mt-auto">
+                      {/* <div className="w-full flex flex-col items-center gap-2 pt-6 border-t border-white/5 md:border-none md:pt-0 md:mt-auto">
                     <span className="text-white/40 text-[10px] uppercase tracking-widest font-bold">Passive Revenue Potential</span>
                     <span className="text-primary font-bold text-xl flex items-center gap-2">
                       <FaChartLine className="text-sm opacity-50" />
                       {course.passiveRevenue}
                     </span>
                   </div> */}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
 
           {/* Show More / Show Less Button */}
-          {!isLoading && courses.length > 3 && (
+          {!isLoading && openCourses.length > 3 && (
             <div
               className={`flex justify-center mt-12 transition-all duration-700 ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"}`}
             >
@@ -429,6 +463,150 @@ const AvailableCourses = () => {
             </div>
           )}
         </div>
+
+        {closedCourses.length > 0 && (
+          <div className="mt-24 rounded-[32px] bg-[#111111]/80 border border-white/10 p-6 md:p-10 shadow-2xl shadow-black/20">
+            <div
+              className={`text-center mb-12 md:mb-20 transition-all duration-1000 ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-10"}`}
+            >
+              <h2 className="text-white font-bold text-2xl md:text-3xl lg:text-4xl mb-3">
+                Closed Registration Courses
+              </h2>
+              <p className="text-white/60 text-sm max-w-3xl mx-auto font-light leading-relaxed">
+                These courses are currently closed for enrollment, but you can
+                still review the full curriculum and details.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-8 md:gap-10">
+              {closedCourses.map((course: any, index: any) => (
+                <div
+                  key={course.id}
+                  className={`group relative bg-gray-900/10 border border-white/5 rounded-[24px] overflow-hidden backdrop-blur-3xl transition-all duration-700 hover:border-primary/20 hover:bg-gray-800/20 ${
+                    isVisible
+                      ? "opacity-100 translate-y-0"
+                      : "opacity-0 translate-y-20"
+                  }`}
+                  style={{ transitionDelay: `${index * 200}ms` }}
+                >
+                  <div className="flex flex-col md:flex-row h-full">
+                    <div className="relative w-full md:w-[330px] lg:w-[380px] aspect-[16/10] md:aspect-auto overflow-hidden bg-white/5 flex items-center justify-center">
+                      {course.image ? (
+                        <Image
+                          src={
+                            course.image.startsWith("http")
+                              ? course.image
+                              : imageUri + course.image
+                          }
+                          alt={course.title}
+                          fill
+                          className="object-cover transition-transform duration-700 group-hover:scale-110"
+                          sizes="(max-width: 768px) 100vw, 400px"
+                        />
+                      ) : (
+                        <div className="flex flex-col items-center justify-center text-white/20">
+                          <FaAward className="text-6xl mb-2" />
+                          <span className="text-sm">No Preview</span>
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-transparent to-transparent md:hidden"></div>
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent to-[#0a0a0a]/20 hidden md:block"></div>
+                    </div>
+
+                    <div className="flex-1 p-5 lg:p-10 flex flex-col justify-between">
+                      <div>
+                        <h3
+                          className="text-white font-bold text-xl lg:text-2xl mb-4 group-hover:text-primary transition-colors duration-300 cursor-pointer"
+                          onClick={() => {
+                            if (!isLoggedIn) {
+                              googleAuth("/tutor#courses");
+                              return;
+                            }
+                            router.push(`/dashboard/tutor/course/${course.id}`);
+                          }}
+                        >
+                          {course.title}
+                        </h3>
+                        <p className="text-white/50 text-sm lg:text-base mb-6 leading-relaxed max-w-2xl">
+                          {course.description}
+                        </p>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-y-3 gap-x-6 mb-8">
+                          {course.features && course.features.length > 0 ? (
+                            course.features
+                              .slice(0, 8)
+                              .map((feature: any, i: any) => (
+                                <div
+                                  key={i}
+                                  className="flex items-center gap-2 text-white/70 text-sm"
+                                >
+                                  <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20">
+                                    <FaCheck className="text-primary text-[10px]" />
+                                  </div>
+                                  <span className="truncate">{feature}</span>
+                                </div>
+                              ))
+                          ) : (
+                            <span className="text-white/30 text-sm italic">
+                              No specific features listed
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-6 text-white/40 text-xs font-medium uppercase tracking-wider flex-wrap">
+                        <div className="flex items-center gap-2">
+                          <FaClock className="text-primary/60" />
+                          <span>{course.duration}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <FaVideo className="text-primary/60" />
+                          <span>{course.lessons} Hours</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <FaUsers className="text-primary/60" />
+                          <span>
+                            {course.current_enrollment_count ?? 0} Enrolled
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <FaAward className="text-primary/60" />
+                          <span>{course.certification}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="w-full md:w-[300px] lg:w-[340px] p-6 lg:p-10 border-t border-white/5 md:border-t-0 md:border-l flex flex-col items-center justify-center text-center bg-white/[0.03] md:bg-black/20">
+                      <div className="w-full flex flex-col items-center gap-3 justify-center mb-4">
+                        <div className="text-center">
+                          <span className="block text-primary md:text-white font-bold text-3xl md:text-3xl lg:text-4xl mb-0.5 md:mb-1">
+                            ₦{course.price.toFixed(2)}
+                          </span>
+                          {toUSD(course.price) && (
+                            <span className="inline-flex items-center text-center gap-1 mb-0.5 px-2.5 py-1 rounded-full bg-green-500/10 border border-green-500/20 text-green-400 text-xs font-semibold">
+                              <FaDollarSign className="text-[10px]" />
+                              {toUSD(course.price)}
+                            </span>
+                          )}
+                          <span className="hidden md:block text-white/40 text-[10px] uppercase tracking-widest font-bold mt-1">
+                            One-time payment
+                          </span>
+                          <span className="md:hidden text-center mt-1 text-white/40 text-[10px] uppercase tracking-widest font-bold block">
+                            One-time payment
+                          </span>
+                        </div>
+
+                        <div className="inline-flex items-center justify-center px-5 py-3 rounded-full border border-white/10 bg-red-500/10 text-red-300 text-sm font-bold uppercase tracking-[0.2em]">
+                          Enrollment Closed
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Background Decorations */}
@@ -443,8 +621,8 @@ const AvailableCourses = () => {
               Complete Your Profile
             </h3>
             <p className="text-white/60 text-sm mb-6">
-              Please provide your first, last name, and phone number to proceed with the
-              payment.
+              Please provide your first, last name, and phone number to proceed
+              with the payment.
             </p>
 
             <div className="flex flex-col gap-4 mb-8">
