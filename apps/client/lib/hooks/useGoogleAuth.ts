@@ -28,35 +28,29 @@
 import { useRouter } from "next/router";
 import { uri } from "../axiosApi";
 
+const REDIRECT_KEY = "authRedirect";
+const COOKIE_MAX_AGE = 300;
+
 const useGoogleAuth = () => {
-    const router = useRouter();
+  const router = useRouter();
 
-    const googleAuth = (customRedirect?: string) => {
-        const redirect = customRedirect || router.asPath;
+  const googleAuth = (customRedirect?: string) => {
+    const redirect = customRedirect || router.asPath;
 
-        // Keep storage as a backup layer (for browsers that support it)
-        if (redirect) {
-            try {
-                localStorage.setItem('authRedirect', redirect);
-                sessionStorage.setItem('authRedirect', redirect);
-            } catch (e) {
-                // Storage blocked (e.g. private mode) — that's fine, we have the URL param (from backend)
-            }
-        }
+    if (redirect) {
+      // Keep all three storage layers as backup
+      document.cookie = `${REDIRECT_KEY}=${encodeURIComponent(redirect)}; path=/; max-age=${COOKIE_MAX_AGE}; SameSite=Lax`;
+      try {
+        localStorage.setItem(REDIRECT_KEY, redirect);
+        sessionStorage.setItem(REDIRECT_KEY, redirect);
+      } catch (e) {}
+    }
 
-        // PRIMARY METHOD: Pass redirect as a URL param to your backend.
-        // Your backend must encode this into the OAuth `state` parameter sent to Google.
-        // Google returns `state` untouched in the callback URL, so it survives the redirect.
-        const params = new URLSearchParams();
-        if (redirect) {
-            params.set('redirect', redirect);
-        }
+    // Pass redirect directly to backend as query param
+    window.location.href = `${uri}user/google/login/?redirect=${encodeURIComponent(redirect)}`;
+  };
 
-        window.location.href = `${uri}user/google/login/?${params.toString()}`;
-    };
-
-    return { googleAuth };
+  return { googleAuth };
 };
 
 export default useGoogleAuth;
-

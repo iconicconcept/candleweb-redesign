@@ -30,8 +30,8 @@ const Certification = (props: Props) => {
         // credentials: 'include',
         headers: {
           Accept: "*/*", // Match Postman’s broader Accept header
-          "User-Agent": "YourAppName/1.0" // Optional: mimic Postman’s User-Agent
-        }
+          "User-Agent": "YourAppName/1.0", // Optional: mimic Postman’s User-Agent
+        },
       });
 
       console.log("Response status:", response.status);
@@ -42,9 +42,13 @@ const Certification = (props: Props) => {
         if (response.headers.get("Content-Type") === "application/json") {
           const errorData = await response.json();
           console.error("Server error response:", errorData);
-          throw new Error(`Server error: ${response.status} - ${JSON.stringify(errorData)}`);
+          throw new Error(
+            `Server error: ${response.status} - ${JSON.stringify(errorData)}`,
+          );
         }
-        throw new Error(`HTTP error: ${response.status} ${response.statusText}`);
+        throw new Error(
+          `HTTP error: ${response.status} ${response.statusText}`,
+        );
       }
 
       if (response.headers.get("Content-Type") !== "image/png") {
@@ -69,9 +73,9 @@ const Certification = (props: Props) => {
       const response = await fetch(`${uri}/certificate/${user}`, {
         method: "GET",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
         },
-        credentials: "include"
+        credentials: "include",
       });
 
       if (!response.ok) {
@@ -79,18 +83,27 @@ const Certification = (props: Props) => {
       }
 
       const data = await response.json();
-      const selectedCertificate = data.certificate.filter((cert: any) =>
-        cert.course_code.includes(course_code as string)
+
+      const matchingCertificates = data.certificate.filter(
+        (cert: any) => cert.course_code === course_code, // exact match, not includes()
       );
 
-      if (!selectedCertificate || selectedCertificate.length === 0) {
+      if (!matchingCertificates || matchingCertificates.length === 0) {
         console.log("No matching certificate found");
         setLoading(false);
         return;
       }
 
+      // Always pick the most recently issued certificate among matches
+      const selectedCertificate = matchingCertificates.reduce(
+        (latest: any, current: any) =>
+          new Date(current.issued_at) > new Date(latest.issued_at)
+            ? current
+            : latest,
+      );
+
       fetchPdf(
-        `${uri}certificate/${user}/${selectedCertificate[0].certificate_number}?course_code=${course_code}`
+        `${uri}certificate/${user}/${selectedCertificate.certificate_number}?course_code=${course_code}`,
       );
     } catch (error) {
       console.error("Error fetching certificate data:", error);
@@ -141,7 +154,13 @@ const Certification = (props: Props) => {
 
       {pdfSource && (
         <div className="m-auto w-full max-w-[950px] my-24 sm:m-2 sm:mt-20 border-8 border-primary p-1">
-          <Image src={pdfSource} alt="Certificate" width={100} height={100} className="w-full" />
+          <Image
+            src={pdfSource}
+            alt="Certificate"
+            width={100}
+            height={100}
+            className="w-full"
+          />
         </div>
       )}
 

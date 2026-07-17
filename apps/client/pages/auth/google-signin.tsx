@@ -88,91 +88,123 @@ import useUserStore from "../../lib/hooks/useUserStore";
 
 type Props = {};
 
-const GoogleSignIn = (props: Props) => {
-  const router = useRouter();
-  const { setUser } = useUserStore((state) => state);
-  const hasFired = useRef(false);
+const REDIRECT_KEY = 'authRedirect';
 
-  const getRedirectPath = (): string => {
-    // LAYER 1: Read from the callback URL query params.
-    // Your backend should decode the `state` param and return `redirect` here.
-    // This works even when storage is wiped (private mode, iOS Safari, etc.)
-    const redirectFromUrl = router.query.redirect as string;
-    if (redirectFromUrl && redirectFromUrl.startsWith("/")) {
-      return redirectFromUrl;
-    }
-
-    // LAYER 2: Fall back to storage (works in most normal browsers)
-    const redirectFromStorage =
-      localStorage.getItem("authRedirect") ||
-      sessionStorage.getItem("authRedirect");
-    if (redirectFromStorage && redirectFromStorage.startsWith("/")) {
-      return redirectFromStorage;
-    }
-
-    // LAYER 3: Safe default
-    return "/dashboard";
-  };
-
-  const dispatchLogin = async () => {
-    if (hasFired.current) return;
-    hasFired.current = true;
-
-    // Resolve redirect BEFORE the async call so all branches use the same value
-    const redirect = getRedirectPath();
-
+const getCookie = (name: string): string | null => {
+    if (typeof document === 'undefined') return null;
+    const match = document.cookie
+        .split('; ')
+        .find(row => row.startsWith(`${name}=`));
+    if (!match) return null;
     try {
-      const queryString = new URLSearchParams(
-        router.query as Record<string, string>,
-      ).toString();
+        return decodeURIComponent(match.split('=')[1]);
+    } catch {
+        return null;
+    }
+};
 
-      const { data } = await axiosApi.get(
-        `/user/google/callback/?` + queryString,
-        { withCredentials: true },
-      );
+const clearRedirectStorage = () => {
+    document.cookie = `${REDIRECT_KEY}=; path=/; max-age=0; SameSite=Lax`;
+    try {
+        localStorage.removeItem(REDIRECT_KEY);
+        sessionStorage.removeItem(REDIRECT_KEY);
+    } catch (e) {}
+};
 
-      if (data.status === "success") {
-        const { data: userData } = await axiosApi.get("/user/profile/", {
-          headers: {
-            Authorization: `Bearer ${data.access_token}`,
-          },
-          withCredentials: true,
-        });
+const getRedirectPath = (dataRedirect?: string): string => {
+    // LAYER 1: From backend response (most reliable — survived the full OAuth round-trip)
+    if (dataRedirect && dataRedirect.startsWith('/')) {
+        return dataRedirect;
+    }
 
-        setUser({
-          ...userData,
-          access_token: data.access_token,
-        });
+    // LAYER 2: Cookie
+    const fromCookie = getCookie(REDIRECT_KEY);
+    if (fromCookie && fromCookie.startsWith('/')) {
+        return fromCookie;
+    }
 
-        // Clean up storage regardless of which layer provided the redirect
+    // LAYER 3: localStorage
+    try {
+        const fromLocal = localStorage.getItem(REDIRECT_KEY);
+        if (fromLocal && fromLocal.startsWith('/')) {
+            return fromLocal;
+        }
+    } catch (e) {}
+
+    // LAYER 4: sessionStorage
+    try {
+        const fromSession = sessionStorage.getItem(REDIRECT_KEY);
+        if (fromSession && fromSession.startsWith('/')) {
+            return fromSession;
+        }
+    } catch (e) {}
+
+    // LAYER 5: Safe default
+    return '/dashboard';
+};
+
+const GoogleSignIn = (props: Props) => {
+    const router = useRouter();
+    const { setUser } = useUserStore((state) => state);
+    const hasFired = useRef(false);
+
+    const dispatchLogin = async () => {
+        if (hasFired.current) return;
+        hasFired.current = true;
+
         try {
-          localStorage.removeItem("authRedirect");
-          sessionStorage.removeItem("authRedirect");
-        } catch (e) {}
+            const queryString = new URLSearchParams(
+                router.query as Record<string, string>
+            ).toString();
 
-        router.push(redirect);
-      } else {
-        router.push(redirect);
-      }
-    } catch (error) {
-      console.error(error);
-      router.push(redirect);
-    }
-  };
+            const { data } = await axiosApi.get(
+                `/user/google/callback/?` + queryString,
+                { withCredentials: true }
+            );
 
-  useEffect(() => {
-    if (!router.isReady) return;
+            if (data.status === "success") {
+                const { data: userData } = await axiosApi.get("/user/profile/", {
+                    headers: {
+                        Authorization: `Bearer ${data.access_token}`,
+                    },
+                    withCredentials: true,
+                });
 
-    if (router.query.code || router.query.state) {
-      dispatchLogin();
-    } else {
-      // No OAuth params — direct navigation to this page, send them somewhere safe
-      const redirect = getRedirectPath();
-      router.push(redirect);
-    }
-  }, [router.isReady]);
+                setUser({
+                    ...userData,
+                    access_token: data.access_token,
+                });
 
-  return <Loader />;
+                // Pass data.redirect as Layer 1 — comes directly from backend
+                const redirect = getRedirectPath(data.redirect);
+                clearRedirectStorage();
+                router.push(redirect);
+            } else {
+                const redirect = getRedirectPath();
+                clearRedirectStorage();
+                router.push(redirect);
+            }
+        } catch (error) {
+            console.error(error);
+            const redirect = getRedirectPath();
+            clearRedirectStorage();
+            router.push(redirect);
+        }
+    };
+
+    useEffect(() => {
+        if (!router.isReady) return;
+
+        if (router.query.code || router.query.state) {
+            dispatchLogin();
+        } else {
+            const redirect = getRedirectPath();
+            clearRedirectStorage();
+            router.push(redirect);
+        }
+    }, [router.isReady]);
+
+    return <Loader />;
 };
 
 export default GoogleSignIn;
