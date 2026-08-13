@@ -29,8 +29,8 @@ const paymentSlice = createSlice({
       state.error = null;
     },
     setPurchasedCourses: (state, action: PayloadAction<number[]>) => {
-        state.purchasedCourseIds = action.payload;
-    }
+      state.purchasedCourseIds = action.payload;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -42,6 +42,20 @@ const paymentSlice = createSlice({
       .addCase(paymentService.initiatePayment.fulfilled, (state, action) => {
         state.isInitiating = false;
         state.paymentData = action.payload;
+
+        const data = action.payload?.data;
+
+        // Free course: backend already completed enrollment, no gateway step.
+        if (data?.requires_payment === false) {
+          state.lastPaymentStatus = "success";
+          const courseId =
+            data.enrollment?.course?.id ||
+            data.enrollment?.course_id ||
+            data.course_id;
+          if (courseId && !state.purchasedCourseIds.includes(courseId)) {
+            state.purchasedCourseIds.push(courseId);
+          }
+        }
       })
       .addCase(paymentService.initiatePayment.rejected, (state, action) => {
         state.isInitiating = false;
@@ -56,11 +70,15 @@ const paymentSlice = createSlice({
       .addCase(paymentService.verifyPayment.fulfilled, (state, action) => {
         state.isVerifying = false;
         state.lastPaymentStatus = "success";
-        
+
         // Extract course ID from the response (data.enrollment.course.id or data.course_id)
         const data = action.payload?.data;
-        const courseId = data?.enrollment?.course?.id || data?.enrollment?.course_id || data?.course_id || action.payload?.course_id;
-        
+        const courseId =
+          data?.enrollment?.course?.id ||
+          data?.enrollment?.course_id ||
+          data?.course_id ||
+          action.payload?.course_id;
+
         if (courseId && !state.purchasedCourseIds.includes(courseId)) {
           state.purchasedCourseIds.push(courseId);
         }
@@ -73,10 +91,22 @@ const paymentSlice = createSlice({
       // Get Student Enrollments (from student/check endpoint)
       .addCase(tutorService.checkStudentProfile.fulfilled, (state, action) => {
         const data = action.payload?.data;
-        if (data && data.enrolled_courses && Array.isArray(data.enrolled_courses)) {
-          state.purchasedCourseIds = data.enrolled_courses.map((c: any) => c.id || c.course_id || c);
-        } else if (data && data.enrollments && Array.isArray(data.enrollments)) {
-          state.purchasedCourseIds = data.enrollments.map((e: any) => e.course?.id || e.course_id || e);
+        if (
+          data &&
+          data.enrolled_courses &&
+          Array.isArray(data.enrolled_courses)
+        ) {
+          state.purchasedCourseIds = data.enrolled_courses.map(
+            (c: any) => c.id || c.course_id || c,
+          );
+        } else if (
+          data &&
+          data.enrollments &&
+          Array.isArray(data.enrollments)
+        ) {
+          state.purchasedCourseIds = data.enrollments.map(
+            (e: any) => e.course?.id || e.course_id || e,
+          );
         }
       });
   },

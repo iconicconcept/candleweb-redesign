@@ -17,12 +17,18 @@ import {
 } from "react-icons/io5";
 import { useRouter } from "next/router";
 import courseService from "../../../../services/courseService";
+import certificateService, {
+  CertificateInfo,
+} from "../../../../services/certificateService";
 import { imageUri } from "../../../../utils/constants";
 import toast from "react-hot-toast";
 import { useDispatch } from "react-redux";
-import { AppDispatch } from "../../../../redux/store";
+import { useSelector } from "react-redux";
+import { AppDispatch, RootState } from "../../../../redux/store";
 import { setChatOpen } from "../../../../redux/slices/agentSlice";
 import AIAgentChat from "../../../../components/dashboard/AIAgentChat";
+import userService from "../../../../services/userService";
+import { axiosApi } from "../../../../lib/axiosApi";
 import { UserAvatarImage } from "ui";
 import Image from "next/image";
 
@@ -52,6 +58,27 @@ const CourseDetails = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedModuleId, setSelectedModuleId] = useState<number | null>(null);
   const [showAllModules, setShowAllModules] = useState(false);
+
+  // ── Certificate state ──
+  // Username comes from the persisted Zustand user store (populated by
+  // userService.getUser -> setUser on login/profile fetch), not Redux —
+  // authSlice only tracks login/loading flags, it doesn't hold the user.
+  const username = useSelector((state: RootState) => state.user.user?.username);
+
+  useEffect(() => {
+    if (!username) {
+      dispatch(userService.getUser(axiosApi));
+    }
+  }, [username]);
+
+  console.log(
+    "redux user state:",
+    useSelector((state: RootState) => state.user),
+  );
+
+  const [certificate, setCertificate] = useState<CertificateInfo | null>(null);
+  const [certLoading, setCertLoading] = useState(false);
+  const [certDownloading, setCertDownloading] = useState(false);
 
   const scheduleModules = Array.isArray(course?.class_schedules)
     ? course.class_schedules
@@ -87,19 +114,19 @@ const CourseDetails = () => {
   });
 
   const firstIncompleteIndex = modules.findIndex(
-  (m: any) => !m.isActuallyCompleted
-);
+    (m: any) => !m.isActuallyCompleted,
+  );
 
-const enhancedModules = modules.map((m: any, idx: number) => {
-  const isNext = idx === firstIncompleteIndex;
-  const isUpcomingAfterNext = idx > firstIncompleteIndex;
+  const enhancedModules = modules.map((m: any, idx: number) => {
+    const isNext = idx === firstIncompleteIndex;
+    const isUpcomingAfterNext = idx > firstIncompleteIndex;
 
-  return {
-    ...m,
-    isNext,
-    isUpcomingAfterNext,
-  };
-});
+    return {
+      ...m,
+      isNext,
+      isUpcomingAfterNext,
+    };
+  });
 
   useEffect(() => {
     if (!modules.length) return;
@@ -153,6 +180,80 @@ const enhancedModules = modules.map((m: any, idx: number) => {
         setLoading(false);
       });
   }, [id, router.isReady]);
+
+  // ── Look up this course's certificate as soon as we know who the
+  // student is and which course this is. This only tells us whether a
+  // certificate exists / has been issued yet — it does not download it.
+  const courseCode = course?.course_code;
+
+  useEffect(() => {
+    if (!username || !courseCode) {
+      setCertificate(null);
+      return;
+    }
+
+    let cancelled = false;
+    setCertLoading(true);
+
+    certificateService
+      .getStudentCertificates(username)
+      .then((data) => {
+        if (cancelled) return;
+        const match = certificateService.findCertificateForCourse(
+          data.certificate,
+          courseCode,
+        );
+        setCertificate(match || null);
+      })
+      .catch(() => {
+        if (!cancelled) setCertificate(null);
+      })
+      .finally(() => {
+        if (!cancelled) setCertLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [username, courseCode]);
+
+  const isCertificateIssued = !!certificate?.is_issued;
+
+  const handleDownloadCertificate = async () => {
+    if (!username) {
+      toast.error("Please log in to download your certificate");
+      return;
+    }
+    if (!courseCode) {
+      toast.error("Certificate is not available for this course");
+      return;
+    }
+    if (certLoading || certDownloading) return;
+
+    if (!certificate || !certificate.is_issued) {
+      toast.error(
+        "Your certificate is not yet available. It hasn't been issued for this course yet.",
+      );
+      return;
+    }
+
+    try {
+      setCertDownloading(true);
+      await certificateService.downloadCertificate(
+        username,
+        certificate.certificate_number,
+        courseCode,
+        `${course?.title || "certificate"}.png`,
+      );
+    } catch (err: any) {
+      toast.error(
+        err?.message ||
+          "Your certificate is not yet available. Please check back later.",
+      );
+    } finally {
+      setCertDownloading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -506,37 +607,6 @@ const enhancedModules = modules.map((m: any, idx: number) => {
                                 </p>
                               </div>
                             </div>
-
-                            {/* Right side */}
-                            {/* <div className="flex items-center gap-2 shrink-0">
-                              {m.presentation_link && (
-                                <button
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    openResource(m.presentation_link, "presentation");
-                                  }}
-                                  className="px-3 py-2 bg-white/5 border border-white/10 text-gray-200 text-[10px] font-bold uppercase tracking-[0.2em] rounded-lg hover:bg-white/10 transition-all"
-                                >
-                                  <IoDocumentTextOutline className="inline-block mr-1" size={14} />
-                                  Pres
-                                </button>
-                              )}
-                              {m.recording_link && (
-                                <button
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    openResource(m.recording_link, "recording");
-                                  }}
-                                  className="px-3 py-2 bg-white/5 border border-white/10 text-gray-200 text-[10px] font-bold uppercase tracking-[0.2em] rounded-lg hover:bg-white/10 transition-all"
-                                >
-                                  <IoPlayCircleOutline className="inline-block mr-1" size={14} />
-                                  Vid
-                                </button>
-                              )}
-                              {!m.presentation_link && !m.recording_link && (
-                                <span className="text-[10px] text-gray-500 uppercase tracking-[0.2em]">No resources</span>
-                              )}
-                            </div> */}
                           </div>
                         </div>
                       );
@@ -659,7 +729,6 @@ const enhancedModules = modules.map((m: any, idx: number) => {
                         <IoDocumentTextOutline size={18} />
                         <span className="truncate">Presentation</span>
                       </span>
-                      {/* <span className="text-xs text-gray-400 uppercase tracking-[0.2em]">Open</span> */}
                     </button>
                     <button
                       onClick={() =>
@@ -674,8 +743,53 @@ const enhancedModules = modules.map((m: any, idx: number) => {
                         <IoPlayCircleOutline size={18} />
                         <span className="truncate">Recording</span>
                       </span>
-                      {/* <span className="text-xs text-gray-400 uppercase tracking-[0.2em]">Open</span> */}
                     </button>
+                  </div>
+                </div>
+
+                {/* Certificate download */}
+                <div className="bg-[#111827]/80 rounded-2xl border border-white/5 p-6 space-y-4">
+                  <h3 className="text-sm font-bold text-white">Certificate</h3>
+
+                  <div className="space-y-3 overflow-hidden">
+                    <button
+                      onClick={handleDownloadCertificate}
+                      disabled={certLoading || certDownloading}
+                      className={`w-full min-w-0 flex items-center justify-between px-4 py-3 border border-white/5 rounded-xl text-left transition-all overflow-hidden
+                        ${
+                          isCertificateIssued
+                            ? "bg-[#27ECB0] hover:bg-[#27ECB0]/90"
+                            : "bg-white/5 hover:bg-white/10"
+                        }
+                        ${certLoading || certDownloading ? "opacity-70 cursor-wait" : ""}
+                      `}
+                    >
+                      <span
+                        className={`flex items-center gap-2 min-w-0 truncate ${
+                          isCertificateIssued
+                            ? "text-[#111827]"
+                            : "text-gray-400"
+                        }`}
+                      >
+                        {isCertificateIssued ? (
+                          <IoDocumentTextOutline size={18} />
+                        ) : (
+                          <IoLockClosedOutline size={18} />
+                        )}
+                        <span className="truncate font-semibold">
+                          {certDownloading
+                            ? "Downloading..."
+                            : certLoading
+                              ? "Checking..."
+                              : "Download"}
+                        </span>
+                      </span>
+                    </button>
+                    {!isCertificateIssued && !certLoading && (
+                      <span className="block truncate text-gray-400 ml-1 text-[12px] italic mt-2.5">
+                        Certificate Not Yet Available
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -850,7 +964,6 @@ const enhancedModules = modules.map((m: any, idx: number) => {
                           <div
                             className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0
                             ${isCompleted ? "bg-[#27ECB0]/15 text-[#27ECB0]" : ""}
-                            // ${isNext ? "bg-[#FFB322]/15 border-l-2 border-[#FFB322]" : ""}
                             ${isCurrent ? "bg-[#FFB322]/15 text-[#FFB322]" : ""}
                             ${isLocked ? "bg-white/5 text-gray-400" : ""}
                           `}
@@ -858,11 +971,10 @@ const enhancedModules = modules.map((m: any, idx: number) => {
                             {isCompleted && <IoCheckmarkCircle size={18} />}
                             {isCurrent && <IoPlayCircleOutline size={18} />}
                             {isLocked && <IoLockClosedOutline size={15} />}
-                            {/* {isNext && <IoDownloadOutline size={20} />} */}
                           </div>
                           <div>
                             <p
-                              className={`text-[9px] font-bold uppercase tracking-widest mb-0.5 ${isCurrent ? "text-[#FFB322]"  : "text-[#27ECB0]"}`}
+                              className={`text-[9px] font-bold uppercase tracking-widest mb-0.5 ${isCurrent ? "text-[#FFB322]" : "text-[#27ECB0]"}`}
                             >
                               Module {String(idx + 1).padStart(2, "0")}
                             </p>
@@ -888,11 +1000,6 @@ const enhancedModules = modules.map((m: any, idx: number) => {
                             </p>
                           </div>
                         </div>
-                        {/* {isCompleted && (
-                          <button className="text-[10px] text-gray-400 border border-white/10 px-3 py-1.5 rounded-lg shrink-0">
-                            Review
-                          </button>
-                        )} */}
                         {isCurrent && m.isLive && (
                           <button
                             onClick={() => window.open(m.class_link, "_blank")}
@@ -968,7 +1075,6 @@ const enhancedModules = modules.map((m: any, idx: number) => {
                     <IoDocumentTextOutline size={22} />
                     <span className="truncate">Presentation</span>
                   </span>
-                  {/* <span className="text-xs text-gray-400 uppercase tracking-[0.2em]">Open</span> */}
                 </button>
                 <button
                   onClick={() =>
@@ -980,8 +1086,50 @@ const enhancedModules = modules.map((m: any, idx: number) => {
                     <IoPlayCircleOutline size={22} />
                     <span className="truncate">Recording</span>
                   </span>
-                  {/* <span className="text-xs text-gray-400 uppercase tracking-[0.2em]">Open</span> */}
                 </button>
+              </div>
+            </div>
+
+            {/* Certificate mobile */}
+            <div className="space-y-3 overflow-hidden">
+              <h2 className="text-base font-bold text-white">Certificate</h2>
+              <div className="grid grid-cols-1 gap-3">
+                <button
+                  onClick={handleDownloadCertificate}
+                  disabled={certLoading || certDownloading}
+                  className={`w-full min-w-0 border border-white/5 rounded-xl p-4 flex items-center justify-between gap-3 transition-all overflow-hidden
+                    ${
+                      isCertificateIssued
+                        ? "bg-[#27ECB0] hover:border-[#27ECB0]/30"
+                        : "bg-[#0d1117] hover:border-white/20"
+                    }
+                    ${certLoading || certDownloading ? "opacity-70 cursor-wait" : ""}
+                  `}
+                >
+                  <span
+                    className={`flex items-center gap-2 min-w-0 truncate ${
+                      isCertificateIssued ? "text-[#111827]" : "text-gray-400"
+                    }`}
+                  >
+                    {isCertificateIssued ? (
+                      <IoDocumentTextOutline size={22} />
+                    ) : (
+                      <IoLockClosedOutline size={22} />
+                    )}
+                    <span className="truncate font-semibold">
+                      {certDownloading
+                        ? "Downloading..."
+                        : certLoading
+                          ? "Checking..."
+                          : "Download"}
+                    </span>
+                  </span>
+                </button>
+                {!isCertificateIssued && !certLoading && (
+                  <span className="block truncate text-gray-400 ml-1 text-[12px] italic mt-2.5">
+                    Certificate Not Yet Available
+                  </span>
+                )}
               </div>
             </div>
 
@@ -989,7 +1137,6 @@ const enhancedModules = modules.map((m: any, idx: number) => {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <h2 className="text-base font-bold text-white">Classmates</h2>
-                {/* <span className="text-xs text-gray-400">128 Active</span> */}
               </div>
               <div className="flex -space-x-3">
                 {[1, 2, 3, 4].map((i) => (

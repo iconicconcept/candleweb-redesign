@@ -122,7 +122,14 @@ const AvailableCourses = () => {
       if (paymentService.initiatePayment.fulfilled.match(resultAction)) {
         const paymentData = resultAction.payload?.data;
 
-        if (paymentData?.authorization_url) {
+        if (paymentData?.requires_payment === false) {
+          // Free course — enrollment is already completed by the backend.
+          toast.success("You're enrolled! Taking you to your dashboard.");
+          router.push("/dashboard");
+          return;
+        }
+
+        if (paymentData?.requires_payment && paymentData?.authorization_url) {
           window.location.href = paymentData.authorization_url;
         } else {
           toast.error(
