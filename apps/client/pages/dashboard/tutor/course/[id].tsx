@@ -1126,7 +1126,7 @@ const CourseDetails = () => {
                   </span>
                 </button>
                 {!isCertificateIssued && !certLoading && (
-                  <span className="block truncate text-gray-400 ml-1 text-[12px] italic mt-2.5">
+                  <span className="block truncate text-gray-400 ml-1 text-[12px] italic mt-1.5">
                     Certificate Not Yet Available
                   </span>
                 )}
