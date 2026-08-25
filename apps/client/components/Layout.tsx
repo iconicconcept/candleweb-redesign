@@ -46,7 +46,8 @@ const Layout = ({ children }: Props) => {
       </Head>
       <GoogleAnalytics gaId="G-Z3EMQKEN56" />
       <div className="main__body relative overflow-hidden min-h-screen pb-10 !max-w-[100vw]">
-        {(!path.includes("dashboard") && !path.includes("register") && !path.includes("tutor")) && (
+        {/* {(!path.includes("dashboard") && !path.includes("register") && !path.includes("tutor")) && ( */}
+        {path !== "" && (!path.includes("dashboard") && !path.includes("register") && !path.includes("tutor")) && (
           <Header
             route={path}
             Icon={CgMenuRight}

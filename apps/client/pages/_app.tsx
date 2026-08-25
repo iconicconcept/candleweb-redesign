@@ -3,6 +3,7 @@ import "ui/styles/tailwind.css";
 import "ui/styles/global.css";
 import "../styles/tailwind.css";
 import "../styles/globals.css";
+import "../styles/landing.css";
 import type { AppProps } from "next/app";
 import { Toaster } from "react-hot-toast";
 import { Provider } from "react-redux";
