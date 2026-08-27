@@ -34,7 +34,7 @@ function ButtonLink({
   tone?: "amber" | "teal" | "glass";
   onClick?: () => void;
 }) {
-  const className = `landing-btn landing-btn-${tone}`;
+  const className = `landing-btn landing-btn-amber landing-btn-${tone}`;
   return href ? (
     <Link href={href} className={className}>
       {children}
@@ -693,9 +693,11 @@ export default function Home() {
                         ? "/privacy"
                         : item === "Dashboard"
                           ? "/dashboard"
-                          : item === "Academy"
-                          ? "/tutor"
-                          : "#"
+                          : item === "About"
+                            ? "/about"
+                            : item === "Academy"
+                              ? "/tutor"
+                              : "#"
                   }
                   key={item}
                 >
@@ -716,8 +718,6 @@ export default function Home() {
     </>
   );
 }
-
-
 
 // import Image from 'next/image'
 // import React, { useState } from 'react'
@@ -775,12 +775,11 @@ export default function Home() {
 //                         {SvgIcons.info}
 //                     </div>
 //                     <Typography classstyle='inter !text-txt-yellow !text-xl sm:!text-sm' tooltip='<span style="font-weight: bold; font-size: 16px;" class="text_gradient">We Don’t Hold Your Funds, You Do.</span><br />
-                        
+
 //                         Your security is our priority. We don’t ask for deposits or hold your funds.<br />
-                        
+
 //                         Your assets stay safe in your crypto exchange account, and you remain in complete control of your investments while we work to maximise your returns'>Your  Assets Stay In Your Wallet. Always.</Typography>
 //                 </div>
-
 
 //                 {/* HERO */}
 //                 <div className="mt-20 flex flex-col items-center justify-center">
@@ -826,9 +825,6 @@ export default function Home() {
 //                             <Typography classstyle='inter !text-[#BCBCBC] mt-1 !text-[10px]'>Start with a risk-free AI demo trade!</Typography>
 //                         </div>
 //                     </div>
-
-
-
 
 //                     {/* <div className="h-4"></div> */}
 //                     {/* <div className="trustpilot__body w-full bg-[#1F1F1F] p-4 h-24">
@@ -902,8 +898,8 @@ export default function Home() {
 //                     <div className="bottom__to__top__gradient mt-16 flex flex-col items-center">
 //                         <Heading textsize='xl' classstyle='inter mb-10 sm:mb-0 text-primary sm:text-3xl'>Why we are better</Heading>
 //                         <div className=" flex items-center justify-center gap-10 w-full py-20 tb:flex-col sm:px-9">
-//                             <WhyCard title='Effortless AI Trading' description='"Trading Made Effortless: CandleAI continuously learns and adjusts its strategy, 
-// identifying profitable opportunities and executing precise trades for around-the-clock 
+//                             <WhyCard title='Effortless AI Trading' description='"Trading Made Effortless: CandleAI continuously learns and adjusts its strategy,
+// identifying profitable opportunities and executing precise trades for around-the-clock
 // profitability.' icon={WHY1Image} />
 //                             <WhyCard title='Beginner-Friendly Platform' description='Onboarding is simple. Create an account, connect your preferred exchange and launch CandleAI' icon={WHY2Image} />
 //                             <WhyCard title='Automated Execution' description="Once you're set-up, CandleAI takes care of the rest, executing trades accurately and ensuring transparent portfolio management." icon={WHY3Image} />

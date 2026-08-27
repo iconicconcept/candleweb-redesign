@@ -4,6 +4,9 @@ import "ui/styles/global.css";
 import "../styles/tailwind.css";
 import "../styles/globals.css";
 import "../styles/landing.css";
+import "../styles/about.css";
+import "../styles/blog.css";
+import "../styles/blog-detail.css";
 import type { AppProps } from "next/app";
 import { Toaster } from "react-hot-toast";
 import { Provider } from "react-redux";
@@ -15,10 +18,7 @@ export default function App({ Component, pageProps }: AppProps) {
   const { store, props } = wrapper.useWrappedStore(pageProps);
 
   return (
-
     <>
-
-
       <Provider store={store}>
         <Layout>
           <Component {...props.pageProps} />
@@ -31,7 +31,11 @@ export default function App({ Component, pageProps }: AppProps) {
               borderRadius: "30px",
               fontWeight: "bold",
               padding: "8px 20px",
-            }} buttonText={"Accept"}>This website uses cookies to enhance the user experience.</CookieConsent>
+            }}
+            buttonText={"Accept"}
+          >
+            This website uses cookies to enhance the user experience.
+          </CookieConsent>
           <Script
             id="custom-script"
             strategy="afterInteractive" // Load script after the page is interactive

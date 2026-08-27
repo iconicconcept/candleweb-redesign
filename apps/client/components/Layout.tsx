@@ -5,7 +5,7 @@ import { CgMenuRight } from "react-icons/cg";
 import Image from "next/image";
 import Head from "next/head";
 import { useRouter } from "next/router";
-import { GoogleAnalytics } from '@next/third-parties/google'
+import { GoogleAnalytics } from "@next/third-parties/google";
 
 type Props = {
   children: React.ReactNode;
@@ -15,10 +15,8 @@ const Layout = ({ children }: Props) => {
   const router = useRouter();
   const path = router.pathname.split("/")[1];
 
-
   return (
     <>
-
       <Head>
         <link rel="icon" href="/favicon.ico" />
         <link
@@ -47,24 +45,30 @@ const Layout = ({ children }: Props) => {
       <GoogleAnalytics gaId="G-Z3EMQKEN56" />
       <div className="main__body relative overflow-hidden min-h-screen pb-10 !max-w-[100vw]">
         {/* {(!path.includes("dashboard") && !path.includes("register") && !path.includes("tutor")) && ( */}
-        {path !== "" && (!path.includes("dashboard") && !path.includes("register") && !path.includes("tutor")) && (
-          <Header
-            route={path}
-            Icon={CgMenuRight}
-            Logo={
-              <Image
-                src={Logo}
-                alt="Home Logo"
-                className="max-w-[150px] md:max-w-[170px]"
-              />
-            }
-          />
-        )}
+        {path !== "" &&
+          path !== "about" &&
+          !path.includes("dashboard") &&
+          !path.includes("register") &&
+          !path.includes("tutor") &&
+          (!path.includes("blog") || Boolean(router.query.id)) && (
+            <Header
+              route={path}
+              Icon={CgMenuRight}
+              Logo={
+                <Image
+                  src={Logo}
+                  alt="Home Logo"
+                  className="max-w-[150px] md:max-w-[170px]"
+                />
+              }
+            />
+          )}
         {children}
-        <div className={`bottom__border absolute bottom-0 left-0 right-0 bg-bottom-border w-full h-[31px] ${path.includes("dashboard") ? "ai:!hidden" : ""}`}></div>
+        <div
+          className={`bottom__border absolute bottom-0 left-0 right-0 bg-bottom-border w-full h-[31px] ${path.includes("dashboard") ? "ai:!hidden" : ""}`}
+        ></div>
       </div>
       {/* {isFooter && <Footer />} */}
-
     </>
   );
 };

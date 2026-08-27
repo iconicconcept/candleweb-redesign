@@ -1,168 +1,49 @@
-import React, { useEffect, useMemo, useState } from 'react'
-import { BotImage, Button, Heading, HeroBgIcon, splitByThirds } from 'ui'
-import { BsArrowUpRight } from "react-icons/bs";
-import Image from 'next/image';
-import BlogCard from '../../components/Blog/BlogCard';
-import { TabPill } from '../../components/Blog/CategoriesPill';
-import { Pagination, PaginationItem } from '@mui/material';
-import { useMediaQuery } from '@react-hook/media-query';
-import Head from 'next/head';
-import { useDispatch } from 'react-redux';
-import { AppDispatch } from '../../redux/store';
-import blogService from '../../services/blogService';
-import useAxiosAuth from '../../lib/hooks/useAxiosAuth';
-import { BlogCategory, BlogProp } from '../../types/blog';
-import Loader from '../../components/Loader';
-import { BlogSkeletonLoader } from '../../components/dashboard/skeleton/SkeletonLoader';
-import { imageUri } from '../../utils/constants';
-import { useRouter } from 'next/router';
-import Link from 'next/link';
-import BlogDetails from './[id]';
+import Head from "next/head";
+import Image from "next/image";
+import Link from "next/link";
+import { useRouter } from "next/router";
+import { useEffect, useMemo, useState } from "react";
+import { useDispatch } from "react-redux";
+import { FiArrowUpRight } from "react-icons/fi";
+import BlogDetails from "./[id]";
+import { AppDispatch } from "../../redux/store";
+import blogService from "../../services/blogService";
+import useAxiosAuth from "../../lib/hooks/useAxiosAuth";
+import { BlogCategory, BlogProp } from "../../types/blog";
+import { imageUri } from "../../utils/constants";
+/* eslint-disable react/no-unescaped-entities */
 
-type Props = {}
+const fallbackCategories = ["All", "Press Release", "Cryptocurrency Trading", "Tutorial", "Article"];
+const fallbackPosts = [
+  ["The Emotional Side of Investing: Why Smart Professionals Lose Money", "The problem most professionals struggle with isn't knowledge - it's what happens to judgement when a position moves against them.", "Article"],
+  ["The 5 Silent Money Traps Keeping African Professionals Stuck", "Why many African professionals feel financially stuck, and the five habits that quietly keep them there.", "Article"],
+];
 
-const Blog = (props: Props) => {
-    const isMobile = useMediaQuery("only screen and (max-width: 600px)");
-    const isTablet = useMediaQuery("only screen and (max-width: 769px)");
-    const router = useRouter();
-    const { id } = router.query
-    const [blogData, setBlogData] = useState<{
-        blogs?: BlogProp[],
-        recents?: BlogProp[],
-        filteredBlogs?: BlogProp[],
-        categories?: BlogCategory[],
-        isLoading?: boolean,
-        currentActiveCategory?: string,
-        currentPage?: number
-    }>({
-        isLoading: true,
-        currentActiveCategory: 'all',
-        currentPage: 1
-    });
+function Brand() { return <Image src="/logo.png" alt="Candleweb" width={136} height={18} className="blog-logo" priority />; }
+function Cover({ blog, tone = "teal" }: { blog?: BlogProp; tone?: "teal" | "amber" }) { return <div className={`blog-cover ${tone}`}>{blog?.photo ? <Image src={imageUri + blog.photo} alt={blog.title} fill sizes="(max-width: 700px) 100vw, 50vw" className="blog-cover-image" /> : <><span className="blog-cover-chart" /><span className="blog-cover-label">Cover image · from API</span></>}</div>; }
+function Meta({ blog, category }: { blog?: BlogProp; category?: string }) { return <div className="blog-meta"><span>{blog ? new Date(blog.created_at).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", year: "numeric" }) : "Candleweb journal"}</span><b>{category || blog?.category?.name || "Article"}</b></div>; }
+function Card({ blog, fallback, tone = "teal", featured = false }: { blog?: BlogProp; fallback?: string[]; tone?: "teal" | "amber"; featured?: boolean }) { const title = blog?.title || fallback?.[0] || "Candleweb journal"; const excerpt = blog?.content?.replace(/<[^>]+>/g, "").slice(0, 160) || fallback?.[1] || "Notes on trading infrastructure, automation and building with care."; return <article className={`blog-post ${featured ? "featured" : ""}`}><Link href={blog ? `/blog?id=${blog.blog_slug}` : "#"}><Cover blog={blog} tone={tone} /></Link><Meta blog={blog} category={fallback?.[2]} /><Link href={blog ? `/blog?id=${blog.blog_slug}` : "#"}><h3>{title}</h3><p>{excerpt}{excerpt.length >= 158 ? "..." : ""}</p></Link><div className="blog-tags"><span>{blog?.tags?.[0]?.name || fallback?.[2] || "Trading"}</span>{(blog?.tags?.[1] || fallback) && <span>{blog?.tags?.[1]?.name || "Investment"}</span>}</div></article>; }
 
-
-    const dispatch = useDispatch<AppDispatch>()
-    const axiosToken = useAxiosAuth();
-
-    const blogs = useMemo(async () => {
-        const blogs = await dispatch(blogService.getBlogs(axiosToken)).unwrap();
-        const recentBlogs = await dispatch(blogService.getRecentBlogs(axiosToken)).unwrap();
-        const blogCategories = await dispatch(blogService.getCategoryList(axiosToken)).unwrap();
-        setBlogData({
-            ...blogData,
-            isLoading: false,
-            blogs,
-            recents: recentBlogs,
-            categories: blogCategories
-        });
-        return blogs;
-    }, []);
-
-    const startIndex = (blogData!.currentPage! - 1) * 6;
-    const endIndex = Math.min(startIndex + 6, (blogData?.filteredBlogs ?? blogData?.blogs)?.length ?? 0);
-
-
-    return (
-        id ? <BlogDetails id={id.toString()} /> :
-            <>
-                <Head>
-                    <title>Blog - Candleweb</title>
-                    <meta name="description" content="Maximize trading success with CandleWeb! AI-powered CandleAI analyzes real-time data, giving a competitive edge in crypto. Utilize advanced algorithms, minimize risks, and maximize profits. Start achieving financial goals with CandleWeb and $CDE token. Access advanced tools for profitable trades in cryptocurrency." />
-                    <meta name="keywords" content="AI crypto trading, trading bots, market analysis, real-time data, automation, profitable strategies, backtesting, CandleWeb, CandleAI, $CDE token" />
-                    <meta property="og:title" content="CandleWeb - AI-Powered Trading Platform for Profitable Trades" />
-                    <link rel="canonical" href="https://candleweb.io" />
-                    <link rel="icon" href="/favicon.ico" />
-                    <meta name="viewport" content="width=device-width, initial-scale=1" />
-                </Head>
-                {blogData.isLoading && <Loader />}
-                <div className=''>
-                    <div className="mt-32">
-                        {/* HERO SECTION */}
-                        <section className="hero__section pb-16 max-w-[1065px] flex items-center m-auto px-10 sm:flex-col gap-10">
-                            {blogData?.isLoading && <BlogSkeletonLoader />}
-                            {blogData?.isLoading && <BlogSkeletonLoader />}
-                            {blogData?.recents && blogData?.recents.length > 0 && <div className="hero__left--details">
-                                <Link href={'/blog?id=' + blogData?.recents[0].blog_slug}>
-
-                                    <Heading textsize='3xl' classstyle='inter tb:!text-3xl'>
-                                        {splitByThirds(blogData?.recents[0].title).firstThird} {" "}
-                                        <span className='text_gradient'>{splitByThirds(blogData?.recents[0].title).lastThird}</span>
-                                    </Heading>
-                                </Link>
-                                <div className="h-10 tb:h-9"></div>
-                                <Button variant='primary' classstyle='' iconright icon={<BsArrowUpRight />} onClick={() => {
-                                    if (blogData?.recents) {
-                                        router.push("/blog?id=" + blogData.recents[0].blog_slug);
-                                    }
-                                }}>Read more</Button>
-                            </div>}
-                            <div className="hero__right--image relative w-full min-w-[300px] max-w-[600px] max-h-[400px] overflow-hidden rounded-lg">
-
-                                {blogData?.recents && blogData?.recents.length > 0 && (
-                                    <Link href={'/blog?id=' + blogData?.recents[0].blog_slug} className='block relative max-w-[600px] h-[400px] min-w-full'>
-                                        <Image src={imageUri + blogData?.recents[0].photo} alt='Hero Image' fill className='object-cover' />
-                                    </Link>
-
-                                )}
-                            </div>
-                        </section>
-                        {/* RECENT BLOG POST SECTION */}
-                        {blogData?.recents && blogData?.recents[1] && <section className="recent__blog max-w-[1065px] m-auto py-20 px-10">
-                            {/* Titlte */}
-                            <Heading textsize='sm' classstyle='tb:text-center'>Recent Blog Posts</Heading>
-                            <div className="recent__blog--content mt-4 flex items-start gap-5 tb:flex-col tb:items-center">
-                                <div className="recent__blog--leftblog">
-                                    {blogData?.isLoading && <BlogSkeletonLoader />}
-                                    {blogData?.recents && blogData?.recents[1] && <BlogCard vertical={true} blog={blogData.recents[1]} />}
-                                </div>
-                                <div className="recent__blog--rightblogs flex flex-col gap-10">
-                                    {blogData?.isLoading && <BlogSkeletonLoader />}
-                                    {blogData?.isLoading && <BlogSkeletonLoader />}
-                                    {blogData?.recents && blogData?.recents[2] && <BlogCard vertical={!blogData?.recents[3] || isTablet} reduceCategories blog={blogData.recents[2]} />}
-                                    {blogData?.recents && blogData?.recents[3] && <BlogCard vertical={isTablet} reduceCategories blog={blogData.recents[3]} />}
-                                </div>
-                            </div>
-                        </section>}
-                        {/* ALL BLOGS */}
-                        <section className="all__blogs py-16">
-                            <div className="all__blogs--tabs bg-[#0f0f0f] w-full py-5 px-10">
-                                <div className="blog__tab--lists max-w-[1065px] m-auto flex items-center gap-7 w-full flex-nowrap lg:px-3 whitespace-nowrap lg:scroll-smooth lg:overflow-x-scroll lg:hide-scroll-bar -my-7 py-7 no__scroll sm:!mx-3 sm:gap-5">
-                                    <TabPill text='All' active={blogData.currentActiveCategory === "all"} slug={"all"} onclick={(slug) => setBlogData((prev) => ({ ...prev, filteredBlogs: undefined, currentActiveCategory: slug, currentPage: 1 }))} />
-                                    {blogData.categories && blogData.categories.map((category: BlogCategory, index: number) => (
-
-                                        <TabPill text={category.name} active={blogData.currentActiveCategory === category.category_slug} slug={category.category_slug} onclick={(slug) => setBlogData((prev) => ({ ...prev, filteredBlogs: slug === "all" ? [] : blogData.blogs?.filter((blog: BlogProp) => blog.category.category_slug === slug), currentActiveCategory: slug, currentPage: 1 }))} />
-                                    ))}
-                                </div>
-                            </div>
-                            <div className="all__blogs--contents max-w-[1065px] m-auto py-10 px-10">
-                                {/* TITLE */}
-                                <Heading textsize='sm'>All Blog Posts</Heading>
-                                <div className="blogs__contents grid grid-cols-3 gap-y-8 gap-x-6 py-10 tb:grid-cols-2 sm:!grid-cols-1">
-                                    {blogData?.isLoading && <BlogSkeletonLoader />}
-                                    {blogData?.isLoading && <BlogSkeletonLoader />}
-                                    {blogData?.isLoading && <BlogSkeletonLoader />}
-                                    {blogData?.blogs && (blogData?.filteredBlogs ?? blogData?.blogs).slice(startIndex, endIndex).map((blog: BlogProp, index: number) => (
-                                        <BlogCard vertical blog={blog} />
-                                    ))}
-                                </div>
-                            </div>
-                            <div className="all__blogs--pagination flex justify-center">
-                                <Pagination count={Math.ceil(((blogData?.filteredBlogs ?? blogData.blogs)?.length ?? 0) / 6)}
-                                    // color='primary'
-                                    page={blogData.currentPage}
-                                    onChange={(e, page) => setBlogData((prev) => ({ ...prev, currentPage: page }))}
-                                    sx={{
-                                        '& .MuiPaginationItem-text': {
-                                            color: 'white'
-                                        }
-                                    }}
-                                />
-                            </div>
-                        </section>
-                    </div>
-                </div>
-            </>
-    )
+export default function Blog() {
+  const router = useRouter();
+  const dispatch = useDispatch<AppDispatch>();
+  const axiosToken = useAxiosAuth();
+  const [blogs, setBlogs] = useState<BlogProp[]>([]);
+  const [recents, setRecents] = useState<BlogProp[]>([]);
+  const [categories, setCategories] = useState<BlogCategory[]>([]);
+  const [category, setCategory] = useState("all");
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const id = router.query.id;
+  useEffect(() => { if (id) return; let mounted = true; Promise.all([dispatch(blogService.getBlogs(axiosToken)).unwrap(), dispatch(blogService.getRecentBlogs(axiosToken)).unwrap(), dispatch(blogService.getCategoryList(axiosToken)).unwrap()]).then(([all, recent, cats]) => { if (!mounted) return; setBlogs(all || []); setRecents(recent || []); setCategories(cats || []); }).catch(() => undefined).finally(() => mounted && setLoading(false)); return () => { mounted = false; }; }, [dispatch, axiosToken, id]);
+  const filtered = useMemo(() => category === "all" ? blogs : blogs.filter((blog) => blog.category?.category_slug === category), [blogs, category]);
+  const visible = filtered.slice((page - 1) * 6, page * 6);
+  const featured = recents[0] || blogs[0];
+  if (id) return <BlogDetails id={id.toString()} />;
+  return <><Head><title>Blog | Candleweb</title><meta name="description" content="Tutorials, trading notes and product news from Candleweb." /></Head><main className="blog-stage"><div className="blog-aura" /><div className="blog-grid" /><div className="blog-announcement">Your keys, your exchange. Candleweb never holds your funds.</div><div className="blog-wrap"><nav className="blog-nav"><Link href="/" className="blog-brand"><Brand /></Link><div className="blog-nav-mid"><Link href="/">Bring your bot</Link><Link href="/tutor">Academy</Link><Link href="/blog" className="here">Blog</Link><Link href="/about">About</Link></div><div className="blog-nav-end"><Link href="/register" className="blog-btn blog-btn-amber">Get Started <span>↗</span></Link><button className="blog-menu" aria-label="Open menu"><i /></button></div></nav>
+    <header className="blog-feature"><div><p className="blog-eyebrow">Featured</p><h1>{featured?.title || "Ideas for building better trading systems."}</h1><p className="blog-lede">{featured ? "A practical guide from the Candleweb desk, covering the decisions, tools and infrastructure behind agentic trading." : "Tutorials, trading notes and release news for people building their own agents."}</p><Meta blog={featured} category="Tutorial" /><Link href={featured ? `/blog?id=${featured.blog_slug}` : "#"} className="blog-btn blog-btn-amber blog-read">Read more <FiArrowUpRight /></Link></div><Link href={featured ? `/blog?id=${featured.blog_slug}` : "#"} className="blog-feature-image"><Cover blog={featured} /></Link></header>
+    <section className="blog-section blog-recent"><p className="blog-eyebrow">Recent posts</p><h2>Latest from the desk.</h2><div className="blog-recent-grid"><Card blog={recents[1]} fallback={fallbackPosts[0]} featured /><Card blog={recents[2]} fallback={fallbackPosts[1]} tone="amber" featured /></div></section>
+    <section className="blog-band"><div className="blog-wrap blog-section"><div className="blog-archive-head"><div><p className="blog-eyebrow">The archive</p><h2>All blog posts</h2></div><div className="blog-filters">{fallbackCategories.concat(categories.map((item) => item.name)).filter((item, index, list) => list.indexOf(item) === index).map((item) => { const slug = item === "All" ? "all" : categories.find((entry) => entry.name === item)?.category_slug || item.toLowerCase().replace(/ /g, "-"); return <button key={item} aria-pressed={category === slug} onClick={() => { setCategory(slug); setPage(1); }}>{item}</button>; })}</div></div><div className="blog-post-grid">{loading ? [1, 2, 3].map((item) => <div className="blog-skeleton" key={item} />) : visible.length ? visible.map((blog) => <Card key={blog.id} blog={blog} />) : fallbackPosts.map((post, index) => <Card key={post[0]} fallback={post} tone={index ? "amber" : "teal"} />)}</div>{filtered.length > 6 && <div className="blog-pagination">{Array.from({ length: Math.ceil(filtered.length / 6) }, (_, index) => <button key={index} aria-current={page === index + 1} onClick={() => setPage(index + 1)}>{index + 1}</button>)}</div>}</div></section>
+    <section className="blog-wrap blog-section"><div className="blog-subscribe"><div><p className="blog-eyebrow">Stay in the loop</p><h2>New posts, straight to your inbox.</h2><p className="blog-lede">Tutorials, trading notes and release news. Roughly twice a month, and nothing else.</p></div><form onSubmit={(event) => event.preventDefault()}><input type="email" placeholder="you@example.com" aria-label="Email" required /><button className="blog-btn blog-btn-amber" type="submit">Subscribe ↗</button><small>Unsubscribe any time. We don't share your address.</small></form></div></section>
+    <footer className="blog-footer"><div><Link href="/" className="blog-brand"><Brand /></Link><p>Infrastructure for agentic trading - for people who build their own agents, and for those who would rather not. Built in Africa.</p></div>{[["Product", "Bring your bot", "Dashboard", "What we run"], ["Learn", "Academy", "Docs", "API reference"], ["Company", "About", "Contact", "Status"], ["Legal", "Terms", "Privacy", "Risk disclosure"]].map(([heading, ...items]) => <div key={heading}><h4>{heading}</h4>{items.map((item) => <Link href={item === "Terms" ? "/terms" : item === "Privacy" ? "/privacy" : item === "Dashboard" ? "/dashboard" : "#"} key={item}>{item}</Link>)}</div>)}<p className="blog-disclaimer">Candleweb is infrastructure for agentic trading, providing trade execution and monitoring. It is not an investment adviser, fund manager or broker, and it does not hold, pool or manage customer funds. Trading digital assets carries substantial risk. Nothing here is financial advice.</p></footer></div></main></>;
 }
-
-export default Blog
