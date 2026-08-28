@@ -51,6 +51,7 @@
 
 /* Nav */
 .pub-nav {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -246,17 +247,24 @@
   }
   .pub-nav-mid.is-open {
     position: absolute;
-    top: 78px;
-    right: 20px;
-    left: 20px;
+    top: calc(100% + 8px);
+    right: 0;
+    left: 0;
     z-index: 50;
     display: flex;
     flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+    height: auto;
     padding: 10px;
     border: 1px solid var(--pub-line2);
     border-radius: 18px;
     background: var(--pub-s2);
     box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+  }
+  .pub-nav-mid.is-open a {
+    height: auto;
+    padding: 11px 14px;
   }
   .pub-menu {
     display: block;
@@ -279,7 +287,8 @@
     padding-top: 16px;
   }
   .pub-brand {
-    padding: 9px 14px;
+    height: 44px;
+    padding: 0 14px;
   }
   .pub-logo {
     width: 126px;
@@ -287,9 +296,14 @@
   .pub-nav-end {
     gap: 12px;
   }
-  .pub-nav-end > .pub-btn {
-    padding: 10px 13px;
+  .pub-nav-end .pub-btn {
+    height: 44px;
+    padding: 0 13px;
     font-size: 12.5px;
+  }
+  .pub-nav-end .pub-menu {
+    width: 44px;
+    height: 44px;
   }
   .pub-footer {
     gap: 26px 20px;
