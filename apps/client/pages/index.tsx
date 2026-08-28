@@ -3,10 +3,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import { error } from "../components/alert/Toast";
-import useEthereum from "../lib/hooks/useEthereum";
-import useUserStore from "../lib/hooks/useUserStore";
-import { loginUser } from "../utils/loginUser";
+import PublicHeader from "../components/public/PublicHeader";
+import PublicFooter from "../components/public/PublicFooter";
 
 const bars = [214, 196, 184, 168, 150, 140, 122, 110, 86, 66, 60, 40];
 const tabs = ["Your bots", "Trade records", "Risk controls"];
@@ -69,30 +67,8 @@ function DataCard({
 
 export default function Home() {
   const router = useRouter();
-  const { connectWallet } = useEthereum();
-  const { setUser } = useUserStore((state) => state);
-  const [mobileOpen, setMobileOpen] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
   const [activeStep, setActiveStep] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
-
-  const handleLogin = async () => {
-    try {
-      const result = await connectWallet();
-      if (!result) return;
-      await loginUser({
-        wallet: result.walletAddress,
-        signerPassword: result.signMessage,
-        setIsLoading,
-        onSuccess: (value, type) =>
-          type === "success"
-            ? (setUser(value), router.push("/dashboard"))
-            : router.push("/register"),
-      });
-    } catch (loginError) {
-      error(String(loginError));
-    }
-  };
 
   useEffect(() => {
     const reveal = new IntersectionObserver(
@@ -128,52 +104,8 @@ export default function Home() {
       <main className="landing-stage">
         <div className="landing-aura" />
         <div className="landing-grid" />
-        <div className="landing-announcement">
-          Your keys, your exchange. Candleweb never holds your funds.
-        </div>
+        <PublicHeader active="home" />
         <div className="landing-wrap">
-          <nav className="landing-nav" aria-label="Main navigation">
-            <Link href="#top" className="landing-brand">
-              <Mark />
-            </Link>
-            <div className={`landing-nav-mid ${mobileOpen ? "is-open" : ""}`}>
-              <Link href="#top" onClick={() => setMobileOpen(false)}>
-                Bring your bot
-              </Link>
-              <Link href="/" onClick={() => setMobileOpen(false)}>
-                CandleAI
-              </Link>
-              <Link href="/tutor" onClick={() => setMobileOpen(false)}>
-                Academy
-              </Link>
-              <Link href="/whitepaper.pdf" onClick={() => setMobileOpen(false)}>
-                Docs
-              </Link>
-              <Link href="/blog" onClick={() => setMobileOpen(false)}>
-                Blog
-              </Link>
-            </div>
-            <div className="landing-nav-end">
-              <button
-                className="landing-btn landing-btn-glass landing-login"
-                onClick={handleLogin}
-                disabled={isLoading}
-              >
-                Log in
-              </button>
-              <ButtonLink href="/register">
-                Get Started <span>↗</span>
-              </ButtonLink>
-              <button
-                className="landing-menu"
-                aria-label="Open menu"
-                aria-expanded={mobileOpen}
-                onClick={() => setMobileOpen(!mobileOpen)}
-              >
-                <i />
-              </button>
-            </div>
-          </nav>
           <header className="landing-hero" id="top">
             <div className="landing-hero-copy">
               <p className="landing-eyebrow landing-rise">
@@ -666,54 +598,7 @@ export default function Home() {
           </section>
         </div>
 
-        <footer className="landing-footer landing-wrap" id="footer">
-          <div>
-            <Link href="/">
-              <Mark />
-            </Link>
-            <p className="mt-1">
-              Trading infrastructure for people who build their own bots. Built
-              in Abuja, Nigeria.
-            </p>
-          </div>
-          {[
-            ["Product", "Bring your bot", "Dashboard", "What we run"],
-            ["Learn", "Academy", "Docs", "API reference"],
-            ["Company", "About", "Contact", "Status"],
-            ["Legal", "Terms", "Privacy", "Risk disclosure"],
-          ].map(([heading, ...items]) => (
-            <div key={heading}>
-              <h4>{heading}</h4>
-              {items.map((item) => (
-                <Link
-                  href={
-                    item === "Terms"
-                      ? "/terms"
-                      : item === "Privacy"
-                        ? "/privacy"
-                        : item === "Dashboard"
-                          ? "/dashboard"
-                          : item === "About"
-                            ? "/about"
-                            : item === "Academy"
-                              ? "/tutor"
-                              : "#"
-                  }
-                  key={item}
-                >
-                  {item}
-                </Link>
-              ))}
-            </div>
-          ))}
-          <p className="landing-disclaimer">
-            Candleweb is trade execution and monitoring infrastructure. It is
-            not an investment adviser, fund manager or broker, and it does not
-            hold, pool or manage customer funds. Trading digital assets carries
-            substantial risk, including the total loss of your capital. Nothing
-            here is financial advice.
-          </p>
-        </footer>
+        <PublicFooter description="Trading infrastructure for people who build their own bots. Built in Abuja, Nigeria." />
       </main>
     </>
   );

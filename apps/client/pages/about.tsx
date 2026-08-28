@@ -1,12 +1,9 @@
 import Head from "next/head";
-import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/router";
-import { error } from "../components/alert/Toast";
-import useEthereum from "../lib/hooks/useEthereum";
-import useUserStore from "../lib/hooks/useUserStore";
-import { loginUser } from "../utils/loginUser";
+import PublicHeader from "../components/public/PublicHeader";
+import PublicFooter from "../components/public/PublicFooter";
 /* eslint-disable react/no-unescaped-entities */
 
 const beliefs = [
@@ -86,18 +83,6 @@ const teams = [
   ],
 ];
 
-function Brand() {
-  return (
-    <Image
-      src="/logo.png"
-      alt="Candleweb"
-      width={136}
-      height={18}
-      className="about-logo"
-      priority
-    />
-  );
-}
 function ButtonLink({
   href,
   children,
@@ -119,27 +104,6 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
 
 export default function About() {
   const router = useRouter();
-  const { connectWallet } = useEthereum();
-  const { setUser } = useUserStore((state) => state);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const login = async () => {
-    try {
-      const result = await connectWallet();
-      if (!result) return;
-      await loginUser({
-        wallet: result.walletAddress,
-        signerPassword: result.signMessage,
-        setIsLoading,
-        onSuccess: (value, type) =>
-          type === "success"
-            ? (setUser(value), router.push("/dashboard"))
-            : router.push("/register"),
-      });
-    } catch (loginError) {
-      error(String(loginError));
-    }
-  };
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) =>
@@ -154,7 +118,6 @@ export default function About() {
       .forEach((item) => observer.observe(item));
     return () => observer.disconnect();
   }, []);
-  const closeMenu = () => setMenuOpen(false);
   return (
     <>
       <Head>
@@ -167,55 +130,8 @@ export default function About() {
       <main className="about-stage">
         <div className="about-aura" />
         <div className="about-grid" />
-        <div className="about-announcement">
-          Your keys, your exchange. Candleweb never holds your funds.
-        </div>
-        <div className="about-wrap">
-          <nav className="about-nav">
-            <Link href="/" className="about-brand">
-              <Brand />
-            </Link>
-            <div className={`about-nav-mid ${menuOpen ? "is-open" : ""}`}>
-              <Link href="/" onClick={closeMenu}>
-                Bring your bot
-              </Link>
-              <Link href="/" onClick={closeMenu}>
-                CandleAI
-              </Link>
-              <Link href="/tutor" onClick={closeMenu}>
-                Academy
-              </Link>
-              <Link href="/whitepaper.pdf" onClick={closeMenu}>
-                Docs
-              </Link>
-              <Link href="/blog" onClick={closeMenu}>
-                Blog
-              </Link>
-              <Link href="#top" className="here" onClick={closeMenu}>
-                About
-              </Link>
-            </div>
-            <div className="about-nav-end">
-              <button
-                className="about-btn about-btn-glass about-login"
-                onClick={login}
-                disabled={isLoading}
-              >
-                Log in
-              </button>
-              <ButtonLink href="/register">
-                Get Started <span>↗</span>
-              </ButtonLink>
-              <button
-                className="about-menu"
-                aria-label="Open menu"
-                aria-expanded={menuOpen}
-                onClick={() => setMenuOpen(!menuOpen)}
-              >
-                <i />
-              </button>
-            </div>
-          </nav>
+        <PublicHeader active="about" />
+        <div className="landing-wrap">
           <header className="about-hero" id="top">
             <Eyebrow>About Candleweb</Eyebrow>
             <h1 className="about-rise">
@@ -331,7 +247,7 @@ export default function About() {
                   Our own trading agent reads the market, makes the call, and
                   runs the position on the same execution and monitoring layer.
                 </p>
-                <ButtonLink href="/" tone="teal">
+                <ButtonLink href="/candleai" tone="teal">
                   Explore CandleAI ↗
                 </ButtonLink>
               </article>
@@ -499,50 +415,7 @@ export default function About() {
             </form>
           </section>
         </div>
-        <footer className="about-footer about-wrap">
-          <div className="about-footer-brand">
-            <Link href="/" className="about-brand">
-              <Brand />
-            </Link>
-            <p>
-              Infrastructure for agentic trading - for people who build their
-              own agents, and for those who would rather not. Built in Africa.
-            </p>
-          </div>
-          {[
-            ["Product", "Bring your bot", "Dashboard", "What we run"],
-            ["Learn", "Academy", "Docs", "API reference"],
-            ["Company", "About", "Contact", "Status"],
-            ["Legal", "Terms", "Privacy", "Risk disclosure"],
-          ].map(([heading, ...items]) => (
-            <div key={heading}>
-              <h4>{heading}</h4>
-              {items.map((item) => (
-                <Link
-                  href={
-                    item === "Terms"
-                      ? "/terms"
-                      : item === "Privacy"
-                        ? "/privacy"
-                        : item === "Dashboard"
-                          ? "/dashboard"
-                          : "#"
-                  }
-                  key={item}
-                >
-                  {item}
-                </Link>
-              ))}
-            </div>
-          ))}
-          <p className="about-disclaimer">
-            Candleweb is infrastructure for agentic trading, providing trade
-            execution and monitoring. It is not an investment adviser, fund
-            manager or broker, and it does not hold, pool or manage customer
-            funds. Trading digital assets carries substantial risk, including
-            the total loss of your capital. Nothing here is financial advice.
-          </p>
-        </footer>
+        <PublicFooter />
       </main>
     </>
   );

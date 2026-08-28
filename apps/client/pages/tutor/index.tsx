@@ -1,112 +1,182 @@
 import Head from "next/head";
-import TutorHeader from "../../components/Tutor/TutorHeader";
-import HeroSlider from "../../components/Tutor/HeroSlider";
-import FeaturesSection from "../../components/Tutor/FeaturesSection";
-import HowItWorksSection from "../../components/Tutor/HowItWorksSection";
-import PartnersSection from "../../components/Tutor/PartnersSection";
-import ExpertsSection from "../../components/Tutor/ExpertsSection";
-import FaqSection from "../../components/Tutor/FaqSection";
-import PaymentSection from "../../components/Tutor/PaymentSection";
-import StayUpdated from "../../components/Tutor/StayUpdated";
-import TutorFooter from "../../components/Tutor/TutorFooter";
-import AvailableCourses from "../../components/Tutor/AvailableCourses";
-
 import { useRouter } from "next/router";
-import { useState, useEffect, useRef } from "react";
-import PaymentSuccessModal from "../../components/Tutor/PaymentSuccessModal";
+import { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "../../redux/store";
 import { resetPaymentStatus } from "../../redux/slices/paymentSlice";
 import tutorService from "../../services/tutorService";
 import useAxiosAuth from "../../lib/hooks/useAxiosAuth";
 import useUserStore from "../../lib/hooks/useUserStore";
+import useGoogleAuth from "../../lib/hooks/useGoogleAuth";
 import { isAuthorizationHeaderSet } from "../../utils/check_auth";
+
+import PublicHeader from "../../components/public/PublicHeader";
+import PublicFooter from "../../components/public/PublicFooter";
+import PaymentSuccessModal from "../../components/Tutor/PaymentSuccessModal";
+import AcademyHero from "../../components/Tutor/AcademyHero";
+import AcademyValue from "../../components/Tutor/AcademyValue";
+import AcademySteps from "../../components/Tutor/AcademySteps";
+import AcademyCourses from "../../components/Tutor/AcademyCourses";
+import AcademyTutors from "../../components/Tutor/AcademyTutors";
+import AcademyPartners from "../../components/Tutor/AcademyPartners";
+import AcademyFaq from "../../components/Tutor/AcademyFaq";
+import AcademyCta from "../../components/Tutor/AcademyCta";
+
+const PLAY_STORE_URL =
+  "https://play.google.com/store/apps/details?id=com.candlewebservices.candleweb";
 
 export default function TutorPage() {
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
-  const [showModal, setShowModal] = useState(false);
-  const { lastPaymentStatus } = useSelector((state: RootState) => state.payment);
-  const { user } = useUserStore();
   const axiosToken = useAxiosAuth();
+  const { googleAuth } = useGoogleAuth();
+  const { user } = useUserStore();
   const isLoggedIn = Object.keys(user).length > 0;
-
+  const { lastPaymentStatus } = useSelector((state: RootState) => state.payment);
+  const { purchasedCourseIds } = useSelector(
+    (state: RootState) => state.payment,
+  );
+  const [showModal, setShowModal] = useState(false);
   const hasShownModal = useRef(false);
 
-  useEffect(() => {
-    if (isLoggedIn && isAuthorizationHeaderSet(axiosToken)) {
-      dispatch(tutorService.checkStudentProfile(axiosToken));
-    }
-  }, [isLoggedIn, dispatch, axiosToken]);
+  // useAxiosAuth() is a fresh instance each render — keep it in a ref so it is
+  // not an effect dependency (otherwise the effect re-runs every render).
+  const axiosRef = useRef(axiosToken);
+  axiosRef.current = axiosToken;
 
+  // Load enrolments once the user is authenticated.
   useEffect(() => {
-    // Check both router query and URL directly for maximum resilience
-    const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : "");
-    const queryPayment = router.query.payment || params.get('payment');
-    const isPaymentSuccess = queryPayment === "success" || lastPaymentStatus === "success";
-    
+    if (isLoggedIn && isAuthorizationHeaderSet(axiosRef.current)) {
+      dispatch(tutorService.checkStudentProfile(axiosRef.current));
+    }
+  }, [isLoggedIn, dispatch]);
+
+  // Show the success modal after a Paystack redirect.
+  useEffect(() => {
+    const params = new URLSearchParams(
+      typeof window !== "undefined" ? window.location.search : "",
+    );
+    const queryPayment = router.query.payment || params.get("payment");
+    const isPaymentSuccess =
+      queryPayment === "success" || lastPaymentStatus === "success";
+
     if (isPaymentSuccess && !hasShownModal.current) {
       hasShownModal.current = true;
-      
-      // Show modal immediately
       setShowModal(true);
-      
-      // Cleanup: reset Redux status and clear URL
       dispatch(resetPaymentStatus());
-      
+
       if (queryPayment === "success") {
         const { payment, ...rest } = router.query;
         router.replace(
-          {
-            pathname: router.pathname,
-            query: rest,
-          },
+          { pathname: router.pathname, query: rest },
           undefined,
-          { shallow: true }
+          { shallow: true },
         );
       }
     }
-  }, [router.isReady, router.query, router.pathname, lastPaymentStatus, dispatch]);
+  }, [
+    router.isReady,
+    router.query,
+    router.pathname,
+    lastPaymentStatus,
+    dispatch,
+  ]);
+
+  const startLearning = () => {
+    if (!isLoggedIn) {
+      googleAuth("/tutor#courses");
+      return;
+    }
+    if (purchasedCourseIds.length > 0) {
+      window.location.href = PLAY_STORE_URL;
+      return;
+    }
+    document
+      .getElementById("courses")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   return (
     <>
       <Head>
-        <title>Candleweb - Partner Tutor Service | Learn Crypto & Earn</title>
+        <title>Candleweb Academy | Learn AI automation, finance & trading</title>
         <meta
           name="description"
-          content="Join the Partner Tutor Service at Candleweb. Master cryptocurrency trading while earning passive income. We invest a portion of your fee back into active trades for you."
+          content="Candleweb Academy runs short, cohort-based programmes in AI automation, personal finance and crypto trading. Build real projects, earn credits, and get in front of our partners for internships."
         />
         <meta
           name="keywords"
-          content="crypto tutor, learn crypto trading, passive income, cryptocurrency education, trading mentorship, CandleWeb tutor"
+          content="crypto tutor, learn crypto trading, AI automation course, n8n course, cryptocurrency education, Candleweb Academy"
         />
         <meta
           property="og:title"
-          content="Candleweb - Partner Tutor Service | Learn Crypto & Earn"
+          content="Candleweb Academy | Learn the skills. Then go and use them."
         />
         <meta
           property="og:description"
-          content="Master cryptocurrency trading with expert guidance while earning passive income from day one."
+          content="Cohort-based programmes in AI automation, personal finance and crypto trading, with internships for top graduates."
         />
         <link rel="canonical" href="https://candleweb.io/tutor" />
-        <link rel="icon" href="/favicon.ico" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
 
-      <div className="tutor__page relative">
-        <PaymentSuccessModal isOpen={showModal} onClose={() => setShowModal(false)} />
-        <TutorHeader />
-        <HeroSlider />
-        <FeaturesSection />
-        <HowItWorksSection />
-        <AvailableCourses />
-        <ExpertsSection />
-        <PartnersSection />
-        <FaqSection />
-        <PaymentSection />
-        <StayUpdated />
-        <TutorFooter />
-      </div>
+      <main className="academy-stage">
+        <div className="ac-aura">
+          <b className="b1" />
+          <b className="b2" />
+          <b className="b3" />
+        </div>
+        <div className="ac-grid" />
+
+        <PaymentSuccessModal
+          isOpen={showModal}
+          onClose={() => setShowModal(false)}
+        />
+
+        <PublicHeader
+          active="academy"
+          cta={{ label: "Start Learning", onClick: startLearning }}
+          onLogin={() => googleAuth("/tutor#courses")}
+        />
+
+        <AcademyHero />
+
+        <section className="ac-band">
+          <div className="landing-wrap ac-sec">
+            <AcademyValue />
+          </div>
+        </section>
+
+        <section className="landing-wrap ac-sec">
+          <AcademySteps />
+        </section>
+
+        <section className="ac-band" id="courses">
+          <div className="landing-wrap ac-sec">
+            <AcademyCourses />
+          </div>
+        </section>
+
+        <section className="landing-wrap ac-sec">
+          <AcademyTutors />
+        </section>
+
+        <section className="ac-band">
+          <div className="landing-wrap ac-sec">
+            <AcademyPartners />
+          </div>
+        </section>
+
+        <section className="landing-wrap ac-sec">
+          <AcademyFaq />
+        </section>
+
+        <div className="landing-wrap ac-sec" style={{ paddingTop: 0 }}>
+          <AcademyCta />
+        </div>
+
+        <PublicFooter description="Candleweb Academy — cohort-based programmes in AI automation, personal finance and crypto trading. Built in Africa." />
+      </main>
     </>
   );
 }

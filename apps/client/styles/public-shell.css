@@ -1,0 +1,302 @@
+/* Shared header + footer for the public landing pages (home, about, blog, ...). */
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap");
+
+:root {
+  --pub-line: rgba(255, 255, 255, 0.085);
+  --pub-line2: rgba(255, 255, 255, 0.16);
+  --pub-text: #f7f7f4;
+  --pub-muted: #b8b8b0;
+  --pub-dim: #8b8b83;
+  --pub-teal-2: #7ef0d2;
+  --pub-amber: #ffb93d;
+  --pub-amber-2: #ffd489;
+  --pub-s2: #141419;
+}
+
+.pub-wrap {
+  position: relative;
+  z-index: 2;
+  padding-left: clamp(20px, 4.5vw, 64px);
+  padding-right: clamp(20px, 4.5vw, 64px);
+}
+/* Keep the nav (and its open mobile dropdown) above the page content below it. */
+.pub-nav-wrap {
+  z-index: 30;
+}
+.pub-wrap a {
+  color: inherit;
+  text-decoration: none;
+}
+.pub-wrap *,
+.pub-announcement * {
+  box-sizing: border-box;
+}
+
+/* Announcement bar */
+.pub-announcement {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  padding: 10px 20px;
+  border-bottom: 1px solid rgba(255, 185, 61, 0.15);
+  color: var(--pub-amber-2);
+  font: 13px "Outfit", sans-serif;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 185, 61, 0.1),
+    transparent
+  );
+}
+
+/* Nav */
+.pub-nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-top: 24px;
+  font-family: "Outfit", sans-serif;
+}
+/* Brand pill, links pill and action buttons share one height so the row
+   reads as balanced. */
+.pub-brand {
+  display: flex;
+  align-items: center;
+  height: 48px;
+  padding: 0 18px;
+  border: 1px solid var(--pub-line);
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.05);
+}
+.pub-logo {
+  display: block;
+  width: 136px;
+  height: auto;
+}
+.pub-nav-mid {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  flex: 1;
+  height: 48px;
+  padding: 0 7px;
+  border: 1px solid var(--pub-line);
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.04);
+}
+.pub-nav-mid a {
+  display: flex;
+  align-items: center;
+  padding: 7px 15px;
+  border-radius: 99px;
+  color: var(--pub-dim);
+  font-size: 14px;
+}
+.pub-nav-mid a:hover,
+.pub-nav-mid a.here {
+  color: var(--pub-text);
+  background: rgba(255, 255, 255, 0.07);
+}
+.pub-nav-end {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+.pub-nav-end .pub-btn {
+  height: 48px;
+}
+.pub-nav-end .pub-menu {
+  width: 48px;
+  height: 48px;
+}
+.pub-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px 21px;
+  border: 1px solid transparent;
+  border-radius: 99px;
+  cursor: pointer;
+  font: 500 14.5px "Outfit", sans-serif;
+  white-space: nowrap;
+  transition: 0.2s;
+}
+.pub-btn:hover {
+  transform: translateY(-1px);
+}
+.pub-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+  transform: none;
+}
+/* Double class so the colour beats the `.<page>-stage a { color: inherit }`
+   rule each page defines (otherwise the amber button gets light text). */
+.pub-btn.pub-btn-amber {
+  color: #241802;
+  background: linear-gradient(180deg, var(--pub-amber-2), var(--pub-amber));
+  box-shadow: 0 6px 20px rgba(255, 185, 61, 0.22);
+}
+.pub-btn.pub-btn-amber span {
+  color: inherit;
+}
+.pub-btn.pub-btn-glass {
+  color: var(--pub-text);
+  border-color: var(--pub-line);
+  background: rgba(255, 255, 255, 0.05);
+}
+.pub-btn.pub-btn-glass:hover {
+  border-color: var(--pub-line2);
+}
+.pub-btn.pub-btn-teal {
+  color: var(--pub-teal-2, #7ef0d2);
+  border-color: rgba(49, 224, 176, 0.42);
+  background: rgba(49, 224, 176, 0.07);
+}
+.pub-btn.pub-btn-teal:hover {
+  border-color: rgba(49, 224, 176, 0.75);
+  background: rgba(49, 224, 176, 0.13);
+}
+.pub-menu {
+  display: none;
+  width: 42px;
+  height: 42px;
+  margin-left: 6px;
+  border: 1px solid var(--pub-line);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+}
+.pub-menu i,
+.pub-menu i:before,
+.pub-menu i:after {
+  display: block;
+  width: 16px;
+  height: 2px;
+  margin: auto;
+  background: var(--pub-text);
+  content: "";
+}
+.pub-menu i {
+  position: relative;
+}
+.pub-menu i:before,
+.pub-menu i:after {
+  position: absolute;
+}
+.pub-menu i:before {
+  top: -6px;
+}
+.pub-menu i:after {
+  top: 6px;
+}
+
+/* Footer */
+.pub-footer {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: 1.6fr repeat(4, 1fr);
+  gap: clamp(24px, 3vw, 44px);
+  padding-top: 64px;
+  padding-bottom: 48px;
+  color: var(--pub-dim);
+  font: 13.5px "Outfit", sans-serif;
+}
+/* No pill behind the logo in the footer — just the mark, flush with the column. */
+.pub-footer .pub-brand {
+  height: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+.pub-footer-brand p {
+  max-width: 30ch;
+  margin-top: 18px;
+  line-height: 1.7;
+}
+.pub-footer h4 {
+  margin: 6px 0 16px;
+  color: var(--pub-dim);
+  font: 10px "IBM Plex Mono", monospace;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.pub-footer > div > a:not(.pub-brand) {
+  display: block;
+  padding: 6px 0;
+  color: var(--pub-muted);
+}
+.pub-footer > div > a:not(.pub-brand):hover {
+  color: var(--pub-text);
+}
+.pub-disclaimer {
+  grid-column: 1 / -1;
+  padding-top: 20px;
+  border-top: 1px solid var(--pub-line);
+  font-size: 11.5px;
+  line-height: 1.9;
+}
+
+@media (max-width: 1000px) {
+  .pub-nav-mid {
+    display: none;
+  }
+  .pub-nav-mid.is-open {
+    position: absolute;
+    top: 78px;
+    right: 20px;
+    left: 20px;
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+    border: 1px solid var(--pub-line2);
+    border-radius: 18px;
+    background: var(--pub-s2);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+  }
+  .pub-menu {
+    display: block;
+  }
+  .pub-login {
+    display: none;
+  }
+}
+@media (max-width: 700px) {
+  .pub-footer {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .pub-footer-brand,
+  .pub-disclaimer {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 560px) {
+  .pub-nav {
+    padding-top: 16px;
+  }
+  .pub-brand {
+    padding: 9px 14px;
+  }
+  .pub-logo {
+    width: 126px;
+  }
+  .pub-nav-end {
+    gap: 12px;
+  }
+  .pub-nav-end > .pub-btn {
+    padding: 10px 13px;
+    font-size: 12.5px;
+  }
+  .pub-footer {
+    gap: 26px 20px;
+  }
+}
+@media (max-width: 430px) {
+  .pub-nav {
+    gap: 8px;
+  }
+}

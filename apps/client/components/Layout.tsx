@@ -50,7 +50,8 @@ const Layout = ({ children }: Props) => {
           !path.includes("dashboard") &&
           !path.includes("register") &&
           !path.includes("tutor") &&
-          (!path.includes("blog") || Boolean(router.query.id)) && (
+          !path.includes("blog") &&
+          !path.includes("candleai") && (
             <Header
               route={path}
               Icon={CgMenuRight}
