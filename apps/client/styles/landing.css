@@ -179,7 +179,9 @@
 .landing-btn:hover {
   transform: translateY(-1px);
 }
-.landing-btn-amber {
+/* Double class so the colour beats `.landing-stage a { color: inherit }`
+   (otherwise the amber button renders with light text). */
+.landing-btn.landing-btn-amber {
   color: #241802;
   background: linear-gradient(
     180deg,
@@ -188,12 +190,15 @@
   );
   box-shadow: 0 6px 20px rgba(255, 185, 61, 0.22);
 }
-.landing-btn-teal {
+.landing-btn.landing-btn-amber span {
+  color: inherit;
+}
+.landing-btn.landing-btn-teal {
   color: var(--landing-teal-2);
   border-color: rgba(49, 224, 176, 0.42);
   background: rgba(49, 224, 176, 0.07);
 }
-.landing-btn-glass {
+.landing-btn.landing-btn-glass {
   color: var(--landing-text);
   border-color: var(--landing-line);
   background: rgba(255, 255, 255, 0.05);
@@ -512,11 +517,13 @@
   background: linear-gradient(180deg, var(--landing-s2), var(--landing-s1));
   transition: 0.35s;
 }
-.landing-step.is-active {
+.landing-step.landing-rise[data-active="true"] {
   border-color: rgba(49, 224, 176, 0.45);
   box-shadow:
     0 0 0 1px rgba(49, 224, 176, 0.12),
     0 26px 64px rgba(14, 156, 120, 0.18);
+}
+.landing-step.landing-rise.is-seen[data-active="true"] {
   transform: translateY(-4px);
 }
 .landing-step-top > span {
@@ -528,7 +535,7 @@
     11px "IBM Plex Mono",
     monospace;
 }
-.landing-step.is-active .landing-step-top > span {
+.landing-step[data-active="true"] .landing-step-top > span {
   color: #062018;
   background: var(--landing-teal);
 }

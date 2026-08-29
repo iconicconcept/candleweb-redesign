@@ -256,7 +256,8 @@ export default function Home() {
               ].map((title, index) => (
                 <article
                   key={title}
-                  className={`landing-step landing-rise ${activeStep === index ? "is-active" : ""}`}
+                  className="landing-step landing-rise"
+                  data-active={activeStep === index}
                   onMouseEnter={() => setActiveStep(index)}
                 >
                   <div className="landing-step-top">

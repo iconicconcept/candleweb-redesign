@@ -51,7 +51,11 @@ const Layout = ({ children }: Props) => {
           !path.includes("register") &&
           !path.includes("tutor") &&
           !path.includes("blog") &&
-          !path.includes("candleai") && (
+          !path.includes("candleai") &&
+          !path.includes("privacy") &&
+          !path.includes("terms") &&
+          !path.includes("login") &&
+          !path.includes("docs") && (
             <Header
               route={path}
               Icon={CgMenuRight}

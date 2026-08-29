@@ -1,297 +1,346 @@
 import Head from "next/head";
 import Link from "next/link";
-import React from "react";
+import LegalLayout, { TocItem } from "../components/legal/LegalLayout";
+/* eslint-disable react/no-unescaped-entities */
 
-type Props = {};
+const TOC: TocItem[] = [
+  { id: "p1", label: "What we collect" },
+  { id: "p2", label: "Your exchange keys" },
+  { id: "p3", label: "Your prompts" },
+  { id: "p4", label: "Why we use it" },
+  { id: "p5", label: "Who we share with" },
+  { id: "p6", label: "Where data is held" },
+  { id: "p7", label: "How long we keep it" },
+  { id: "p8", label: "Your rights" },
+  { id: "p9", label: "Security" },
+  { id: "p10", label: "Cookies" },
+  { id: "p11", label: "Children" },
+  { id: "p12", label: "Changes and contact" },
+];
 
-const PrivacyPolicy = (props: Props) => {
+function Table({
+  head,
+  rows,
+}: {
+  head?: [string, string];
+  rows: [string, React.ReactNode][];
+}) {
+  return (
+    <div className="legal-tw">
+      <table className="legal-table">
+        {head && (
+          <thead>
+            <tr>
+              <th>{head[0]}</th>
+              <th>{head[1]}</th>
+            </tr>
+          </thead>
+        )}
+        <tbody>
+          {rows.map(([label, value], index) => (
+            <tr key={index}>
+              <td>{label}</td>
+              <td>{value}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+export default function PrivacyPolicy() {
   return (
     <>
       <Head>
-        <title>Candleweb Privacy Policy</title>
-        <meta name="description" content="Candleweb privacy policy" />
-        <link rel="icon" href="/favicon.ico" />
+        <title>Privacy Policy | Candleweb</title>
+        <meta
+          name="description"
+          content="What Candleweb collects, why we hold it, and what we will never do with it — your exchange keys and your prompts covered first."
+        />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
-      <div className="main__privacy my-32 sm:!px-5 ms:px-8 lg:px-8 max-w-[1065px] mx-auto w-full">
-        <h1 className="header text-center font-bold text-3xl">
-          Candleweb Privacy Policy
-        </h1>
-        <p className="text-center font-[500] text-sm mt-2 mb-4">
-          Last updated: May 2025
-        </p>
 
-        {/* Introduction */}
-        <div className="mt-6 intro">
-          <p className="text-sm text-[#fefefe] inter mb-4">
-            At Candleweb, we respect your privacy and are committed to protecting your personal data. This Privacy Policy explains how we collect, use, store, and disclose your personal data when you use our AI product, CandleAI. This Privacy Policy is designed to comply with the Nigerian Data Protection Act 2023 and, where applicable, the General Data Protection Regulation (EU) 2016/679 (GDPR).
+      <LegalLayout
+        active="privacy"
+        title="Privacy Policy"
+        updated="28 August 2026"
+        intro="What we collect, why we hold it, and what we will never do with it. The two sections people care about most — your exchange keys and your prompts — are near the top."
+        toc={TOC}
+      >
+        <section className="legal-sec" id="p1">
+          <h2>1. What we collect</h2>
+          <Table
+            head={["Category", "What it includes"]}
+            rows={[
+              [
+                "Account",
+                "Email address, username, password hash. If you sign in with Google or a wallet, the identifier that provider returns.",
+              ],
+              [
+                "Exchange access",
+                "API key, secret and passphrase for exchanges you connect. Encrypted — see section 2.",
+              ],
+              [
+                "Trading configuration",
+                "Your trades: pair, timeframe, indicators, allocation, risk settings, which bot is assigned.",
+              ],
+              [
+                "Bot configuration",
+                "Bot name, platform, webhook URL, prompt or rules, model, developer key.",
+              ],
+              [
+                "Trading activity",
+                "Decisions received, orders placed, fills, stop movements, closed trades, and the market data behind each one.",
+              ],
+              [
+                "Balances",
+                "Balances and positions read from your exchange, so we can show them and enforce your limits.",
+              ],
+              [
+                "Payments",
+                "Handled by Paystack. We receive confirmation and the last four digits of a card — never full card numbers.",
+              ],
+              [
+                "Technical",
+                "IP address, browser and device type, timestamps, error logs.",
+              ],
+            ]}
+          />
+          <p>
+            We do not collect your national identification number, your bank
+            account details, or documents proving your identity, because we do
+            not hold money and do not need them.
           </p>
-        </div>
+        </section>
 
-        {/* Data Controller */}
-        <div className="mt-8 data-controller">
-          <h2 className="font-bold text-2xl pb-3">Data Controller</h2>
-          <p className="text-sm text-[#fefefe] inter mb-4">
-            Candleweb Services Limited is the data controller responsible for the processing of your personal data under this Privacy Policy. For questions or concerns, contact us at{" "}
-            <Link href="mailto:support@candleweb.io" className="text-primary">
-              support@candleweb.io
-            </Link>
-            .
+        <section className="legal-sec" id="p2">
+          <h2>2. Your exchange keys</h2>
+          <div className="legal-keybox">
+            <b>What we ask for and what we can do with it</b>
+            <p>
+              API keys are stored encrypted at rest and are used only to read
+              your balance and to place, manage and close orders on trades you
+              configured. We ask you never to grant withdrawal permission, and we
+              will not use it if you do.
+            </p>
+            <p>
+              Keys are never shown back to you in full after saving, never
+              written to logs, never sent to any third party, and never used for
+              anything outside your own trades.
+            </p>
+          </div>
+          <p>
+            Delete the key on your exchange and our access ends immediately.
+            Delete the connection in Candleweb and we remove our stored copy.
           </p>
-        </div>
+        </section>
 
-        {/* Scope of Application */}
-        <div className="mt-8 scope">
-          <h2 className="font-bold text-2xl pb-3">Scope of Application</h2>
-          <p className="text-sm text-[#fefefe] inter mb-4">
-            This Privacy Policy applies to users in Nigeria and, where applicable, to users in the European Economic Area (EEA) whose personal data we may process.
+        <section className="legal-sec" id="p3">
+          <h2>3. Your prompts and strategies</h2>
+          <div className="legal-keybox">
+            <b>Your strategy stays yours</b>
+            <p>
+              The prompt or rules you give us are stored so that bot review can
+              compare what your bot was told to do against what it actually did.
+              That is the only purpose.
+            </p>
+            <p>
+              We do not run your prompt ourselves, we do not trade on it, we do
+              not show it to other users, and we do not use it to train models —
+              ours or anyone else's.
+            </p>
+          </div>
+          <p>
+            You can edit or delete a stored prompt at any time from the bot's
+            settings. Deleting it removes it from future review; past trade
+            records keep a note of which version was in use at the time, because
+            a record you cannot reconstruct is not a record.
           </p>
-        </div>
+        </section>
 
-        {/* Data Collection */}
-        <div className="mt-8 data-collection">
-          <h2 className="font-bold text-2xl pb-3">1. Data Collection</h2>
-          <p className="text-sm text-[#fefefe] inter mb-4">
-            We collect the following categories of personal data:
-          </p>
-          <ul className="list-disc list-outside ml-6 space-y-3">
-            <li className="text-sm text-[#fefefe] inter">
-              <strong>Personal information:</strong> name, email address, date of birth; KYC IDs (where required by AML law), and other identifying information you provide.
+        <section className="legal-sec" id="p4">
+          <h2>4. Why we use your data</h2>
+          <ul>
+            <li>
+              <strong>To run the service</strong> — deliver market data, relay
+              decisions, place and monitor orders, enforce your limits. This is
+              necessary to perform our contract with you.
             </li>
-            <li className="text-sm text-[#fefefe] inter">
-              <strong>Financial information:</strong> crypto wallet addresses and transaction data. Wallet addresses may be pseudonymous identifiers but may become personal data if linked to your identity.
+            <li>
+              <strong>To keep it working</strong> — diagnose failures,
+              investigate a bot that stopped responding, monitor for abuse. Our
+              legitimate interest in a functioning, secure service.
             </li>
-            <li className="text-sm text-[#fefefe] inter">
-              <strong>Usage information:</strong> logs of your activity on our platform, including trades executed by our tool and API key usage.
+            <li>
+              <strong>To produce your bot review</strong> — analyse your own
+              trades and prompt to generate recommendations for you. Part of the
+              service you asked for.
+            </li>
+            <li>
+              <strong>To contact you</strong> — service notices, failure alerts
+              you switched on, and, if you opted in, occasional product email.
+              You can turn marketing email off without losing service notices.
+            </li>
+            <li>
+              <strong>To meet legal obligations</strong> — tax, accounting, and
+              lawful requests from authorities.
             </li>
           </ul>
-          <p className="text-sm text-[#fefefe] inter mt-4 bg-[#1a1a1a] p-4 rounded-lg border border-[#333]">
-            <strong>Note:</strong> Candleweb is a non-custodial platform. We do not hold or store your funds. You authenticate using your crypto wallet, and connect your exchange accounts to Candleweb via secure API keys. Our AI executes trades through those exchange APIs; we do not control your wallet or funds.
+          <p>
+            We do not sell your personal data, and we do not share it with
+            advertisers.
           </p>
-        </div>
+        </section>
 
-        {/* Use of Personal Data */}
-        <div className="mt-8 use-of-data">
-          <h2 className="font-bold text-2xl pb-3">2. Use of Personal Data</h2>
-          <p className="text-sm text-[#fefefe] inter mb-4">
-            We use your personal data to:
-          </p>
-          <ul className="list-disc list-outside ml-6 space-y-3">
-            <li className="text-sm text-[#fefefe] inter">
-              Provide our AI crypto trading services and related customer support.
-            </li>
-            <li className="text-sm text-[#fefefe] inter">
-              Execute trades via your connected wallet API.
-            </li>
-            <li className="text-sm text-[#fefefe] inter">
-              Communicate with you regarding your account and services.
-            </li>
-            <li className="text-sm text-[#fefefe] inter">
-              Improve our services and develop new features.
-            </li>
-            <li className="text-sm text-[#fefefe] inter">
-              Fulfill legal or regulatory obligations.
-            </li>
-            <li className="text-sm text-[#fefefe] inter">
-              Prevent, detect and investigate fraud, abuse or security incidents.
-            </li>
-            <li className="text-sm text-[#fefefe] inter">
-              Analyze anonymized usage data to enhance system performance.
-            </li>
-          </ul>
-          <p className="text-sm text-[#fefefe] inter mt-4">
-            Our tool includes automated decision-making and profiling to execute trades based on market conditions and your strategy preferences. You have the right to object to certain types of automated processing and may disable trading automation from your dashboard.
-          </p>
-        </div>
+        <section className="legal-sec" id="p5">
+          <h2>5. Who we share with</h2>
+          <Table
+            head={["Who", "What they receive, and why"]}
+            rows={[
+              [
+                "Your exchange",
+                "The orders we place on your behalf, authenticated with your key. Governed by their own policy.",
+              ],
+              [
+                "Your bot",
+                "Market data for your trades, sent to the URL you configured, carrying your developer key.",
+              ],
+              [
+                "Paystack",
+                "Payment details when you buy a course or subscription. We never see full card numbers.",
+              ],
+              [
+                "Yellow Card",
+                "Only if you choose to fund through them. You deal with them directly; we pass nothing across unless you initiate it.",
+              ],
+              [
+                "Infrastructure providers",
+                "Hosting, database and email delivery, under contract and bound to confidentiality.",
+              ],
+              [
+                "Authorities",
+                "Where we are legally required. We will tell you unless we are prohibited from doing so.",
+              ],
+            ]}
+          />
+        </section>
 
-        {/* Legal Basis for Processing */}
-        <div className="mt-8 legal-basis">
-          <h2 className="font-bold text-2xl pb-3">3. Legal Basis for Processing</h2>
-          <p className="text-sm text-[#fefefe] inter mb-4">
-            We process your data on the following legal bases:
+        <section className="legal-sec" id="p6">
+          <h2>6. Where your data is held</h2>
+          <p>
+            Candleweb operates from Nigeria and processes data in line with the
+            Nigeria Data Protection Act 2023. Some of our infrastructure
+            providers hold data outside Nigeria; where they do, we use providers
+            that offer an adequate standard of protection and contractual
+            safeguards.
           </p>
-          <ul className="list-disc list-outside ml-6 space-y-3">
-            <li className="text-sm text-[#fefefe] inter">
-              Your consent (e.g., for marketing communications).
-            </li>
-            <li className="text-sm text-[#fefefe] inter">
-              Performance of a contract (e.g., providing our AI trading services).
-            </li>
-            <li className="text-sm text-[#fefefe] inter">
-              Compliance with legal obligations.
-            </li>
-            <li className="text-sm text-[#fefefe] inter">
-              Our legitimate interests (e.g., improving our platform, preventing fraud).
-            </li>
-          </ul>
-        </div>
+        </section>
 
-        {/* Data Sharing */}
-        <div className="mt-8 data-sharing">
-          <h2 className="font-bold text-2xl pb-3">4. Data Sharing</h2>
-          <p className="text-sm text-[#fefefe] inter mb-4">
-            We may share your data with:
-          </p>
-          <ul className="list-disc list-outside ml-6 space-y-3">
-            <li className="text-sm text-[#fefefe] inter">
-              Service providers under contractual obligations (e.g., hosting, analytics, security providers).
-            </li>
-            <li className="text-sm text-[#fefefe] inter">
-              Regulatory authorities, if legally required or to protect our rights or the rights of others.
-            </li>
-            <li className="text-sm text-[#fefefe] inter">
-              Business partners involved in delivering the service (under strict data protection terms).
-            </li>
-          </ul>
-          <p className="text-sm text-[#fefefe] inter mt-4">
-            All third-party processors are bound by data processing agreements ensuring compliance with applicable data protection laws.
-          </p>
-        </div>
+        <section className="legal-sec" id="p7">
+          <h2>7. How long we keep it</h2>
+          <Table
+            rows={[
+              [
+                "Account data",
+                "While your account is open, then 90 days after closure.",
+              ],
+              [
+                "Exchange keys",
+                "Deleted immediately when you remove the connection or close your account.",
+              ],
+              [
+                "Trade records",
+                "Kept while your account is open so review and your own history stay intact. Exportable at any time.",
+              ],
+              ["Prompts", "Until you delete them, or your account closes."],
+              [
+                "Payment records",
+                "As long as tax and accounting law requires, typically six years.",
+              ],
+              ["Technical logs", "Up to 12 months."],
+            ]}
+          />
+        </section>
 
-        {/* Data Security */}
-        <div className="mt-8 data-security">
-          <h2 className="font-bold text-2xl pb-3">5. Data Security</h2>
-          <p className="text-sm text-[#fefefe] inter mb-4">
-            We implement technical and organizational safeguards including:
+        <section className="legal-sec" id="p8">
+          <h2>8. Your rights</h2>
+          <p>
+            You can ask us to give you a copy of your data, correct it, delete
+            it, restrict how we use it, or object to a particular use. Most of
+            this you can do yourself from the dashboard — export your records,
+            edit or delete a prompt, remove an exchange connection, close your
+            account.
           </p>
-          <ul className="list-disc list-outside ml-6 space-y-3">
-            <li className="text-sm text-[#fefefe] inter">
-              TLS encryption
-            </li>
-            <li className="text-sm text-[#fefefe] inter">
-              Database access control
-            </li>
-            <li className="text-sm text-[#fefefe] inter">
-              Secure API gateways
-            </li>
-            <li className="text-sm text-[#fefefe] inter">
-              Regular security audits
-            </li>
-            <li className="text-sm text-[#fefefe] inter">
-              Breach response protocols
-            </li>
-          </ul>
-          <p className="text-sm text-[#fefefe] inter mt-4">
-            We reserve the right to implement third-party penetration tests and bug-bounty programs.
+          <p>
+            For anything else, email{" "}
+            <Link href="mailto:privacy@candleweb.io">privacy@candleweb.io</Link>.
+            We will respond within 30 days. If you are not satisfied you may
+            complain to the Nigeria Data Protection Commission, or to the data
+            protection authority where you live.
           </p>
-        </div>
+        </section>
 
-        {/* Data Retention */}
-        <div className="mt-8 data-retention">
-          <h2 className="font-bold text-2xl pb-3">6. Data Retention</h2>
-          <p className="text-sm text-[#fefefe] inter mb-4">
-            We retain data for as long as necessary to:
+        <section className="legal-sec" id="p9">
+          <h2>9. Security</h2>
+          <p>
+            Exchange keys and developer keys are encrypted at rest. Traffic is
+            encrypted in transit. Access to production systems is limited to
+            staff who need it and is logged.
           </p>
-          <ul className="list-disc list-outside ml-6 space-y-3">
-            <li className="text-sm text-[#fefefe] inter">
-              Maintain your account
-            </li>
-            <li className="text-sm text-[#fefefe] inter">
-              Provide you with services
-            </li>
-            <li className="text-sm text-[#fefefe] inter">
-              Comply with regulatory requirements
-            </li>
-          </ul>
-          <p className="text-sm text-[#fefefe] inter mt-4">
-            API tokens are retained for up to six years (five years statutory record-keeping + one-year contingency). User account data is deleted 90 days after you close your account unless legal retention applies.
+          <p>
+            Your part matters too: use a strong, unique password, keep your
+            developer key private, restrict your exchange key to our IP address
+            where your exchange supports it, and never grant withdrawal
+            permission.
           </p>
-        </div>
+          <p>
+            If a breach affects your data, we will tell you and the regulator
+            within the timeframes the law requires, and we will tell you what we
+            know rather than waiting until we know everything.
+          </p>
+        </section>
 
-        {/* Your Rights */}
-        <div className="mt-8 your-rights">
-          <h2 className="font-bold text-2xl pb-3">7. Your Rights</h2>
-          <p className="text-sm text-[#fefefe] inter mb-4">
-            You have the following rights regarding your personal data:
+        <section className="legal-sec" id="p10">
+          <h2>10. Cookies</h2>
+          <p>
+            We use cookies that are necessary to keep you signed in and to keep
+            the service secure. We use a small amount of privacy-respecting
+            analytics to understand which pages are used. We do not use
+            advertising cookies and we do not allow third parties to track you
+            across other sites from ours.
           </p>
-          <ul className="list-disc list-outside ml-6 space-y-3">
-            <li className="text-sm text-[#fefefe] inter">
-              Access your personal data
-            </li>
-            <li className="text-sm text-[#fefefe] inter">
-              Request rectification of inaccurate data
-            </li>
-            <li className="text-sm text-[#fefefe] inter">
-              Request erasure of personal data
-            </li>
-            <li className="text-sm text-[#fefefe] inter">
-              Restrict or object to processing
-            </li>
-            <li className="text-sm text-[#fefefe] inter">
-              Request data portability in a machine-readable format
-            </li>
-          </ul>
-          <p className="text-sm text-[#fefefe] inter mt-4">
-            To exercise your rights, contact us at{" "}
-            <Link href="mailto:support@candleweb.io" className="text-primary">
-              support@candleweb.io
-            </Link>
-            . We aim to respond within 30 days.
-          </p>
-        </div>
+        </section>
 
-        {/* Transfers of Personal Data */}
-        <div className="mt-8 data-transfers">
-          <h2 className="font-bold text-2xl pb-3">8. Transfers of Personal Data</h2>
-          <p className="text-sm text-[#fefefe] inter mb-4">
-            Where we transfer data outside your country of residence, we use legally approved mechanisms and standard contractual clauses to ensure your data remains protected.
+        <section className="legal-sec" id="p11">
+          <h2>11. Children</h2>
+          <p>
+            Candleweb is not for anyone under 18. We do not knowingly collect
+            data from children. If you believe a child has given us data, contact
+            us and we will delete it.
           </p>
-        </div>
+        </section>
 
-        {/* Cookies and Similar Technologies */}
-        <div className="mt-8 cookies">
-          <h2 className="font-bold text-2xl pb-3">9. Cookies and Similar Technologies</h2>
-          <p className="text-sm text-[#fefefe] inter mb-4">
-            We use cookies and similar technologies to collect technical and usage information. Non-essential cookies require your consent. A cookie banner and preferences panel will be provided.
+        <section className="legal-sec" id="p12">
+          <h2>12. Changes and contact</h2>
+          <p>
+            If we change this policy materially we will tell you by email or in
+            the product before it takes effect, and update the date at the top.
           </p>
-        </div>
-
-        {/* Marketing Communications */}
-        <div className="mt-8 marketing">
-          <h2 className="font-bold text-2xl pb-3">10. Marketing Communications</h2>
-          <p className="text-sm text-[#fefefe] inter mb-4">
-            We will only send you marketing communications with your consent. You may withdraw this consent at any time via unsubscribe links or by contacting us.
+          <Table
+            rows={[
+              ["Entity", "Candleweb Ltd — [registration number]"],
+              ["Registered address", "[registered address]"],
+              ["Data protection contact", "privacy@candleweb.io"],
+            ]}
+          />
+          <p className="legal-foot">
+            <b>Related:</b> our <Link href="/terms">Terms of Service</Link> set
+            out the agreement between us, including how exchange access and
+            trading risk work.
           </p>
-        </div>
-
-        {/* Children's Privacy */}
-        <div className="mt-8 childrens-privacy">
-          <h2 className="font-bold text-2xl pb-3">11. Children&apos;s Privacy</h2>
-          <p className="text-sm text-[#fefefe] inter mb-4">
-            Our services are not intended for individuals under the age of 21. We do not knowingly collect data from children. KYC requirements are the responsibility of the exchanges connected to our service through the API keys.
-          </p>
-        </div>
-
-        {/* Blockchain and Web3-Specific Disclosures */}
-        <div className="mt-8 blockchain-disclosures">
-          <h2 className="font-bold text-2xl pb-3">12. Blockchain and Web3-Specific Disclosures</h2>
-          <p className="text-sm text-[#fefefe] inter mb-4">
-            Candleweb does not control or modify blockchain-based data. Wallet addresses and transactions may be visible on public ledgers and cannot be altered or erased. We recommend users exercise caution when linking personal information to blockchain addresses. Smart-contract interactions are public and immutable; if you publicly associate your wallet with your identity, that linkage may be permanent.
-          </p>
-        </div>
-
-        {/* Changes to this Privacy Policy */}
-        <div className="mt-8 policy-changes">
-          <h2 className="font-bold text-2xl pb-3">13. Changes to this Privacy Policy</h2>
-          <p className="text-sm text-[#fefefe] inter mb-4">
-            We may update this policy periodically. The latest version will always be available on our website. Last updated: May 2025
-          </p>
-        </div>
-
-        {/* Contact Us */}
-        <div className="mt-8 contact">
-          <h2 className="font-bold text-2xl pb-3">14. Contact Us</h2>
-          <p className="text-sm text-[#fefefe] inter mb-4">
-            If you have any questions or concerns regarding our privacy policy or our handling of your personal data, please contact us at{" "}
-            <Link href="mailto:support@candleweb.io" className="text-primary">
-              support@candleweb.io
-            </Link>
-            . We aim to respond within 30 days.
-          </p>
-        </div>
-      </div>
+        </section>
+      </LegalLayout>
     </>
   );
-};
-
-export default PrivacyPolicy;
+}

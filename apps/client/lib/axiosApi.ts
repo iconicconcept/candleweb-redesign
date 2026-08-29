@@ -1,8 +1,8 @@
 import axios from "axios";
 import useUserStore from "../lib/hooks/useUserStore";
 
-export const uri = "https://api.candleweb.io/api/";
-// export const uri = "https://sandboxapi.candleweb.io/api/";
+// export const uri = "https://api.candleweb.io/api/";
+export const uri = "https://sandboxapi.candleweb.io/api/";
 
 export const axiosApi = axios.create({
   baseURL: uri,

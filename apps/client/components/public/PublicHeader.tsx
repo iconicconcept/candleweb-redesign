@@ -1,11 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
-import { useRouter } from "next/router";
-import { error } from "../alert/Toast";
-import useEthereum from "../../lib/hooks/useEthereum";
-import useUserStore from "../../lib/hooks/useUserStore";
-import { loginUser } from "../../utils/loginUser";
 
 export type PublicNavKey =
   | "home"
@@ -26,8 +21,7 @@ type Props = {
    */
   cta?: { label: string; href?: string; onClick?: () => void };
   /**
-   * Overrides the "Log in" button behaviour. When omitted, the wallet-connect
-   * login flow is used (home / about / blog).
+   * Overrides the "Log in" button behaviour. When omitted, it links to /login.
    */
   onLogin?: () => void;
 };
@@ -36,7 +30,7 @@ const NAV_LINKS: { label: string; href: string; key: PublicNavKey }[] = [
   { label: "Bring your bot", href: "/", key: "home" },
   { label: "CandleAI", href: "/candleai", key: "candleai" },
   { label: "Academy", href: "/tutor", key: "academy" },
-  { label: "Docs", href: "/whitepaper.pdf", key: "docs" },
+  { label: "Docs", href: "/docs", key: "docs" },
   { label: "Blog", href: "/blog", key: "blog" },
   { label: "About", href: "/about", key: "about" },
 ];
@@ -47,30 +41,7 @@ export default function PublicHeader({
   cta,
   onLogin,
 }: Props) {
-  const router = useRouter();
-  const { connectWallet } = useEthereum();
-  const { setUser } = useUserStore((state) => state);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-
-  const walletLogin = async () => {
-    try {
-      const result = await connectWallet();
-      if (!result) return;
-      await loginUser({
-        wallet: result.walletAddress,
-        signerPassword: result.signMessage,
-        setIsLoading,
-        onSuccess: (value, type) =>
-          type === "success"
-            ? (setUser(value), router.push("/dashboard"))
-            : router.push("/register"),
-      });
-    } catch (loginError) {
-      error(String(loginError));
-    }
-  };
-  const login = onLogin || walletLogin;
   const closeMenu = () => setMenuOpen(false);
 
   return (
@@ -101,13 +72,25 @@ export default function PublicHeader({
             ))}
           </div>
           <div className="pub-nav-end">
-            <button
-              className="pub-btn pub-btn-glass pub-login"
-              onClick={login}
-              disabled={isLoading}
-            >
-              Log in
-            </button>
+            {onLogin ? (
+              <button
+                className="pub-btn pub-btn-glass pub-login"
+                onClick={() => {
+                  closeMenu();
+                  onLogin();
+                }}
+              >
+                Log in
+              </button>
+            ) : (
+              <Link
+                href="/login"
+                className="pub-btn pub-btn-glass pub-login"
+                onClick={closeMenu}
+              >
+                Log in
+              </Link>
+            )}
             {cta?.onClick ? (
               <button
                 className="pub-btn pub-btn-amber"

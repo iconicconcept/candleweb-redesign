@@ -13,7 +13,7 @@ const COLUMNS: { heading: string; items: string[] }[] = [
     heading: "Product",
     items: ["Bring your bot", "CandleAI", "Dashboard", "What we run"],
   },
-  { heading: "Learn", items: ["Academy", "Docs", "API reference"] },
+  { heading: "Learn", items: ["Academy", "Docs", "API reference", "Blog"] },
   { heading: "Company", items: ["About", "Contact", "Status"] },
   { heading: "Legal", items: ["Terms", "Privacy", "Risk disclosure"] },
 ];
@@ -23,7 +23,8 @@ const HREFS: Record<string, string> = {
   CandleAI: "/candleai",
   Dashboard: "/dashboard",
   Academy: "/tutor",
-  Docs: "/whitepaper.pdf",
+  Docs: "/docs",
+  "API reference": "/docs",
   About: "/about",
   Blog: "/blog",
   Terms: "/terms",
