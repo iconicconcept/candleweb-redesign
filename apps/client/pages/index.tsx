@@ -72,12 +72,15 @@ export default function Home() {
 
   useEffect(() => {
     const reveal = new IntersectionObserver(
-      (entries) =>
-        entries.forEach(
-          (entry) =>
-            entry.isIntersecting && entry.target.classList.add("is-seen"),
-        ),
-      { threshold: 0.12 },
+      (entries, observer) =>
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          entry.target.classList.add("is-seen");
+          observer.unobserve(entry.target);
+        }),
+      // Trigger a little after the element enters from the bottom so the
+      // reveal actually plays on screen instead of finishing off-view.
+      { threshold: 0.01, rootMargin: "0px 0px -12% 0px" },
     );
     document
       .querySelectorAll(".landing-rise")
@@ -111,7 +114,7 @@ export default function Home() {
               <p className="landing-eyebrow landing-rise">
                 Trading infrastructure for bot builders
               </p>
-              <h1 className="landing-rise">
+              <h1 className="landing-rise rise-left">
                 Deploy, run, and improve
                 <br />
                 <span>your trading bot.</span>
@@ -122,7 +125,7 @@ export default function Home() {
                 sends back, and manages every position from entry to exit. You
                 keep the strategy. You never write exchange code.
               </p>
-              <div className="landing-hero-cta landing-rise">
+              <div className="landing-hero-cta landing-rise rise-left">
                 <ButtonLink href="#access">
                   Get Started <span>↗</span>
                 </ButtonLink>
@@ -130,23 +133,23 @@ export default function Home() {
                   See the handoff
                 </ButtonLink>
               </div>
-              <div className="landing-stats landing-rise">
-                <div>
+              <div className="landing-stats">
+                <div className="landing-rise">
                   <b>4</b>
                   <span>exchanges, one endpoint</span>
                 </div>
-                <div>
+                <div className="landing-rise">
                   <b>15m</b>
                   <span>from candle close to open position</span>
                 </div>
-                <div>
+                <div className="landing-rise">
                   <b>n8n</b>
                   <span>Make, Zapier or your own code</span>
                 </div>
               </div>
             </div>
-            <div className="landing-art landing-rise">
-              <div className="landing-chart">
+            <div className="landing-art">
+              <div className="landing-chart landing-rise rise-right">
                 <svg
                   viewBox="0 0 600 340"
                   preserveAspectRatio="none"
@@ -189,7 +192,7 @@ export default function Home() {
                 </svg>
               </div>
               <DataCard
-                className="landing-card-a"
+                className="landing-card-a landing-rise rise-pop"
                 title="Candleweb → your bot"
                 live
               >
@@ -204,7 +207,10 @@ export default function Home() {
                   <span>ATR 214.6</span>
                 </div>
               </DataCard>
-              <DataCard className="landing-card-b" title="your bot → Candleweb">
+              <DataCard
+                className="landing-card-b landing-rise rise-pop"
+                title="your bot → Candleweb"
+              >
                 <p className="landing-card-title">Decision received</p>
                 <div className="landing-kv">
                   <i>action</i>
@@ -220,7 +226,7 @@ export default function Home() {
                 </div>
               </DataCard>
               <DataCard
-                className="landing-card-c"
+                className="landing-card-c landing-rise rise-pop"
                 title="Candleweb running it"
                 live
               >

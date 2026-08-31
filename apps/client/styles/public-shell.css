@@ -58,20 +58,19 @@
   padding-top: 24px;
   font-family: "Outfit", sans-serif;
 }
-/* Brand pill, links pill and action buttons share one height so the row
-   reads as balanced. */
+/* Links pill and action buttons share one height so the row reads as
+   balanced. The brand mark sits flush — no pill behind the logo. */
 .pub-brand {
   display: flex;
   align-items: center;
   height: 48px;
-  padding: 0 18px;
-  border: 1px solid var(--pub-line);
-  border-radius: 99px;
-  background: rgba(255, 255, 255, 0.05);
+  padding: 0;
+  border: 0;
+  background: none;
 }
 .pub-logo {
   display: block;
-  width: 136px;
+  width: 148px;
   height: auto;
 }
 .pub-nav-mid {
@@ -79,7 +78,7 @@
   align-items: center;
   justify-content: center;
   gap: 4px;
-  flex: 1;
+  margin: 0 auto;
   height: 48px;
   padding: 0 7px;
   border: 1px solid var(--pub-line);
@@ -99,11 +98,15 @@
   color: var(--pub-text);
   background: rgba(255, 255, 255, 0.07);
 }
+/* "Log in" as the last row of the mobile menu — hidden on desktop, where the
+   pill button in .pub-nav-end is used instead. */
+.pub-m-login {
+  display: none;
+}
 .pub-nav-end {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-left: auto;
 }
 .pub-nav-end .pub-btn {
   height: 48px;
@@ -245,29 +248,83 @@
   .pub-nav-mid {
     display: none;
   }
+  /* Nav pill is gone on mobile, so push the actions to the right edge. */
+  .pub-nav-end {
+    margin-left: auto;
+  }
+  /* Drop the announcement bar while the full-screen menu is open so the
+     nav row sits at the top, like GitLab's. */
+  .pub-announcement.pub-hide-m {
+    display: none;
+  }
+  /* Full-screen panel, GitLab style: fills the page, the nav row (brand +
+     actions + close) stays visible above it, list items stack full-width. */
   .pub-nav-mid.is-open {
-    position: absolute;
-    top: calc(100% + 8px);
-    right: 0;
-    left: 0;
-    z-index: 50;
+    position: fixed;
+    inset: 0;
+    z-index: 40;
     display: flex;
     flex-direction: column;
     align-items: stretch;
-    gap: 2px;
+    gap: 0;
     height: auto;
-    padding: 10px;
-    border: 1px solid var(--pub-line2);
-    border-radius: 18px;
+    padding: 80px clamp(20px, 4.5vw, 64px) 32px;
+    border: 0;
+    border-radius: 0;
     background: var(--pub-s2);
-    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+    overflow-y: auto;
   }
-  .pub-nav-mid.is-open a {
+  .pub-nav-mid.is-open a,
+  .pub-nav-mid.is-open .pub-m-login {
     height: auto;
-    padding: 11px 14px;
+    justify-content: flex-start;
+    width: 100%;
+    padding: 16px 4px;
+    border-radius: 0;
+    border-bottom: 1px solid var(--pub-line);
+    color: var(--pub-text);
+    font-size: 16px;
+  }
+  /* Highlight on hover only — no persistent marker on the current page. */
+  .pub-nav-mid.is-open a.here {
+    background: none;
+  }
+  .pub-nav-mid.is-open a:hover {
+    color: var(--pub-text);
+    background: rgba(255, 255, 255, 0.05);
+  }
+  .pub-nav-mid.is-open .pub-m-login {
+    display: flex;
+    align-items: center;
+    margin-top: 10px;
+    background: none;
+    border-top: 0;
+    border-left: 0;
+    border-right: 0;
+    font: 500 16px "Outfit", sans-serif;
+    text-align: left;
+    cursor: pointer;
+  }
+  /* Keep the nav row on top of the panel so the close button is reachable. */
+  .pub-nav .pub-brand,
+  .pub-nav .pub-nav-end {
+    position: relative;
+    z-index: 45;
   }
   .pub-menu {
     display: block;
+  }
+  /* Hamburger morphs into a close (×) while the panel is open. */
+  .pub-menu[aria-expanded="true"] i {
+    background: transparent;
+  }
+  .pub-menu[aria-expanded="true"] i:before {
+    top: 0;
+    transform: rotate(45deg);
+  }
+  .pub-menu[aria-expanded="true"] i:after {
+    top: 0;
+    transform: rotate(-45deg);
   }
   .pub-login {
     display: none;
@@ -284,26 +341,30 @@
 }
 @media (max-width: 560px) {
   .pub-nav {
-    padding-top: 16px;
+    padding-top: 18px;
+    gap: 10px;
   }
   .pub-brand {
     height: 44px;
-    padding: 0 14px;
+    padding: 0;
   }
   .pub-logo {
-    width: 126px;
+    width: 140px;
   }
   .pub-nav-end {
-    gap: 12px;
+    gap: 10px;
   }
   .pub-nav-end .pub-btn {
     height: 44px;
-    padding: 0 13px;
-    font-size: 12.5px;
+    padding: 0 15px;
+    font-size: 13px;
   }
   .pub-nav-end .pub-menu {
     width: 44px;
     height: 44px;
+  }
+  .pub-nav-mid.is-open {
+    padding-top: 68px;
   }
   .pub-footer {
     gap: 26px 20px;
@@ -312,5 +373,11 @@
 @media (max-width: 430px) {
   .pub-nav {
     gap: 8px;
+  }
+  .pub-logo {
+    width: 128px;
+  }
+  .pub-nav-end .pub-btn.pub-btn-amber {
+    padding: 0 12px;
   }
 }

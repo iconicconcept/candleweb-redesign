@@ -298,7 +298,7 @@ export default function About() {
           <div className="about-wrap about-section">
             <Eyebrow>The road so far</Eyebrow>
             <h2 className="about-rise">
-              Three years of getting it wrong first.
+              Three years of learning.
             </h2>
             <div className="about-timeline">
               {timeline.map(([when, title, text], index) => (

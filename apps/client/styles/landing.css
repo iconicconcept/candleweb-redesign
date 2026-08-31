@@ -957,14 +957,100 @@
 }
 .landing-rise {
   opacity: 0;
-  transform: translateY(18px);
+  transform: translateY(24px);
   transition:
-    opacity 0.7s ease,
-    transform 0.7s ease;
+    opacity 1s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 1s cubic-bezier(0.22, 1, 0.36, 1);
+}
+/* Motion flavours — mix so the section doesn't read as one repeated pop. */
+.landing-rise.rise-left {
+  transform: translateX(-34px);
+}
+.landing-rise.rise-right {
+  transform: translateX(34px);
+}
+.landing-rise.rise-pop {
+  transform: translateY(28px) scale(0.92);
 }
 .landing-rise.is-seen {
   opacity: 1;
   transform: none;
+}
+/* Narrow screens: the hero is revealed on scroll, so give each element a
+   longer, larger, unmistakable move (and drop the sideways slides, which read
+   poorly in a single column). */
+@media (max-width: 1000px) {
+  .landing-rise,
+  .landing-rise.rise-left,
+  .landing-rise.rise-right {
+    transform: translateY(34px);
+    transition:
+      opacity 1.15s cubic-bezier(0.22, 1, 0.36, 1),
+      transform 1.15s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .landing-rise.rise-pop {
+    transform: translateY(38px) scale(0.9);
+  }
+  .landing-rise.is-seen {
+    transform: none;
+  }
+}
+
+/* Hero intro — unhurried cascade: each copy block, then the chart, then the
+   three cards, each landing after the last. Desktop only: on narrow screens the
+   hero is a tall stack revealed on scroll, where long delays would feel laggy. */
+@media (min-width: 1001px) {
+  .landing-hero-copy > .landing-rise:nth-child(1) {
+    transition-delay: 0.1s;
+  }
+  .landing-hero-copy > .landing-rise:nth-child(2) {
+    transition-delay: 0.26s;
+  }
+  .landing-hero-copy > .landing-rise:nth-child(3) {
+    transition-delay: 0.46s;
+  }
+  .landing-hero-copy > .landing-rise:nth-child(4) {
+    transition-delay: 0.66s;
+  }
+  .landing-stats > .landing-rise:nth-child(1) {
+    transition-delay: 0.84s;
+  }
+  .landing-stats > .landing-rise:nth-child(2) {
+    transition-delay: 0.98s;
+  }
+  .landing-stats > .landing-rise:nth-child(3) {
+    transition-delay: 1.12s;
+  }
+  .landing-art > .landing-rise:nth-child(1) {
+    transition-delay: 0.3s;
+  }
+  .landing-art > .landing-rise:nth-child(2) {
+    transition-delay: 0.58s;
+  }
+  .landing-art > .landing-rise:nth-child(3) {
+    transition-delay: 0.86s;
+  }
+  .landing-art > .landing-rise:nth-child(4) {
+    transition-delay: 1.14s;
+  }
+}
+/* Narrow screens: a gentle stagger so paired items don't arrive together. */
+@media (max-width: 1000px) {
+  .landing-stats > .landing-rise:nth-child(2) {
+    transition-delay: 0.16s;
+  }
+  .landing-stats > .landing-rise:nth-child(3) {
+    transition-delay: 0.32s;
+  }
+  .landing-art > .landing-rise:nth-child(2) {
+    transition-delay: 0.16s;
+  }
+  .landing-art > .landing-rise:nth-child(3) {
+    transition-delay: 0.32s;
+  }
+  .landing-art > .landing-rise:nth-child(4) {
+    transition-delay: 0.48s;
+  }
 }
 @media (max-width:1000px) {
   .landing-hero {

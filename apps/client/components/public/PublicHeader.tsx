@@ -46,7 +46,9 @@ export default function PublicHeader({
 
   return (
     <>
-      <div className="pub-announcement">{announcement}</div>
+      <div className={`pub-announcement ${menuOpen ? "pub-hide-m" : ""}`}>
+        {announcement}
+      </div>
       <div className="pub-wrap pub-nav-wrap">
         <nav className="pub-nav" aria-label="Main navigation">
           <Link href="/" className="pub-brand" onClick={closeMenu}>
@@ -70,6 +72,21 @@ export default function PublicHeader({
                 {link.label}
               </Link>
             ))}
+            {onLogin ? (
+              <button
+                className="pub-m-login"
+                onClick={() => {
+                  closeMenu();
+                  onLogin();
+                }}
+              >
+                Log in
+              </button>
+            ) : (
+              <Link href="/login" className="pub-m-login" onClick={closeMenu}>
+                Log in
+              </Link>
+            )}
           </div>
           <div className="pub-nav-end">
             {onLogin ? (
