@@ -1,13 +1,22 @@
 import Head from "next/head";
 import Link from "next/link";
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import PublicHeader from "../components/public/PublicHeader";
 import PublicFooter from "../components/public/PublicFooter";
 
 const bars = [214, 196, 184, 168, 150, 140, 122, 110, 86, 66, 60, 40];
 const tabs = ["Your bots", "Trade records", "Risk controls"];
+
+// BitMart's logo is in /public; the others are placeholder paths — drop the
+// matching files into apps/client/public and the marquee picks them up.
+const VENUES = [
+  { name: "KuCoin", logo: "/kucoin-logo.png" },
+  { name: "Binance", logo: "/binance-logo.png" },
+  { name: "Bybit", logo: "/bybit-logo.jpg" },
+  { name: "BitMart", logo: "/bitmart-logo.png" },
+];
 
 function Mark() {
   return (
@@ -62,6 +71,39 @@ function DataCard({
       </div>
       {children}
     </div>
+  );
+}
+
+/**
+ * Renders text word by word so it can be "written" onto the screen. The wrapper
+ * carries `landing-rise`, so the shared reveal observer marks it seen and the
+ * per-word CSS animation runs. Whitespace is kept as-is for natural wrapping.
+ */
+function Written({
+  text,
+  as: Tag = "span",
+  className = "",
+}: {
+  text: string;
+  as?: "span" | "p";
+  className?: string;
+}) {
+  let wordIndex = 0;
+  return (
+    <Tag className={`landing-written landing-rise ${className}`.trim()}>
+      {text.split(/(\s+)/).map((part, index) =>
+        part.trim() === "" ? (
+          part
+        ) : (
+          <span
+            key={index}
+            style={{ "--wi": wordIndex++ } as React.CSSProperties}
+          >
+            {part}
+          </span>
+        ),
+      )}
+    </Tag>
   );
 }
 
@@ -250,9 +292,32 @@ export default function Home() {
         <section className="landing-band" id="how">
           <div className="landing-wrap landing-section">
             <p className="landing-eyebrow landing-rise">How it works</p>
-            <h2 className="landing-rise">
-              Unlock <em>hands-off</em> execution for the bot you{" "}
-              <strong>already built</strong>.
+            <h2 className="landing-write landing-rise">
+              {(
+                [
+                  ["Unlock"],
+                  ["hands-off", "em"],
+                  ["execution"],
+                  ["for"],
+                  ["the"],
+                  ["bot"],
+                  ["you"],
+                  ["already built", "strong"],
+                ] as [string, ("em" | "strong")?][]
+              ).map(([word, box], index) => {
+                const Tag = box ?? "span";
+                return (
+                  <Tag key={index} style={{ "--i": index } as React.CSSProperties}>
+                    {word}
+                  </Tag>
+                );
+              })}
+              <span
+                className="landing-write-dot"
+                style={{ "--i": 8 } as React.CSSProperties}
+              >
+                .
+              </span>
             </h2>
             <div className="landing-flow">
               {[
@@ -300,29 +365,31 @@ export default function Home() {
         <section className="landing-wrap landing-section landing-two">
           <div className="landing-rise">
             <p className="landing-eyebrow">Why this exists</p>
-            <h2>The signal was the easy part.</h2>
+            <h2>
+              <Written text="The signal was the easy part." />
+            </h2>
             <div className="landing-ratio">
               <div>
                 <i />
                 <i />
               </div>
               <p>
-                <b>10%</b> The decision, reading a chart and forming a view.
+                <b>10%</b>{" "}
+                <Written text="The decision, reading a chart and forming a view." />
               </p>
               <p>
-                <b>90%</b> Everything else, the reason most bots never leave the
-                canvas.
+                <b>90%</b>{" "}
+                <Written text="Everything else, the reason most bots never leave the canvas." />
               </p>
             </div>
           </div>
           <div className="landing-rise">
-            <p className="landing-lede">
-              If you can build something that reads a chart and forms an opinion
-              in an afternoon, the intelligence is solved. Then you try to make
-              it trade, and meet the other ninety per cent: the part that has
-              everything to do with plumbing.
-            </p>
-            <ul className="landing-rows">
+            <Written
+              as="p"
+              className="landing-lede"
+              text="If you can build something that reads a chart and forms an opinion in an afternoon, the intelligence is solved. Then you try to make it trade, and meet the other ninety per cent: the part that has everything to do with plumbing."
+            />
+            <ul className="landing-rows landing-rise">
               <li>
                 <b>Rate limits</b>
                 <span>
@@ -361,7 +428,9 @@ export default function Home() {
             <div className="landing-section-head">
               <div className="landing-rise">
                 <p className="landing-eyebrow">Inside the dashboard</p>
-                <h2>Everything your bots are doing, in one place.</h2>
+                <h2>
+                  <Written text="Everything your bots are doing, in one place." />
+                </h2>
               </div>
               <ButtonLink href="#access">
                 Get Started <span>↗</span>
@@ -465,8 +534,8 @@ export default function Home() {
 
         <section className="landing-wrap landing-section" id="layers">
           <p className="landing-eyebrow landing-rise">The part we handle</p>
-          <h2 className="landing-rise">
-            Everything between your bot&apos;s decision and a closed position.
+          <h2>
+            <Written text="Everything between your bot's decision and a closed position." />
           </h2>
           <div className="landing-layers">
             {[
@@ -507,12 +576,14 @@ export default function Home() {
             <p className="landing-eyebrow landing-rise">
               Your exchange, your funds
             </p>
-            <h2 className="landing-rise">Candleweb never holds your money.</h2>
-            <p className="landing-lede landing-rise">
-              Connect your own exchange account with API keys you control and
-              can revoke at any time. Every order is placed in your account,
-              under your name.
-            </p>
+            <h2>
+              <Written text="Candleweb never holds your money." />
+            </h2>
+            <Written
+              as="p"
+              className="landing-lede"
+              text="Connect your own exchange account with API keys you control and can revoke at any time. Every order is placed in your account, under your name."
+            />
             <div className="landing-custody">
               {[
                 [
@@ -539,13 +610,33 @@ export default function Home() {
               ))}
             </div>
             <div className="landing-venues landing-rise">
-              <small>Connect</small>
-              <b>KuCoin</b>
-              <b>Binance</b>
-              <b>Bybit</b>
-              <b>BitMart</b>
-              <i>more on request</i>
+              <div className="landing-venues-row">
+                {[0, 1].map((set) => (
+                  <Fragment key={set}>
+                    {VENUES.map((venue) => (
+                      <div
+                        className="landing-venue-card"
+                        key={`${set}-${venue.name}`}
+                        aria-hidden={set === 1}
+                      >
+                        <span>
+                          <Image
+                            src={venue.logo}
+                            alt={venue.name}
+                            fill
+                            sizes="200px"
+                            style={{ objectFit: "contain" }}
+                          />
+                        </span>
+                      </div>
+                    ))}
+                  </Fragment>
+                ))}
+              </div>
             </div>
+            <p className="landing-venues-note landing-rise">
+              More exchanges on request.
+            </p>
           </div>
         </section>
 
@@ -553,12 +644,15 @@ export default function Home() {
           <section className="landing-cta">
             <div className="landing-rise">
               <p className="landing-eyebrow">Get started</p>
-              <h2>Point your bot at Candleweb.</h2>
-              <p className="landing-lede">
-                Create an account, connect your exchange with API keys you
-                control, and paste the webhook URL into your workflow.
-              </p>
-              <ol>
+              <h2>
+                <Written text="Point your bot at Candleweb." />
+              </h2>
+              <Written
+                as="p"
+                className="landing-lede"
+                text="Create an account, connect your exchange with API keys you control, and paste the webhook URL into your workflow."
+              />
+              <ol className="landing-rise">
                 <li>
                   <span>1</span>Create your Candleweb account
                 </li>
