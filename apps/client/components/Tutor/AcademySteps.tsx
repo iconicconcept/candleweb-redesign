@@ -25,7 +25,7 @@ const AcademySteps = () => (
     <h2>
       <Written text="From enrolment to first class, in four steps." />
     </h2>
-    <div className="ac-steps">
+    <div className="ac-steps landing-deal">
       {STEPS.map((step, index) => (
         <div className="ac-st landing-rise" key={step.title}>
           <span className="ac-st-n">{index + 1}</span>

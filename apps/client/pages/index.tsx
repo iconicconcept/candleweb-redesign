@@ -285,7 +285,7 @@ export default function Home() {
                 .
               </span>
             </h2>
-            <div className="landing-flow">
+            <div className="landing-flow landing-deal">
               {[
                 "We send the data",
                 "Your bot decides",
@@ -504,7 +504,7 @@ export default function Home() {
           <h2>
             <Written text="Everything between your bot's decision and a closed position." />
           </h2>
-          <div className="landing-layers">
+          <div className="landing-layers landing-deal">
             {[
               [
                 "Market data",
@@ -551,7 +551,7 @@ export default function Home() {
               revoke at any time. Every order is placed in your account, under
               your name.
             </p>
-            <div className="landing-custody">
+            <div className="landing-custody landing-deal">
               {[
                 [
                   "Where your funds sit",

@@ -118,10 +118,6 @@
   align-items: center;
   gap: 11px;
   height: 46px;
-  padding: 0 18px;
-  border: 1px solid var(--au-line);
-  border-radius: 99px;
-  background: rgba(255, 255, 255, 0.05);
 }
 .auth-brand img {
   display: block;
@@ -147,13 +143,15 @@
   padding: clamp(28px, 5vw, 60px) 0 clamp(40px, 6vw, 72px);
 }
 @media (max-width: 940px) {
+  /* The walkthrough is desktop-only; below this the card stands alone, centred. */
   .auth-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 460px);
+    justify-content: center;
     gap: 36px;
     padding-top: 24px;
   }
   .auth-aside {
-    order: 2;
+    display: none;
   }
 }
 
@@ -276,20 +274,34 @@
   background: rgba(255, 255, 255, 0.045);
 }
 .auth-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 10px;
   border: 0;
   border-radius: 99px;
   background: transparent;
   color: var(--au-dim);
   font: 14px "Outfit", sans-serif;
+  text-align: center;
   cursor: pointer;
   transition: 0.2s;
 }
 .auth-tab[aria-selected="true"] {
-  background: var(--au-s3);
   color: var(--au-text);
   font-weight: 600;
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset;
+  background: linear-gradient(
+    180deg,
+    rgba(49, 224, 176, 0.16),
+    rgba(49, 224, 176, 0.05)
+  );
+  box-shadow:
+    inset 0 0 0 1px rgba(49, 224, 176, 0.5),
+    0 4px 14px rgba(0, 0, 0, 0.32);
+}
+.auth-tab:not([aria-selected="true"]):hover {
+  color: var(--au-muted);
+  background: rgba(255, 255, 255, 0.04);
 }
 .auth-card h2 {
   margin: 0 0 6px;

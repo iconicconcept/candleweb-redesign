@@ -1,10 +1,59 @@
 import Head from "next/head";
 import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import PublicHeader from "../components/public/PublicHeader";
 import PublicFooter from "../components/public/PublicFooter";
 import { Written, useRevealOnScroll } from "../components/public/Written";
 /* eslint-disable react/no-unescaped-entities */
+
+const N8N_APPROVED = "n8n Approved Curriculum";
+
+/** "n8n approved" award seal. `compact` drops the label, leaving just the seal. */
+function ApprovedBadge({ compact = false }: { compact?: boolean }) {
+  return (
+    <span
+      className={`about-approved ${compact ? "is-compact" : ""}`.trim()}
+      title={N8N_APPROVED}
+    >
+      <span className="about-approved-seal" aria-hidden="true">
+        <svg viewBox="0 0 48 48" fill="none">
+          {/* scalloped rosette */}
+          <g fill="currentColor">
+            {Array.from({ length: 12 }).map((_, i) => {
+              const a = ((i * 30) * Math.PI) / 180;
+              return (
+                <circle
+                  key={i}
+                  cx={(24 + 17 * Math.cos(a)).toFixed(2)}
+                  cy={(24 + 17 * Math.sin(a)).toFixed(2)}
+                  r="6"
+                />
+              );
+            })}
+            <circle cx="24" cy="24" r="18" />
+          </g>
+          {/* inner face + tick */}
+          <circle cx="24" cy="24" r="13.5" fill="#04140f" />
+          <circle cx="24" cy="24" r="13.5" stroke="#0e9c78" strokeWidth="1" />
+          <path
+            d="M17 24.4l4.6 4.6L31.4 18.8"
+            stroke="#7ef0d2"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </span>
+      {!compact && (
+        <span className="about-approved-text">
+          <b>n8n Approved</b>
+          <i>Curriculum · verified</i>
+        </span>
+      )}
+    </span>
+  );
+}
 
 const beliefs = [
   [
@@ -105,6 +154,47 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
 export default function About() {
   const router = useRouter();
   useRevealOnScroll();
+
+  // Scroll-linked timeline: the line fills to wherever you've read to, dots
+  // light up as it passes them, and it all runs backwards when you scroll up.
+  const timelineRef = useRef<HTMLDivElement>(null);
+  const [tlProgress, setTlProgress] = useState(0);
+  const [tlReached, setTlReached] = useState(0);
+
+  useEffect(() => {
+    const el = timelineRef.current;
+    if (!el) return;
+    const rows = Array.from(
+      el.querySelectorAll<HTMLElement>(".about-timeline-row"),
+    );
+    let frame = 0;
+
+    const update = () => {
+      frame = 0;
+      const rect = el.getBoundingClientRect();
+      // The "read line" sits a little above the middle of the viewport.
+      const readLine = window.innerHeight * 0.55;
+      const raw = (readLine - rect.top) / Math.max(rect.height, 1);
+      setTlProgress(Math.max(0, Math.min(1, raw)));
+      setTlReached(
+        rows.filter((row) => row.getBoundingClientRect().top + 26 <= readLine)
+          .length,
+      );
+    };
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(update);
+    };
+
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, []);
+
   return (
     <>
       <Head>
@@ -134,15 +224,23 @@ export default function About() {
               should be us, built here rather than imported.
             </p>
             <div className="about-facts">
-              {[
-                ["2023", "Building since"],
-                ["Africa", "Built here, open to the world"],
-                ["2", "Tutor cohorts taught"],
-                ["n8n", "Approved Curriculum"],
-              ].map(([value, label]) => (
-                <div className="about-fact landing-rise" key={value}>
+              {(
+                [
+                  ["2023", "Building since"],
+                  ["Africa", "Built here, open to the world"],
+                  ["2", "Tutor cohorts taught"],
+                  ["n8n", "Approved Curriculum", true],
+                ] as [string, string, boolean?][]
+              ).map(([value, label, approved]) => (
+                <div
+                  className={`about-fact landing-rise ${
+                    approved ? "has-badge" : ""
+                  }`.trim()}
+                  key={value}
+                >
                   <b>{value}</b>
                   <span>{label}</span>
+                  {approved && <ApprovedBadge compact />}
                 </div>
               ))}
             </div>
@@ -198,7 +296,7 @@ export default function About() {
           <h2>
             <Written text="Three positions we won't trade away." />
           </h2>
-          <div className="about-beliefs">
+          <div className="about-beliefs landing-deal">
             {beliefs.map(([number, title, text]) => (
               <article className="about-card landing-rise" key={number}>
                 <span>{number}</span>
@@ -219,7 +317,7 @@ export default function About() {
               infrastructure underneath both routes - what changes is who writes
               the strategy.
             </p>
-            <div className="about-doors">
+            <div className="about-doors landing-deal">
               <article className="about-door landing-rise">
                 <small>For builders</small>
                 <h3>Bring your bot</h3>
@@ -259,7 +357,7 @@ export default function About() {
             people trusting us with their trading deserve to know we have
             supported relationships with the venues their orders reach.
           </p>
-          <div className="about-partners">
+          <div className="about-partners landing-deal">
             {partners.map(([name, kind], index) => (
               <article
                 className={`about-card about-partner landing-rise ${index === 2 ? "about-amber" : ""}`}
@@ -278,10 +376,11 @@ export default function About() {
             ))}
           </div>
           <div className="about-p-note landing-rise">
-            <b>Also</b>
+            <ApprovedBadge />
             <span>
-              <strong>n8n Approved Curriculum</strong> - Tutor's automation
-              track is recognised by n8n.
+              Tutor's automation track is a recognised{" "}
+              <strong>n8n Approved Curriculum</strong> — vetted and signed off by
+              n8n.
             </span>
           </div>
         </section>
@@ -291,15 +390,22 @@ export default function About() {
             <h2>
               <Written text="Three years of learning." />
             </h2>
-            <div className="about-timeline">
+            <div
+              className="about-timeline"
+              ref={timelineRef}
+              style={{ "--tl-progress": tlProgress } as React.CSSProperties}
+            >
               {timeline.map(([when, title, text], index) => (
                 <div
-                  className={`about-timeline-row landing-rise ${index === timeline.length - 1 ? "now" : ""}`}
+                  className={`about-timeline-row ${
+                    index < tlReached ? "is-reached" : ""
+                  } ${index === timeline.length - 1 ? "now" : ""}`}
                   key={when}
                 >
                   <time>{when}</time>
                   <div>
                     <h3>{title}</h3>
+                    {title === N8N_APPROVED && <ApprovedBadge />}
                     <p>{text}</p>
                   </div>
                 </div>
@@ -316,7 +422,7 @@ export default function About() {
             We're deliberately small, and most people here sit across more than
             one of these. What follows is how the work is divided.
           </p>
-          <div className="about-teams">
+          <div className="about-teams landing-deal">
             {teams.map(([title, text]) => (
               <article className="about-team landing-rise" key={title}>
                 <small>Team</small>

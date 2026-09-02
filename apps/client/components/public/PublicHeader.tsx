@@ -57,13 +57,30 @@ export default function PublicHeader({
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  // Lock the page while the mobile menu is open — no scrolling the background,
+  // no content bleeding through.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const root = document.documentElement;
+    const prevBody = document.body.style.overflow;
+    const prevRoot = root.style.overflow;
+    document.body.style.overflow = "hidden";
+    root.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prevBody;
+      root.style.overflow = prevRoot;
+    };
+  }, [menuOpen]);
+
   return (
     <>
       <div className={`pub-announcement ${menuOpen ? "pub-hide-m" : ""}`}>
         {announcement}
       </div>
       <div
-        className={`pub-wrap pub-nav-wrap ${stuck ? "is-stuck" : ""}`}
+        className={`pub-wrap pub-nav-wrap ${
+          stuck && !menuOpen ? "is-stuck" : ""
+        } ${menuOpen ? "menu-open" : ""}`}
       >
         <nav className="pub-nav" aria-label="Main navigation">
           <Link href="/" className="pub-brand" onClick={closeMenu}>

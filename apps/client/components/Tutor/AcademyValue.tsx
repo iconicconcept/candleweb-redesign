@@ -45,7 +45,7 @@ const AcademyValue = () => (
       We&apos;ve built the programme around what happens after the last class as
       much as what happens in it.
     </p>
-    <div className="ac-vals">
+    <div className="ac-vals landing-deal">
       {VALUES.map((value) => (
         <div className={`ac-val ${value.tone} landing-rise`} key={value.title}>
           <div className="ac-ico">{value.icon}</div>

@@ -146,7 +146,7 @@
   box-shadow: 0 0 9px var(--ac-teal);
 }
 .ac-lede {
-  max-width: 56ch;
+  max-width: 96ch;
   margin-top: 18px;
   color: var(--ac-muted);
   font-size: clamp(15.5px, 1.25vw, 17.5px);
@@ -745,8 +745,19 @@
 
 /* faq */
 .ac-faq {
-  max-width: 860px;
   margin-top: 42px;
+}
+/* Two columns on desktop so the section fills its width; one column below. */
+@media (min-width: 900px) {
+  .ac-faq {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: clamp(30px, 4.5vw, 60px);
+    align-items: start;
+  }
+  .ac-q p {
+    max-width: none;
+  }
 }
 .ac-q {
   border-bottom: 1px solid var(--ac-line);
@@ -887,46 +898,17 @@
   }
 }
 
-/* Staggered card reveals — matched to the home page. Shared keyframes live in
-   landing.css; a MutationObserver in the reveal hook picks up the async
-   course / tutor / FAQ items as they mount. */
-.ac-val.landing-rise:not(.is-seen),
-.ac-st.landing-rise:not(.is-seen),
+/* Value + step grids carry `.landing-deal` for the dealt-card cascade (shared,
+   see landing.css). The async course / tutor lists vary in length, so they keep
+   the simple per-scroll step reveal; a MutationObserver in the reveal hook
+   picks them up as they mount. */
 .ac-course.landing-rise:not(.is-seen),
 .ac-tutor.landing-rise:not(.is-seen) {
   opacity: 0;
 }
-.ac-val.landing-rise.is-seen,
-.ac-st.landing-rise.is-seen,
 .ac-course.landing-rise.is-seen,
 .ac-tutor.landing-rise.is-seen {
-  animation: landing-step-in 1.1s cubic-bezier(0.22, 1, 0.36, 1) backwards;
-}
-@media (min-width: 901px) {
-  .ac-vals > .landing-rise.is-seen:nth-child(2),
-  .ac-tutors > .landing-rise.is-seen:nth-child(3n + 2) {
-    animation-delay: 1.5s;
-  }
-  .ac-vals > .landing-rise.is-seen:nth-child(3),
-  .ac-tutors > .landing-rise.is-seen:nth-child(3n + 3) {
-    animation-delay: 3s;
-  }
-}
-@media (min-width: 961px) {
-  .ac-steps > .landing-rise.is-seen:nth-child(2) {
-    animation-delay: 1.2s;
-  }
-  .ac-steps > .landing-rise.is-seen:nth-child(3) {
-    animation-delay: 2.4s;
-  }
-  .ac-steps > .landing-rise.is-seen:nth-child(4) {
-    animation-delay: 3.6s;
-  }
-}
-@media (min-width: 561px) and (max-width: 960px) {
-  .ac-steps > .landing-rise.is-seen:nth-child(2n) {
-    animation-delay: 1.2s;
-  }
+  animation: landing-step-in 1s cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 
 @media (max-width: 1040px) {
