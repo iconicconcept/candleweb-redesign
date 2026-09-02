@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export type PublicNavKey =
   | "home"
@@ -44,6 +44,8 @@ export default function PublicHeader({
   const [menuOpen, setMenuOpen] = useState(false);
   const [stuck, setStuck] = useState(false);
   const [showTop, setShowTop] = useState(false);
+  const [headH, setHeadH] = useState(0);
+  const headRef = useRef<HTMLDivElement>(null);
   const closeMenu = () => setMenuOpen(false);
 
   useEffect(() => {
@@ -55,6 +57,22 @@ export default function PublicHeader({
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // The header is fixed (sticky is unreliable inside the clipped card shell on
+  // mobile Safari). This measures it so a spacer can reserve the same height.
+  useEffect(() => {
+    const el = headRef.current;
+    if (!el) return;
+    const measure = () => setHeadH(el.offsetHeight);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    window.addEventListener("resize", measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", measure);
+    };
   }, []);
 
   // Lock the page while the mobile menu is open — no scrolling the background,
@@ -177,9 +195,7 @@ export default function PublicHeader({
         aria-label="Back to top"
         aria-hidden={!showTop || menuOpen}
         tabIndex={showTop && !menuOpen ? 0 : -1}
-        onClick={() =>
-          window.scrollTo({ top: 0, behavior: "smooth" })
-        }
+        onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
       >
         <span aria-hidden="true">↑</span>
       </button>
