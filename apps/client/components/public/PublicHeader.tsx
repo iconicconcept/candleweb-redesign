@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export type PublicNavKey =
   | "home"
@@ -42,14 +42,29 @@ export default function PublicHeader({
   onLogin,
 }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [stuck, setStuck] = useState(false);
+  const [showTop, setShowTop] = useState(false);
   const closeMenu = () => setMenuOpen(false);
+
+  useEffect(() => {
+    const onScroll = () => {
+      const y = window.scrollY;
+      setStuck(y > 24);
+      setShowTop(y > 700);
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   return (
     <>
       <div className={`pub-announcement ${menuOpen ? "pub-hide-m" : ""}`}>
         {announcement}
       </div>
-      <div className="pub-wrap pub-nav-wrap">
+      <div
+        className={`pub-wrap pub-nav-wrap ${stuck ? "is-stuck" : ""}`}
+      >
         <nav className="pub-nav" aria-label="Main navigation">
           <Link href="/" className="pub-brand" onClick={closeMenu}>
             <Image
@@ -138,6 +153,19 @@ export default function PublicHeader({
           </div>
         </nav>
       </div>
+
+      <button
+        type="button"
+        className={`pub-totop ${showTop && !menuOpen ? "is-on" : ""}`}
+        aria-label="Back to top"
+        aria-hidden={!showTop || menuOpen}
+        tabIndex={showTop && !menuOpen ? 0 : -1}
+        onClick={() =>
+          window.scrollTo({ top: 0, behavior: "smooth" })
+        }
+      >
+        <span aria-hidden="true">↑</span>
+      </button>
     </>
   );
 }

@@ -1,9 +1,9 @@
 import Head from "next/head";
 import Link from "next/link";
-import { useEffect } from "react";
 import { useRouter } from "next/router";
 import PublicHeader from "../components/public/PublicHeader";
 import PublicFooter from "../components/public/PublicFooter";
+import { Written, useRevealOnScroll } from "../components/public/Written";
 /* eslint-disable react/no-unescaped-entities */
 
 const beliefs = [
@@ -99,25 +99,12 @@ function ButtonLink({
   );
 }
 function Eyebrow({ children }: { children: React.ReactNode }) {
-  return <p className="about-eyebrow about-rise">{children}</p>;
+  return <p className="about-eyebrow landing-rise">{children}</p>;
 }
 
 export default function About() {
   const router = useRouter();
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) =>
-        entries.forEach(
-          (entry) =>
-            entry.isIntersecting && entry.target.classList.add("is-seen"),
-        ),
-      { threshold: 0.12 },
-    );
-    document
-      .querySelectorAll(".about-rise")
-      .forEach((item) => observer.observe(item));
-    return () => observer.disconnect();
-  }, []);
+  useRevealOnScroll();
   return (
     <>
       <Head>
@@ -134,12 +121,12 @@ export default function About() {
         <div className="landing-wrap">
           <header className="about-hero" id="top">
             <Eyebrow>About Candleweb</Eyebrow>
-            <h1 className="about-rise">
+            <h1 className="landing-rise rise-left">
               We build the part
               <br />
               <span>nobody wants to build.</span>
             </h1>
-            <p className="about-sub about-rise">
+            <p className="about-sub landing-rise rise-left">
               Candleweb is infrastructure for agentic trading, built in Africa.
               We started because the interesting half of an automated trading
               system - the part that decides - had become easy, and the boring
@@ -153,7 +140,7 @@ export default function About() {
                 ["2", "Tutor cohorts taught"],
                 ["n8n", "Approved Curriculum"],
               ].map(([value, label]) => (
-                <div className="about-fact about-rise" key={value}>
+                <div className="about-fact landing-rise" key={value}>
                   <b>{value}</b>
                   <span>{label}</span>
                 </div>
@@ -163,9 +150,11 @@ export default function About() {
         </div>
         <section className="about-band">
           <div className="about-wrap about-section about-story">
-            <div className="about-rise">
+            <div className="landing-rise">
               <Eyebrow>How we got here</Eyebrow>
-              <h2>Started with a model. Ended up with plumbing.</h2>
+              <h2>
+                <Written text="Started with a model. Ended up with plumbing." />
+              </h2>
               <div className="about-shift">
                 <p>
                   <b>Then</b>A trading bot, aimed at people who wanted one.
@@ -176,7 +165,7 @@ export default function About() {
                 </p>
               </div>
             </div>
-            <div className="about-rise">
+            <div className="landing-rise">
               <p>
                 Candleweb began as a trading model. We built a reinforcement
                 learning agent, trained it, connected it to an exchange, and
@@ -206,10 +195,12 @@ export default function About() {
         </section>
         <section className="about-wrap about-section">
           <Eyebrow>What we hold to</Eyebrow>
-          <h2 className="about-rise">Three positions we won't trade away.</h2>
+          <h2>
+            <Written text="Three positions we won't trade away." />
+          </h2>
           <div className="about-beliefs">
             {beliefs.map(([number, title, text]) => (
-              <article className="about-card about-rise" key={number}>
+              <article className="about-card landing-rise" key={number}>
                 <span>{number}</span>
                 <h3>{title}</h3>
                 <p>{text}</p>
@@ -220,16 +211,16 @@ export default function About() {
         <section className="about-band">
           <div className="about-wrap about-section">
             <Eyebrow>Two ways in</Eyebrow>
-            <h2 className="about-rise">
-              Not everyone wants to build a bot. That's fine.
+            <h2>
+              <Written text="Not everyone wants to build a bot. That's fine." />
             </h2>
-            <p className="about-lede about-rise">
+            <p className="about-lede landing-rise rise-left">
               Either way an agent does the trading. Candleweb runs the same
               infrastructure underneath both routes - what changes is who writes
               the strategy.
             </p>
             <div className="about-doors">
-              <article className="about-door about-rise">
+              <article className="about-door landing-rise">
                 <small>For builders</small>
                 <h3>Bring your bot</h3>
                 <p>
@@ -240,7 +231,7 @@ export default function About() {
                   See how it works ↗
                 </ButtonLink>
               </article>
-              <article className="about-door about-amber about-rise">
+              <article className="about-door about-amber landing-rise">
                 <small>For everyone else</small>
                 <h3>CandleAI</h3>
                 <p>
@@ -252,7 +243,7 @@ export default function About() {
                 </ButtonLink>
               </article>
             </div>
-            <p className="about-note about-rise">
+            <p className="about-note landing-rise rise-left">
               Same execution path. Same monitoring. Same trade records. Same
               rule about who holds your money - you do.
             </p>
@@ -260,10 +251,10 @@ export default function About() {
         </section>
         <section className="about-wrap about-section">
           <Eyebrow>Who we work with</Eyebrow>
-          <h2 className="about-rise">
-            Signed relationships, not just API keys.
+          <h2>
+            <Written text="Signed relationships, not just API keys." />
           </h2>
-          <p className="about-lede about-rise">
+          <p className="about-lede landing-rise rise-left">
             Anyone can call a public exchange endpoint. We went further, because
             people trusting us with their trading deserve to know we have
             supported relationships with the venues their orders reach.
@@ -271,7 +262,7 @@ export default function About() {
           <div className="about-partners">
             {partners.map(([name, kind], index) => (
               <article
-                className={`about-card about-partner about-rise ${index === 2 ? "about-amber" : ""}`}
+                className={`about-card about-partner landing-rise ${index === 2 ? "about-amber" : ""}`}
                 key={name}
               >
                 <h3>{name}</h3>
@@ -286,7 +277,7 @@ export default function About() {
               </article>
             ))}
           </div>
-          <div className="about-p-note about-rise">
+          <div className="about-p-note landing-rise">
             <b>Also</b>
             <span>
               <strong>n8n Approved Curriculum</strong> - Tutor's automation
@@ -297,13 +288,13 @@ export default function About() {
         <section className="about-band">
           <div className="about-wrap about-section">
             <Eyebrow>The road so far</Eyebrow>
-            <h2 className="about-rise">
-              Three years of learning.
+            <h2>
+              <Written text="Three years of learning." />
             </h2>
             <div className="about-timeline">
               {timeline.map(([when, title, text], index) => (
                 <div
-                  className={`about-timeline-row about-rise ${index === timeline.length - 1 ? "now" : ""}`}
+                  className={`about-timeline-row landing-rise ${index === timeline.length - 1 ? "now" : ""}`}
                   key={when}
                 >
                   <time>{when}</time>
@@ -318,16 +309,16 @@ export default function About() {
         </section>
         <section className="about-wrap about-section">
           <Eyebrow>The people</Eyebrow>
-          <h2 className="about-rise">
-            Five teams. One system to keep standing.
+          <h2>
+            <Written text="Five teams. One system to keep standing." />
           </h2>
-          <p className="about-lede about-rise">
+          <p className="about-lede landing-rise rise-left">
             We're deliberately small, and most people here sit across more than
             one of these. What follows is how the work is divided.
           </p>
           <div className="about-teams">
             {teams.map(([title, text]) => (
-              <article className="about-team about-rise" key={title}>
+              <article className="about-team landing-rise" key={title}>
                 <small>Team</small>
                 <h3>{title}</h3>
                 <p>{text}</p>
@@ -337,11 +328,13 @@ export default function About() {
         </section>
         <section className="about-band">
           <div className="about-wrap about-section about-story">
-            <div className="about-rise">
+            <div className="landing-rise">
               <Eyebrow>Tutor by Candleweb</Eyebrow>
-              <h2>We'd rather teach you than sell to you.</h2>
+              <h2>
+                <Written text="We'd rather teach you than sell to you." />
+              </h2>
             </div>
-            <div className="about-rise">
+            <div className="landing-rise">
               <p>
                 Tutor is our cohort programme in AI automation and personal
                 finance. Students learn APIs and webhooks, build real workflows
@@ -360,16 +353,18 @@ export default function About() {
         </section>
         <div className="about-wrap about-section" id="join">
           <section className="about-cta">
-            <div className="about-rise">
+            <div className="landing-rise">
               <Eyebrow>Work with us</Eyebrow>
-              <h2>If this sounds like your kind of problem.</h2>
-              <p className="about-lede">
+              <h2>
+                <Written text="If this sounds like your kind of problem." />
+              </h2>
+              <p className="about-lede landing-rise rise-left">
                 We hire rarely and slowly, and care more about what you've built
                 than where you studied. If infrastructure that has to be correct
                 at three in the morning appeals to you, we'd like to hear from
                 you.
               </p>
-              <ol>
+              <ol className="landing-rise">
                 <li>
                   <span>1</span>Engineering - execution, monitoring,
                   integrations
@@ -383,7 +378,7 @@ export default function About() {
               </ol>
             </div>
             <form
-              className="about-form about-rise"
+              className="about-form landing-rise"
               onSubmit={(event) => {
                 event.preventDefault();
                 router.push("mailto:hello@candleweb.io");

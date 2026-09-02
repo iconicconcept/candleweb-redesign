@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "../../redux/store";
 import tutorService from "../../services/tutorService";
+import { Written } from "../public/Written";
 
 const AcademyFaq = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -15,8 +16,10 @@ const AcademyFaq = () => {
 
   return (
     <>
-      <p className="ac-eyebrow ac-rise">Frequently asked questions</p>
-      <h2 className="ac-rise">Before you enrol.</h2>
+      <p className="ac-eyebrow landing-rise">Frequently asked questions</p>
+      <h2>
+        <Written text="Before you enrol." />
+      </h2>
       <div className="ac-faq">
         {isLoading && sortedFaqs.length === 0 ? (
           <p className="ac-empty" style={{ display: "block" }}>
@@ -28,7 +31,7 @@ const AcademyFaq = () => {
           </p>
         ) : (
           sortedFaqs.map((faq, index) => (
-            <details className="ac-q ac-rise" key={faq.id || index}>
+            <details className="ac-q landing-rise" key={faq.id || index}>
               <summary>
                 {faq.question}
                 <i>+</i>

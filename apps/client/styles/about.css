@@ -16,7 +16,7 @@
   --amber2: #ffd489;
   position: relative;
   isolation: isolate;
-  overflow: hidden;
+  overflow: clip;
   max-width: 1340px;
   margin: 14px auto 32px;
   border: 1px solid var(--line);
@@ -691,6 +691,65 @@
   opacity: 1;
   transform: none;
 }
+
+/* Reveal now runs on the shared `.landing-rise` (see components/public/Written).
+   These staggered card reveals match the home page; shared keyframes live in
+   landing.css. On single-column layouts each card reveals on its own scroll. */
+.about-card.landing-rise:not(.is-seen),
+.about-door.landing-rise:not(.is-seen),
+.about-team.landing-rise:not(.is-seen),
+.about-timeline-row.landing-rise:not(.is-seen) {
+  opacity: 0;
+}
+.about-card.landing-rise.is-seen,
+.about-door.landing-rise.is-seen,
+.about-team.landing-rise.is-seen,
+.about-timeline-row.landing-rise.is-seen {
+  animation: landing-step-in 1.1s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+@media (min-width: 901px) {
+  .about-beliefs > .landing-rise.is-seen:nth-child(3n + 2),
+  .about-partners > .landing-rise.is-seen:nth-child(3n + 2),
+  .about-teams > .landing-rise.is-seen:nth-child(3n + 2) {
+    animation-delay: 1.5s;
+  }
+  .about-beliefs > .landing-rise.is-seen:nth-child(3n + 3),
+  .about-partners > .landing-rise.is-seen:nth-child(3n + 3),
+  .about-teams > .landing-rise.is-seen:nth-child(3n + 3) {
+    animation-delay: 3s;
+  }
+  .about-doors > .landing-rise.is-seen:nth-child(2n) {
+    animation-delay: 1.5s;
+  }
+}
+
+/* Hero stat bar — fade in place; a slide would tear the joined 1px grid. */
+.about-facts > .landing-rise {
+  transform: none;
+}
+
+/* Careers steps — delayed pop, like the home CTA list. */
+.about-cta ol.landing-rise {
+  opacity: 1;
+  transform: none;
+  transition: none;
+}
+.about-cta ol > li {
+  opacity: 0;
+}
+.about-cta ol.is-seen > li {
+  animation: landing-step-in 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.about-cta ol.is-seen > li:nth-child(1) {
+  animation-delay: 1.6s;
+}
+.about-cta ol.is-seen > li:nth-child(2) {
+  animation-delay: 2.1s;
+}
+.about-cta ol.is-seen > li:nth-child(3) {
+  animation-delay: 2.6s;
+}
+
 @media (max-width: 1000px) {
   .about-nav-mid {
     display: none;
@@ -801,5 +860,16 @@
   }
   .about-stage * {
     transition: none !important;
+    animation: none !important;
+  }
+  .about-stage .landing-rise,
+  .about-stage .landing-written > span,
+  .about-card,
+  .about-door,
+  .about-team,
+  .about-timeline-row,
+  .about-cta ol > li {
+    opacity: 1 !important;
+    transform: none !important;
   }
 }

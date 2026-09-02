@@ -12,6 +12,7 @@ import { isAuthorizationHeaderSet } from "../../utils/check_auth";
 
 import PublicHeader from "../../components/public/PublicHeader";
 import PublicFooter from "../../components/public/PublicFooter";
+import { useRevealOnScroll } from "../../components/public/Written";
 import PaymentSuccessModal from "../../components/Tutor/PaymentSuccessModal";
 import AcademyHero from "../../components/Tutor/AcademyHero";
 import AcademyValue from "../../components/Tutor/AcademyValue";
@@ -38,6 +39,7 @@ export default function TutorPage() {
   );
   const [showModal, setShowModal] = useState(false);
   const hasShownModal = useRef(false);
+  useRevealOnScroll();
 
   // useAxiosAuth() is a fresh instance each render — keep it in a ref so it is
   // not an effect dependency (otherwise the effect re-runs every render).

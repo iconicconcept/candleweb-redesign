@@ -76,25 +76,28 @@ const AcademyHero = () => {
   return (
     <header className="landing-wrap ac-hero" id="top">
       <div>
-        <p className="ac-badge ac-rise">
+        <p className="ac-badge landing-rise">
           {active?.certification || "Certified · Cohort 2 open"}
         </p>
         {active ? (
-          <h1 className="ac-rise" key={active.id}>
+          <h1 className="landing-rise rise-left" key={active.id}>
             {active.title}
           </h1>
         ) : (
-          <h1 className="ac-rise">
+          <h1 className="landing-rise rise-left">
             Learn the skills.
             <br />
             <span className="grad">Then go and use them.</span>
           </h1>
         )}
-        <p className="sub ac-rise" key={active ? `sub-${active.id}` : "sub"}>
+        <p
+          className="sub landing-rise rise-left"
+          key={active ? `sub-${active.id}` : "sub"}
+        >
           {active?.description ||
             "Candleweb Academy runs short, cohort-based programmes in AI automation, personal finance and crypto trading. You build real things rather than watching videos, earn credits as you go, and the strongest graduates are put in front of our partners for internships."}
         </p>
-        <div className="ac-cta ac-rise">
+        <div className="ac-cta landing-rise rise-left">
           <button
             type="button"
             className="pub-btn pub-btn-amber"
@@ -128,7 +131,7 @@ const AcademyHero = () => {
           </div>
         )}
       </div>
-      <div className="ac-rise">
+      <div className="landing-rise rise-right">
         <div className="ac-art">
           {image ? (
             <Image

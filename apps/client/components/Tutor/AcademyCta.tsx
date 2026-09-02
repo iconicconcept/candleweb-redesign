@@ -2,6 +2,7 @@ import { useSelector } from "react-redux";
 import { RootState } from "../../redux/store";
 import useUserStore from "../../lib/hooks/useUserStore";
 import useGoogleAuth from "../../lib/hooks/useGoogleAuth";
+import { Written } from "../public/Written";
 
 const AcademyCta = () => {
   const { courses } = useSelector((state: RootState) => state.courses);
@@ -21,16 +22,18 @@ const AcademyCta = () => {
 
   return (
     <section className="ac-cta-box">
-      <div className="ac-rise">
+      <div className="landing-rise">
         <p className="ac-eyebrow">Cohort 2</p>
-        <h2 style={{ maxWidth: "15ch" }}>Registration is open.</h2>
-        <p className="ac-lede">
+        <h2 style={{ maxWidth: "15ch" }}>
+          <Written text="Registration is open." />
+        </h2>
+        <p className="ac-lede landing-rise rise-left">
           Seats are limited and classes run live. Enrol now and your learning
           tools switch on the moment payment clears.
         </p>
       </div>
       <form
-        className="ac-form ac-rise"
+        className="ac-form landing-rise"
         onSubmit={(event) => {
           event.preventDefault();
           goToCourses();

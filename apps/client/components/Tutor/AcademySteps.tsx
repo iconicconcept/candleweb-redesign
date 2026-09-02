@@ -1,3 +1,5 @@
+import { Written } from "../public/Written";
+
 const STEPS = [
   {
     title: "Select course",
@@ -19,11 +21,13 @@ const STEPS = [
 
 const AcademySteps = () => (
   <>
-    <p className="ac-eyebrow ac-rise">How it works</p>
-    <h2 className="ac-rise">From enrolment to first class, in four steps.</h2>
+    <p className="ac-eyebrow landing-rise">How it works</p>
+    <h2>
+      <Written text="From enrolment to first class, in four steps." />
+    </h2>
     <div className="ac-steps">
       {STEPS.map((step, index) => (
-        <div className="ac-st ac-rise" key={step.title}>
+        <div className="ac-st landing-rise" key={step.title}>
           <span className="ac-st-n">{index + 1}</span>
           <h3>{step.title}</h3>
           <p>{step.body}</p>

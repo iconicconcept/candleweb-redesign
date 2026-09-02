@@ -13,6 +13,7 @@ import useAxiosAuth from "../../lib/hooks/useAxiosAuth";
 import useGoogleAuth from "../../lib/hooks/useGoogleAuth";
 import { imageUri } from "../../utils/constants";
 import Loader from "../Loader";
+import { Written } from "../public/Written";
 
 declare let window: any;
 
@@ -215,13 +216,15 @@ const AcademyCourses = () => {
       )}
 
       <div className="ac-cap-head">
-        <div className="ac-rise">
+        <div className="landing-rise">
           <p className="ac-eyebrow">Available courses</p>
-          <h2>Pick where you want to start.</h2>
+          <h2>
+            <Written text="Pick where you want to start." />
+          </h2>
         </div>
         {categories.length > 1 && (
           <div
-            className="ac-filters ac-rise"
+            className="ac-filters landing-rise"
             role="group"
             aria-label="Filter courses"
           >
@@ -255,7 +258,7 @@ const AcademyCourses = () => {
             const image = courseImage(course);
             const usd = toUSD(course.price);
             return (
-              <article className="ac-course ac-rise" key={course.id}>
+              <article className="ac-course landing-rise" key={course.id}>
                 <div className="ac-c-cover">
                   {image ? (
                     <Image

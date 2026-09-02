@@ -5,12 +5,11 @@ import { Fragment, useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import PublicHeader from "../components/public/PublicHeader";
 import PublicFooter from "../components/public/PublicFooter";
+import { Written } from "../components/public/Written";
 
 const bars = [214, 196, 184, 168, 150, 140, 122, 110, 86, 66, 60, 40];
 const tabs = ["Your bots", "Trade records", "Risk controls"];
 
-// BitMart's logo is in /public; the others are placeholder paths — drop the
-// matching files into apps/client/public and the marquee picks them up.
 const VENUES = [
   { name: "KuCoin", logo: "/kucoin-logo.png" },
   { name: "Binance", logo: "/binance-logo.png" },
@@ -41,7 +40,7 @@ function ButtonLink({
   tone?: "amber" | "teal" | "glass";
   onClick?: () => void;
 }) {
-  const className = `landing-btn landing-btn-amber landing-btn-${tone}`;
+  const className = `landing-btn landing-btn-${tone}`;
   return href ? (
     <Link href={href} className={className}>
       {children}
@@ -71,39 +70,6 @@ function DataCard({
       </div>
       {children}
     </div>
-  );
-}
-
-/**
- * Renders text word by word so it can be "written" onto the screen. The wrapper
- * carries `landing-rise`, so the shared reveal observer marks it seen and the
- * per-word CSS animation runs. Whitespace is kept as-is for natural wrapping.
- */
-function Written({
-  text,
-  as: Tag = "span",
-  className = "",
-}: {
-  text: string;
-  as?: "span" | "p";
-  className?: string;
-}) {
-  let wordIndex = 0;
-  return (
-    <Tag className={`landing-written landing-rise ${className}`.trim()}>
-      {text.split(/(\s+)/).map((part, index) =>
-        part.trim() === "" ? (
-          part
-        ) : (
-          <span
-            key={index}
-            style={{ "--wi": wordIndex++ } as React.CSSProperties}
-          >
-            {part}
-          </span>
-        ),
-      )}
-    </Tag>
   );
 }
 
@@ -383,12 +349,13 @@ export default function Home() {
               </p>
             </div>
           </div>
-          <div className="landing-rise">
-            <Written
-              as="p"
-              className="landing-lede"
-              text="If you can build something that reads a chart and forms an opinion in an afternoon, the intelligence is solved. Then you try to make it trade, and meet the other ninety per cent: the part that has everything to do with plumbing."
-            />
+          <div>
+            <p className="landing-lede landing-rise rise-left">
+              If you can build something that reads a chart and forms an opinion
+              in an afternoon, the intelligence is solved. Then you try to make
+              it trade, and meet the other ninety per cent: the part that has
+              everything to do with plumbing.
+            </p>
             <ul className="landing-rows landing-rise">
               <li>
                 <b>Rate limits</b>
@@ -579,11 +546,11 @@ export default function Home() {
             <h2>
               <Written text="Candleweb never holds your money." />
             </h2>
-            <Written
-              as="p"
-              className="landing-lede"
-              text="Connect your own exchange account with API keys you control and can revoke at any time. Every order is placed in your account, under your name."
-            />
+            <p className="landing-lede landing-rise rise-left">
+              Connect your own exchange account with API keys you control and can
+              revoke at any time. Every order is placed in your account, under
+              your name.
+            </p>
             <div className="landing-custody">
               {[
                 [
@@ -647,11 +614,10 @@ export default function Home() {
               <h2>
                 <Written text="Point your bot at Candleweb." />
               </h2>
-              <Written
-                as="p"
-                className="landing-lede"
-                text="Create an account, connect your exchange with API keys you control, and paste the webhook URL into your workflow."
-              />
+              <p className="landing-lede landing-rise rise-left">
+                Create an account, connect your exchange with API keys you
+                control, and paste the webhook URL into your workflow.
+              </p>
               <ol className="landing-rise">
                 <li>
                   <span>1</span>Create your Candleweb account

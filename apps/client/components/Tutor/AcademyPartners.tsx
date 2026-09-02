@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { Fragment } from "react";
+import { Written } from "../public/Written";
 
 const PARTNERS = [
   { name: "n8n", logo: "/n8n_pink+black_logo.png" },
@@ -11,13 +12,15 @@ const PARTNERS = [
 
 const AcademyPartners = () => (
   <>
-    <p className="ac-eyebrow ac-rise">Our partners</p>
-    <h2 className="ac-sm ac-rise">Where outstanding graduates land.</h2>
-    <p className="ac-lede ac-rise">
+    <p className="ac-eyebrow landing-rise">Our partners</p>
+    <h2 className="ac-sm">
+      <Written text="Where outstanding graduates land." />
+    </h2>
+    <p className="ac-lede landing-rise rise-left">
       Through our partners, top graduates gain access to internship opportunities
       as soon as they finish.
     </p>
-    <div className="ac-logos ac-rise">
+    <div className="ac-logos landing-rise">
       <div className="ac-logo-row">
         {[0, 1].map((set) => (
           <Fragment key={set}>

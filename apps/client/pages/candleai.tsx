@@ -3,7 +3,10 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import PublicHeader from "../components/public/PublicHeader";
 import PublicFooter from "../components/public/PublicFooter";
+import { Written, useRevealOnScroll } from "../components/public/Written";
 /* eslint-disable react/no-unescaped-entities */
+
+const CHART_BARS = [206, 190, 178, 160, 168, 146, 132, 118, 100, 78, 84, 58];
 
 const SETUP = [
   {
@@ -104,6 +107,7 @@ const FAQ: [string, string][] = [
 
 export default function CandleAI() {
   const router = useRouter();
+  useRevealOnScroll();
 
   return (
     <>
@@ -133,35 +137,130 @@ export default function CandleAI() {
         <PublicHeader active="candleai" />
 
         <header className="landing-wrap cai-hero" id="top">
-          <p className="cai-eyebrow cai-rise">For everyone else</p>
-          <h1 className="cai-rise">
-            Don't want to build a bot?
-            <br />
-            <span className="grad">Use ours.</span>
-          </h1>
-          <p className="sub cai-rise">
-            CandleAI is Candleweb's own trading agent. You choose the market, the
-            risk and the size — it reads the chart and makes the call. No code, no
-            workflow, no webhook. It runs on exactly the same execution,
-            monitoring and record-keeping as the bots our builders bring.
-          </p>
-          <div className="cai-cta cai-rise">
-            <Link href="/register" className="pub-btn pub-btn-amber">
-              Get Started <span>↗</span>
-            </Link>
-            <Link href="/" className="pub-btn pub-btn-teal">
-              I'd rather build my own
-            </Link>
+          <div className="cai-hero-copy">
+            <p className="cai-eyebrow landing-rise">For everyone else</p>
+            <h1 className="landing-rise rise-left">
+              Don't want to build a bot?
+              <span className="grad ml-1.5">Use ours.</span>
+            </h1>
+            <p className="sub landing-rise rise-left">
+              CandleAI is Candleweb's own trading agent. You choose the market,
+              the risk and the size — it reads the chart and makes the call. No
+              code, no workflow, no webhook. It runs on exactly the same
+              execution, monitoring and record-keeping as the bots our builders
+              bring.
+            </p>
+            <div className="cai-cta landing-rise rise-left">
+              <Link href="/register" className="pub-btn pub-btn-amber">
+                Get Started <span>↗</span>
+              </Link>
+              <Link href="/" className="pub-btn pub-btn-teal">
+                I'd rather build my own
+              </Link>
+            </div>
+          </div>
+
+          <div className="cai-hero-art">
+            <div className="landing-chart landing-rise rise-right">
+              <svg
+                viewBox="0 0 600 340"
+                preserveAspectRatio="none"
+                aria-label="CandleAI reading a chart"
+              >
+                <defs>
+                  <linearGradient id="caiUp" x1="0" y1="0" x2="0" y2="1">
+                    <stop stopColor="#7EF0D2" />
+                    <stop offset="1" stopColor="#0E9C78" />
+                  </linearGradient>
+                  <linearGradient id="caiLine" x1="0" y1="0" x2="1" y2="0">
+                    <stop stopColor="#0E9C78" />
+                    <stop offset=".55" stopColor="#31E0B0" />
+                    <stop offset="1" stopColor="#FFB93D" />
+                  </linearGradient>
+                </defs>
+                {CHART_BARS.map((height, index) => (
+                  <rect
+                    key={index}
+                    x={24 + index * 48}
+                    y={height}
+                    width="13"
+                    height={286 - height}
+                    rx="3"
+                    fill="url(#caiUp)"
+                  />
+                ))}
+                <path
+                  d="M30 244 L78 226 L126 214 L174 196 L222 200 L270 176 L318 160 L366 146 L414 126 L462 100 L510 108 L558 78"
+                  fill="none"
+                  stroke="url(#caiLine)"
+                  strokeWidth="2.5"
+                />
+              </svg>
+            </div>
+
+            <div className="landing-data-card landing-card-a landing-rise rise-pop">
+              <div className="landing-card-head">
+                <span>CandleAI is watching</span>
+                <i className="landing-dot" />
+              </div>
+              <p className="landing-card-title">Reading the chart</p>
+              <p className="landing-mono">BTC/USDT · 15m · candle 14:45:00Z</p>
+              <div className="landing-tags">
+                <span>RSI 58.2</span>
+                <span>MACD +12.4</span>
+                <span>EMA-50 up</span>
+                <span>ATR 190.3</span>
+              </div>
+            </div>
+
+            <div className="landing-data-card landing-card-b landing-rise rise-pop">
+              <div className="landing-card-head">
+                <span>CandleAI decided</span>
+              </div>
+              <div className="landing-kv">
+                <i>call</i>
+                <b>buy</b>
+              </div>
+              <div className="landing-kv">
+                <i>size</i>
+                <b>within your ceiling</b>
+              </div>
+              <div className="landing-kv">
+                <i>reason</i>
+                <b>momentum + trend</b>
+              </div>
+            </div>
+
+            <div className="landing-data-card landing-card-c landing-rise rise-pop">
+              <div className="landing-card-head">
+                <span>Running in your account</span>
+                <i className="landing-dot" />
+              </div>
+              <div className="landing-kv">
+                <i>14:45:02 · filled</i>
+                <b>0.0308 BTC @ 64,180.40</b>
+              </div>
+              <div className="landing-kv">
+                <i>14:45:02 · stop armed</i>
+                <b>63,540.00</b>
+              </div>
+              <div className="landing-kv">
+                <i>16:10:22 · closed</i>
+                <b className="landing-up">+0.86%</b>
+              </div>
+            </div>
           </div>
         </header>
 
         <section className="cai-band">
           <div className="landing-wrap cai-sec">
-            <p className="cai-eyebrow cai-rise">Setting it up</p>
-            <h2 className="cai-rise">Three decisions, and it's running.</h2>
+            <p className="cai-eyebrow landing-rise">Setting it up</p>
+            <h2>
+              <Written text="Three decisions, and it's running." />
+            </h2>
             <div className="cai-hcards">
               {SETUP.map((step, index) => (
-                <div className="cai-hc cai-rise" key={step.title}>
+                <div className="cai-hc landing-rise" key={step.title}>
                   <span className="n3">{index + 1}</span>
                   <h3>{step.title}</h3>
                   <p>{step.body}</p>
@@ -172,11 +271,11 @@ export default function CandleAI() {
         </section>
 
         <section className="landing-wrap cai-sec">
-          <p className="cai-eyebrow cai-rise">How it decides</p>
-          <h2 className="cai-rise">
-            It reads the same data a careful trader would.
+          <p className="cai-eyebrow landing-rise">How it decides</p>
+          <h2>
+            <Written text="It reads the same data a careful trader would." />
           </h2>
-          <p className="cai-lede cai-rise">
+          <p className="cai-lede landing-rise rise-left">
             At every candle close CandleAI looks at recent price action alongside
             a standard set of indicators, and returns one of three answers: buy,
             sell, or do nothing. Most of the time the answer is do nothing — and
@@ -184,7 +283,7 @@ export default function CandleAI() {
           </p>
           <div className="cai-custody">
             {DECIDES.map((item) => (
-              <div className="cai-cus cai-rise" key={item.label}>
+              <div className="cai-cus landing-rise" key={item.label}>
                 <span>{item.label}</span>
                 <b>{item.title}</b>
                 <p>{item.body}</p>
@@ -195,9 +294,11 @@ export default function CandleAI() {
 
         <section className="cai-band">
           <div className="landing-wrap cai-sec">
-            <p className="cai-eyebrow cai-rise">Which one is for you</p>
-            <h2 className="cai-sm cai-rise">CandleAI, or your own bot?</h2>
-            <div className="cai-cmpwrap cai-rise">
+            <p className="cai-eyebrow landing-rise">Which one is for you</p>
+            <h2 className="cai-sm">
+              <Written text="CandleAI, or your own bot?" />
+            </h2>
+            <div className="cai-cmpwrap landing-rise">
               <table className="cai-cmp">
                 <thead>
                   <tr>
@@ -228,11 +329,16 @@ export default function CandleAI() {
         </section>
 
         <section className="landing-wrap cai-sec">
-          <p className="cai-eyebrow cai-rise">You stay in control</p>
-          <h2 className="cai-rise">It trades within limits you set.</h2>
+          <p className="cai-eyebrow landing-rise">You stay in control</p>
+          <h2>
+            <Written text="It trades within limits you set." />
+          </h2>
           <div className="cai-layers">
             {LAYERS.map((layer) => (
-              <div className={`cai-layer ${layer.tone} cai-rise`} key={layer.title}>
+              <div
+                className={`cai-layer ${layer.tone} landing-rise`}
+                key={layer.title}
+              >
                 <h3>{layer.title}</h3>
                 <p>{layer.body}</p>
               </div>
@@ -240,7 +346,7 @@ export default function CandleAI() {
           </div>
         </section>
 
-        <section className="cai-band">
+        {/* <section className="cai-band">
           <div className="landing-wrap cai-sec">
             <div className="cai-honest cai-rise">
               <b>What we won't tell you</b>
@@ -258,14 +364,16 @@ export default function CandleAI() {
               </p>
             </div>
           </div>
-        </section>
+        </section> */}
 
         <section className="landing-wrap cai-sec">
-          <p className="cai-eyebrow cai-rise">Common questions</p>
-          <h2 className="cai-sm cai-rise">Before you switch it on.</h2>
+          <p className="cai-eyebrow landing-rise">Common questions</p>
+          <h2 className="cai-sm">
+            <Written text="Before you switch it on." />
+          </h2>
           <div className="cai-qa">
             {FAQ.map(([question, answer]) => (
-              <details className="cai-rise" key={question}>
+              <details className="landing-rise" key={question}>
                 <summary>
                   {question}
                   <i>+</i>
@@ -278,18 +386,18 @@ export default function CandleAI() {
 
         <div className="landing-wrap cai-sec" style={{ paddingTop: 0 }}>
           <section className="cai-cta-box">
-            <div className="cai-rise">
+            <div className="landing-rise">
               <p className="cai-eyebrow">Get started</p>
               <h2 style={{ maxWidth: "16ch" }}>
-                Let CandleAI take the first trade.
+                <Written text="Let CandleAI take the first trade." />
               </h2>
-              <p className="cai-lede">
+              <p className="cai-lede landing-rise rise-left">
                 Connect your exchange, choose a pair, set your limits. You can
                 pause it after one trade if you don't like what you see.
               </p>
             </div>
             <form
-              className="cai-form cai-rise"
+              className="cai-form landing-rise"
               onSubmit={(event) => {
                 event.preventDefault();
                 router.push("/register");

@@ -1,3 +1,5 @@
+import { Written } from "../public/Written";
+
 const VALUES = [
   {
     tone: "",
@@ -35,15 +37,17 @@ const VALUES = [
 
 const AcademyValue = () => (
   <>
-    <p className="ac-eyebrow ac-rise">More than a course</p>
-    <h2 className="ac-rise">Real skills, and somewhere to use them.</h2>
-    <p className="ac-lede ac-rise">
+    <p className="ac-eyebrow landing-rise">More than a course</p>
+    <h2>
+      <Written text="Real skills, and somewhere to use them." />
+    </h2>
+    <p className="ac-lede landing-rise rise-left">
       We&apos;ve built the programme around what happens after the last class as
       much as what happens in it.
     </p>
     <div className="ac-vals">
       {VALUES.map((value) => (
-        <div className={`ac-val ${value.tone} ac-rise`} key={value.title}>
+        <div className={`ac-val ${value.tone} landing-rise`} key={value.title}>
           <div className="ac-ico">{value.icon}</div>
           <h3>{value.title}</h3>
           <p>{value.body}</p>

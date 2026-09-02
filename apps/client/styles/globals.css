@@ -53,6 +53,13 @@ body {
   color: white;
 }
 
+/* `clip` keeps the horizontal-overflow guard but, unlike `hidden`, doesn't make
+   this a scroll container — so position:sticky headers inside can stick to the
+   viewport. */
+.main__body {
+  overflow: clip;
+}
+
 *::-webkit-scrollbar {
   -webkit-appearance: none;
   width: 8px;

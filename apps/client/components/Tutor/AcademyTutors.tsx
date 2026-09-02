@@ -4,6 +4,7 @@ import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "../../redux/store";
 import tutorService from "../../services/tutorService";
 import { imageUri } from "../../utils/constants";
+import { Written } from "../public/Written";
 
 const initials = (name: string) =>
   name
@@ -23,9 +24,11 @@ const AcademyTutors = () => {
 
   return (
     <>
-      <p className="ac-eyebrow ac-rise">Your instructors</p>
-      <h2 className="ac-rise">Learn from people who build this for a living.</h2>
-      <p className="ac-lede ac-rise">
+      <p className="ac-eyebrow landing-rise">Your instructors</p>
+      <h2>
+        <Written text="Learn from people who build this for a living." />
+      </h2>
+      <p className="ac-lede landing-rise rise-left">
         Backend engineering, blockchain development, AI automation, personal
         finance and cryptocurrency trading — taught by the people doing the work,
         not reading about it.
@@ -45,7 +48,7 @@ const AcademyTutors = () => {
                   : imageUri + tutor.picture
                 : null;
             return (
-              <div className="ac-tutor ac-rise" key={tutor.id}>
+              <div className="ac-tutor landing-rise" key={tutor.id}>
                 <div className="ac-face">
                   {picture ? (
                     <Image

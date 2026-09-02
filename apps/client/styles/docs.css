@@ -18,7 +18,7 @@
 
   position: relative;
   isolation: isolate;
-  overflow: hidden;
+  overflow: clip;
   max-width: 1340px;
   margin: 14px auto 32px;
   border: 1px solid var(--dc-line);
