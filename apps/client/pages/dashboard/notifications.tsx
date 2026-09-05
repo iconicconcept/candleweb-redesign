@@ -1,161 +1,284 @@
-import React, { useState } from 'react'
-import Wrapper from '../../components/dashboard/wrapper'
-import Head from 'next/head'
-import useAxiosAuth from '../../lib/hooks/useAxiosAuth'
-import { useDispatch, useSelector } from 'react-redux'
-import { AppDispatch, RootState } from '../../redux/store'
-import useSWR from 'swr'
-import { setNotification } from '../../redux/slices/notificationSlice'
-import notificationService from '../../services/notificationService'
-import { ShowFullMessageState } from '../../types/notification'
-import { useMediaQuery } from '@react-hook/media-query'
-import { Button, formatDate, getTimeAgo, Heading, Typography } from 'ui'
-import { IoMailOpenOutline, IoMailUnreadOutline } from 'react-icons/io5'
-import { Pagination } from '@mui/material'
+import Head from "next/head";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { getTimeAgo } from "ui";
+import { AppDispatch, RootState } from "../../redux/store";
+import notificationService from "../../services/notificationService";
+import useAxiosAuth from "../../lib/hooks/useAxiosAuth";
+import useUserStore from "../../lib/hooks/useUserStore";
+import { isAuthorizationHeaderSet } from "../../utils/check_auth";
+import DashboardShell from "../../components/dashboard/focus/DashboardShell";
+import TopBar from "../../components/dashboard/focus/TopBar";
+import { BellIcon, CheckIcon, SearchIcon } from "../../components/dashboard/focus/icons";
 
-type Props = {}
+const PAGE_SIZE = 10;
 
-const NotificationScreen = (props: Props) => {
-    const [showFullMessage, setShowFullMessage] = useState<ShowFullMessageState>({});
-    const { notification } = useSelector((state: RootState) => state.notification)
-    const axiosToken = useAxiosAuth();
+export default function NotificationsDashboard() {
+  const dispatch = useDispatch<AppDispatch>();
+  const axiosToken = useAxiosAuth();
+  const { notification } = useSelector((state: RootState) => state.notification);
 
+  const [page, setPage] = useState(1);
+  const [filter, setFilter] = useState<"all" | "unread">("all");
+  const [cat, setCat] = useState<string>("all");
+  const [query, setQuery] = useState("");
+  const [busy, setBusy] = useState(false);
+  const fetchedTokenRef = useRef<string | null>(null);
+  const apiRef = useRef(axiosToken);
+  apiRef.current = axiosToken;
 
+  useEffect(() => {
+    if (!isAuthorizationHeaderSet(axiosToken)) return;
+    const token = useUserStore.getState().user?.access_token;
+    if (fetchedTokenRef.current === token) return;
+    fetchedTokenRef.current = token || null;
+    dispatch(notificationService.getNotifications({ api: axiosToken }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [axiosToken, dispatch]);
 
+  const results = useMemo(() => notification?.results ?? [], [notification]);
+  const total = notification?.count ?? results.length;
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const unreadOnPage = results.filter((r) => !r.is_read);
 
-    const dispatch = useDispatch<AppDispatch>()
+  const categories = useMemo(() => {
+    const set = new Set<string>();
+    results.forEach((r) => r.notification_type && set.add(r.notification_type));
+    return Array.from(set);
+  }, [results]);
 
-    const [currentPage, setCurrentPage] = useState<{ page: number, isLoading: boolean }>({
-        page: 1,
-        isLoading: false
-    });
-    const notificationsPerPage = 10;
-
-    const paginate = (pageNumber: number, isLoading: boolean) => setCurrentPage((prevState) => ({ page: pageNumber, isLoading }));
-
-    const { data, } = useSWR('/notification/unread/', async (url) => {
-        const response = await axiosToken.get(url);
-        dispatch(setNotification(response.data));
-        paginate(1, false);
-        return response.data;
-    });
-
-    const toggleMessage = (id: number) => {
-        setShowFullMessage((prevState) => {
-            const updatedState = { ...prevState };
-            updatedState[id] = !updatedState[id];
-            return updatedState;
-        });
-    };
-
-    const handleMarkAsRead = (notificationId: any) => {
-        // Mark notification as read when a button is clicked
-        dispatch(notificationService.getMarkNotificationRead({ api: axiosToken, id: notificationId }));
-    };
-
-    const isMobile = useMediaQuery("(max-width: 600px)");
-
-    const fetchNewNotification = async (page: number) => {
-        paginate(currentPage.page, true);
-        const newNotification = await dispatch(notificationService.getNotifications({ api: axiosToken, page })).unwrap();
-        dispatch(setNotification(newNotification));
-        paginate(page, false);
+  const visible = results.filter((r) => {
+    if (filter === "unread" && r.is_read) return false;
+    if (cat !== "all" && r.notification_type !== cat) return false;
+    if (query) {
+      const hay = `${r.notification_type ?? ""} ${r.message ?? ""}`.toLowerCase();
+      if (!hay.includes(query.toLowerCase())) return false;
     }
+    return true;
+  });
 
+  const refetch = () =>
+    dispatch(notificationService.getNotifications({ api: apiRef.current, page }));
 
-    return (
-        <>
-            <Head>
-                <title>Notifications</title>
-                <meta name="viewport" content="width=device-width, initial-scale=1" />
-            </Head>
-            <Wrapper>
-                <div className="">
-                    <div className="mt-0 flex items-center justify-between w-full">
-                        <Heading textsize="sm" classstyle="!text-white flex items-center gap-3">
-                            Notification{" "}
-                            {/* <span className="w-6 h-6 rounded-full bg-primary grid place-items-center text-sm text-dark">
-                                {notification?.count ?? 0}
-                            </span> */}
-                        </Heading>
-                        <Button
-                            variant="transparent"
-                            classstyle="text-secondary text-sm font-normal"
-                            onClick={(e) => {
-                                e.preventDefault();
-                                dispatch(notificationService.clearAllNotification(axiosToken));
-                            }}
+  const markRead = (id?: number) => {
+    if (id == null) return;
+    dispatch(notificationService.getMarkNotificationRead({ api: axiosToken, id })).then(refetch);
+  };
+
+  const markAllRead = async () => {
+    if (!unreadOnPage.length || busy) return;
+    setBusy(true);
+    try {
+      for (const n of unreadOnPage) {
+        if (n.id == null) continue;
+        await dispatch(
+          notificationService.getMarkNotificationRead({ api: axiosToken, id: n.id }),
+        ).unwrap();
+      }
+      await refetch();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const clearAll = () => dispatch(notificationService.clearAllNotification(axiosToken));
+
+  const goToPage = (next: number) => {
+    if (next < 1 || next > pageCount || next === page) return;
+    setPage(next);
+    dispatch(notificationService.getNotifications({ api: axiosToken, page: next }));
+  };
+
+  return (
+    <>
+      <Head>
+        <title>Notifications | Candleweb</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+      </Head>
+
+      <DashboardShell active="notifications">
+        <TopBar
+          crumb="Dashboard / Notifications"
+          title="Notifications"
+          subtitle="Everything Candleweb has told you, and the handful of things still waiting on you."
+        />
+
+        <div className="fx-cap2 rv d1">
+          <div className="fx-cp">
+            <span>Unread</span>
+            <b className="am6">{unreadOnPage.length}</b>
+            <i>{unreadOnPage.length ? "on this page" : "nothing outstanding"}</i>
+          </div>
+          <div className="fx-cp">
+            <span>Total</span>
+            <b>{total}</b>
+            <i>notifications kept</i>
+          </div>
+          <div className="fx-cp">
+            <span>Showing</span>
+            <b>{visible.length}</b>
+            <i>
+              page {page} of {pageCount}
+            </i>
+          </div>
+        </div>
+
+        <section className="fx-sec">
+          <div className="fx-nctl">
+            <div className="fx-search">
+              <SearchIcon />
+              <input
+                type="search"
+                placeholder="Search notifications"
+                autoComplete="off"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+            </div>
+            <div className="fx-tabs2">
+              <button
+                type="button"
+                className={`fx-tab2 ${filter === "all" ? "on" : ""}`}
+                onClick={() => setFilter("all")}
+              >
+                All <em>{results.length}</em>
+              </button>
+              <button
+                type="button"
+                className={`fx-tab2 ${filter === "unread" ? "on" : ""}`}
+                onClick={() => setFilter("unread")}
+              >
+                Unread <em>{unreadOnPage.length}</em>
+              </button>
+            </div>
+            {unreadOnPage.length > 0 && (
+              <button className="fx-link" type="button" disabled={busy} onClick={markAllRead}>
+                {busy ? "Marking…" : "Mark all read"}
+              </button>
+            )}
+          </div>
+
+          {categories.length > 1 && (
+            <div className="fx-cats">
+              <button
+                type="button"
+                className={`fx-mini ${cat === "all" ? "go" : ""}`}
+                onClick={() => setCat("all")}
+              >
+                Everything
+              </button>
+              {categories.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  className={`fx-mini ${cat === c ? "go" : ""}`}
+                  onClick={() => setCat(c)}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div style={{ marginTop: 6 }}>
+            {visible.length === 0 ? (
+              <div className="fx-nempty2">
+                <i>
+                  <CheckIcon />
+                </i>
+                <b>{query || cat !== "all" ? "Nothing matches that" : "Nothing here"}</b>
+                <p>
+                  {query || cat !== "all"
+                    ? "Try a shorter search, or a different category."
+                    : filter === "unread"
+                      ? "Every notification has been read. Nothing was deleted."
+                      : "You have no notifications right now."}
+                </p>
+              </div>
+            ) : (
+              visible.map((n) => (
+                <div className={`fx-nrow ${!n.is_read ? "unread9" : ""}`} key={n.id}>
+                  <span className="fx-ni">
+                    <BellIcon />
+                  </span>
+                  <div className="fx-nmain">
+                    <div className="fx-nhead">
+                      {!n.is_read && <i className="fx-nudot" />}
+                      <b>{n.notification_type || "Notification"}</b>
+                      {n.notification_type && <span className="fx-ncat">{n.notification_type}</span>}
+                    </div>
+                    <p>{n.message}</p>
+                    <div className="fx-nfoot">
+                      {n.created_at && <time>{getTimeAgo(n.created_at)}</time>}
+                      {!n.is_read && (
+                        <button
+                          className="fx-mini"
+                          type="button"
+                          onClick={() => markRead(n.id)}
                         >
-                            Clear all
-                        </Button>
+                          Mark read
+                        </button>
+                      )}
                     </div>
-                    <div className="mt-3 pl-12 w-full flex flex-col items-stretch gap-5">
-                        {notification.results?.length === 0 ? (
-                            <div className="h-40 w-full text-txtSec text-sm text-center flex items-center justify-center">
-                                You have no current notifications
-                            </div>
-                        ) : (
-                            notification.results?.map((notif, i) => (
-                                // notification.results?.slice(indexOfFirstNotification, indexOfLastNotification)?.map((notif, i) => (
-                                <div className="card__notification my-4 relative w-full cursor-pointer" key={i}>
-                                    <div className="top__header flex items-center gap-4" >
-                                        {!notif.is_read && <IoMailUnreadOutline className="text-primary text-xl" />}{" "}
-                                        {notif.is_read && <IoMailOpenOutline className="text-gray-300 text-xl" />}
-                                        <Heading textsize="sm">{notif.notification_type}</Heading>
-                                    </div>
-                                    <div className="message my-2" onClick={() => {
-                                        toggleMessage(notif.id!);
-
-                                        if (!showFullMessage[notif.id!]) {
-                                            handleMarkAsRead(notif.id);
-                                        }
-                                    }}>
-                                        <Typography className={'text-sm sm:text-xs'}>
-                                            {showFullMessage[notif.id!] ? notif.message : notif.message?.slice(0, 200) + '... '}
-
-                                        </Typography>
-                                    </div>
-                                    <div className="date">
-                                        <Typography classstyle="!text-xs text-gray-500">
-                                            {formatDate(notif.created_at!, true)}
-                                        </Typography>
-                                    </div>
-                                </div>
-                            ))
-                        )}
-
-                        <div className="all__blogs--pagination flex justify-center">
-                            <Pagination count={notification.count}
-                                // color='primary'
-                                page={currentPage.page}
-                                onChange={(e, page) => fetchNewNotification(page)}
-                                sx={{
-                                    '& .MuiPaginationItem-text': {
-                                        color: 'white'
-                                    }
-                                }}
-                            />
-                        </div>
-
-                        {/* {(notification.count ?? 0) > 0 && (
-                            <div className="pagination flex justify-center gap-2">
-                                {currentPage.isLoading && <Typography>Loading...</Typography>}
-                                {!currentPage.isLoading && Array.from({ length: Math.ceil(notification.count! / notificationsPerPage) }, (_, i) => (
-                                    <span
-                                        key={i}
-                                        onClick={() => fetchNewNotification(i + 1)}
-                                        className={`pagination-button ${currentPage.page === i + 1 ? 'bg-[#37bf91]' : 'bg-[#fff] '} w-4 h-4 rounded-full grid place-items-center mr-5 cursor-pointer`}
-                                    >
-                                    </span>
-                                ))}
-                            </div>
-
-                        )} */}
-                    </div>
+                  </div>
                 </div>
-            </Wrapper>
-        </>
-    )
-}
+              ))
+            )}
+          </div>
 
-export default NotificationScreen
+          {pageCount > 1 && (
+            <div className="fx-pager">
+              <span>
+                Page {page} of {pageCount}
+              </span>
+              <button
+                className="fx-pg"
+                type="button"
+                aria-label="Previous page"
+                disabled={page <= 1}
+                onClick={() => goToPage(page - 1)}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M15 5l-7 7 7 7" />
+                </svg>
+              </button>
+              <button
+                className="fx-pg"
+                type="button"
+                aria-label="Next page"
+                disabled={page >= pageCount}
+                onClick={() => goToPage(page + 1)}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
+          )}
+
+          {results.length > 0 && (
+            <button
+              className="fx-mini"
+              type="button"
+              style={{ marginTop: 16 }}
+              onClick={clearAll}
+            >
+              Clear all notifications
+            </button>
+          )}
+        </section>
+
+        <div className="fx-caveat">
+          <i>ⓘ</i>
+          <p>
+            <b>What we don&rsquo;t do.</b> Candleweb never messages you about a deposit, a bonus, or a
+            link you need to click urgently. If you get something like that claiming to be us, it
+            isn&rsquo;t — and no notice from us will ever ask for your API secret or your password.
+          </p>
+        </div>
+      </DashboardShell>
+    </>
+  );
+}

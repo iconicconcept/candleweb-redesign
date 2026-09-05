@@ -1,100 +1,71 @@
 import Head from "next/head";
-import React, { useEffect, useState } from "react";
-import Wrapper from "../../../../components/dashboard/wrapper";
-import Loader from "../../../../components/Loader";
-import {
-  IoCheckmarkCircle,
-  IoLockClosedOutline,
-  IoPlayCircleOutline,
-  IoDownloadOutline,
-  IoDocumentTextOutline,
-  IoCodeSlashOutline,
-  IoLayersOutline,
-  IoChevronForward,
-  IoArrowBack,
-  IoHeadsetOutline,
-  IoTimeOutline,
-} from "react-icons/io5";
+import Image from "next/image";
+import { useEffect, useMemo, useState } from "react";
+import { useDispatch } from "react-redux";
 import { useRouter } from "next/router";
+import toast from "react-hot-toast";
+import { AppDispatch } from "../../../../redux/store";
+import { setChatOpen } from "../../../../redux/slices/agentSlice";
 import courseService from "../../../../services/courseService";
 import certificateService, {
   CertificateInfo,
 } from "../../../../services/certificateService";
+import useUserStore from "../../../../lib/hooks/useUserStore";
 import { imageUri } from "../../../../utils/constants";
-import toast from "react-hot-toast";
-import { useDispatch } from "react-redux";
-import { useSelector } from "react-redux";
-import { AppDispatch, RootState } from "../../../../redux/store";
-import { setChatOpen } from "../../../../redux/slices/agentSlice";
+import DashboardShell from "../../../../components/dashboard/focus/DashboardShell";
+import TopBar from "../../../../components/dashboard/focus/TopBar";
+import Dialog from "../../../../components/dashboard/focus/Dialog";
+import {
+  CheckIcon,
+  PlayIcon,
+  LockIcon,
+  DocIcon,
+  CalendarIcon,
+} from "../../../../components/dashboard/focus/icons";
 import AIAgentChat from "../../../../components/dashboard/AIAgentChat";
-import userService from "../../../../services/userService";
-import { axiosApi } from "../../../../lib/axiosApi";
-import { UserAvatarImage } from "ui";
-import Image from "next/image";
-
-// We will use UserAvatarImage instead of humanAvatar
 
 const normalizeRouteId = (id: string | string[] | undefined) =>
   Array.isArray(id) ? id[0] : id;
 
 const formatModuleDateTime = (datetime?: string, duration?: number) => {
   if (!datetime) return duration ? `${duration} mins` : "";
-  const start = new Date(datetime);
-  const formatted = start.toLocaleString("en-US", {
+  const formatted = new Date(datetime).toLocaleString("en-US", {
     month: "short",
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
   });
-  return duration ? `${formatted} • ${duration} mins` : formatted;
+  return duration ? `${formatted} · ${duration} mins` : formatted;
 };
 
-const CourseDetails = () => {
+export default function CourseFocus() {
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
   const { id } = router.query;
+
   const [course, setCourse] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedModuleId, setSelectedModuleId] = useState<number | null>(null);
   const [showAllModules, setShowAllModules] = useState(false);
+  const [openModuleId, setOpenModuleId] = useState<number | null>(null);
 
-  // ── Certificate state ──
-  // Username comes from the persisted Zustand user store (populated by
-  // userService.getUser -> setUser on login/profile fetch), not Redux —
-  // authSlice only tracks login/loading flags, it doesn't hold the user.
-  const username = useSelector((state: RootState) => state.user.user?.username);
-
-  useEffect(() => {
-    if (!username) {
-      dispatch(userService.getUser(axiosApi));
-    }
-  }, [username]);
-
-  console.log(
-    "redux user state:",
-    useSelector((state: RootState) => state.user),
-  );
+  const { user } = useUserStore();
+  const username = user?.username;
 
   const [certificate, setCertificate] = useState<CertificateInfo | null>(null);
   const [certLoading, setCertLoading] = useState(false);
   const [certDownloading, setCertDownloading] = useState(false);
 
-  const scheduleModules = Array.isArray(course?.class_schedules)
-    ? course.class_schedules
-    : [];
-
+  const scheduleModules = Array.isArray(course?.class_schedules) ? course.class_schedules : [];
   const now = new Date();
 
   const modules = scheduleModules.map((m: any, idx: number) => {
     const scheduledTime = new Date(m.scheduled_datetime);
     const endTime = new Date(m.end_datetime);
-
     const isLive = now >= scheduledTime && now <= endTime;
     const isUpcoming = now < scheduledTime;
-
     const isActuallyCompleted = m.is_completed || now > endTime;
-
     return {
       ...m,
       scheduledTime,
@@ -102,67 +73,40 @@ const CourseDetails = () => {
       isLive,
       isUpcoming,
       isActuallyCompleted,
-
-      inferredStatus: isActuallyCompleted
-        ? "COMPLETED"
-        : isLive
-          ? "CURRENT"
-          : "LOCKED",
-
+      inferredStatus: isActuallyCompleted ? "COMPLETED" : isLive ? "CURRENT" : "LOCKED",
       topic: m.topic || m.title || m.course_title || `Module ${idx + 1}`,
     };
   });
 
-  const firstIncompleteIndex = modules.findIndex(
-    (m: any) => !m.isActuallyCompleted,
-  );
-
-  const enhancedModules = modules.map((m: any, idx: number) => {
-    const isNext = idx === firstIncompleteIndex;
-    const isUpcomingAfterNext = idx > firstIncompleteIndex;
-
-    return {
-      ...m,
-      isNext,
-      isUpcomingAfterNext,
-    };
-  });
+  const firstIncompleteIndex = modules.findIndex((m: any) => !m.isActuallyCompleted);
+  const enhancedModules = modules.map((m: any, idx: number) => ({
+    ...m,
+    isNext: idx === firstIncompleteIndex,
+  }));
 
   useEffect(() => {
     if (!modules.length) return;
-
     if (selectedModuleId === null) {
       const live =
         modules.find((m: any) => m.isLive) ||
         modules.find((m: any) => m.isUpcoming) ||
         modules[0];
-
       setSelectedModuleId(live.id);
     }
-  }, [modules]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modules.length]);
 
   const totalModules = scheduleModules.length;
-  const completedCount = modules.filter(
-    (m: any) => m.isActuallyCompleted,
-  ).length;
-  const progressPercent =
-    totalModules > 0 ? Math.round((completedCount / totalModules) * 100) : 0;
-  const firstIncompleteIdx = scheduleModules.findIndex(
-    (m: any) => !m.is_completed,
-  );
-
-  const selectedModule =
-    modules.find((m: any) => m.id === selectedModuleId) || modules[0] || null;
-
-  const displayModules = showAllModules
-    ? enhancedModules
-    : enhancedModules.slice(0, 10);
+  const completedCount = modules.filter((m: any) => m.isActuallyCompleted).length;
+  const progressPercent = totalModules > 0 ? Math.round((completedCount / totalModules) * 100) : 0;
+  const selectedModule = modules.find((m: any) => m.id === selectedModuleId) || modules[0] || null;
+  const openModule = modules.find((m: any) => m.id === openModuleId) || null;
+  const displayModules = showAllModules ? enhancedModules : enhancedModules.slice(0, 10);
 
   useEffect(() => {
     if (!router.isReady) return;
     const courseId = normalizeRouteId(id);
     if (!courseId) return;
-
     setLoading(true);
     setError(null);
     courseService
@@ -172,18 +116,11 @@ const CourseDetails = () => {
         setLoading(false);
       })
       .catch((err: any) => {
-        const message =
-          err?.response?.data?.message ||
-          err?.message ||
-          "Failed to load course details";
-        setError(message);
+        setError(err?.response?.data?.message || err?.message || "Failed to load course details");
         setLoading(false);
       });
   }, [id, router.isReady]);
 
-  // ── Look up this course's certificate as soon as we know who the
-  // student is and which course this is. This only tells us whether a
-  // certificate exists / has been issued yet — it does not download it.
   const courseCode = course?.course_code;
 
   useEffect(() => {
@@ -191,27 +128,16 @@ const CourseDetails = () => {
       setCertificate(null);
       return;
     }
-
     let cancelled = false;
     setCertLoading(true);
-
     certificateService
       .getStudentCertificates(username)
       .then((data) => {
         if (cancelled) return;
-        const match = certificateService.findCertificateForCourse(
-          data.certificate,
-          courseCode,
-        );
-        setCertificate(match || null);
+        setCertificate(certificateService.findCertificateForCourse(data.certificate, courseCode) || null);
       })
-      .catch(() => {
-        if (!cancelled) setCertificate(null);
-      })
-      .finally(() => {
-        if (!cancelled) setCertLoading(false);
-      });
-
+      .catch(() => !cancelled && setCertificate(null))
+      .finally(() => !cancelled && setCertLoading(false));
     return () => {
       cancelled = true;
     };
@@ -220,23 +146,12 @@ const CourseDetails = () => {
   const isCertificateIssued = !!certificate?.is_issued;
 
   const handleDownloadCertificate = async () => {
-    if (!username) {
-      toast.error("Please log in to download your certificate");
-      return;
-    }
-    if (!courseCode) {
-      toast.error("Certificate is not available for this course");
-      return;
-    }
+    if (!username) return toast.error("Please log in to download your certificate");
+    if (!courseCode) return toast.error("Certificate is not available for this course");
     if (certLoading || certDownloading) return;
-
     if (!certificate || !certificate.is_issued) {
-      toast.error(
-        "Your certificate is not yet available. It hasn't been issued for this course yet.",
-      );
-      return;
+      return toast.error("Your certificate is not yet available. It hasn't been issued for this course yet.");
     }
-
     try {
       setCertDownloading(true);
       await certificateService.downloadCertificate(
@@ -246,938 +161,315 @@ const CourseDetails = () => {
         `${course?.title || "certificate"}.png`,
       );
     } catch (err: any) {
-      toast.error(
-        err?.message ||
-          "Your certificate is not yet available. Please check back later.",
-      );
+      toast.error(err?.message || "Your certificate is not yet available. Please check back later.");
     } finally {
       setCertDownloading(false);
     }
   };
 
-  if (loading) {
-    return (
-      <Wrapper>
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <Loader />
-        </div>
-      </Wrapper>
-    );
-  }
-
-  if (error) {
-    return (
-      <Wrapper>
-        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center px-4">
-          <div className="w-16 h-16 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center text-3xl">
-            ⚠️
-          </div>
-          <p className="text-white font-semibold text-lg">{error}</p>
-          <p className="text-gray-500 text-sm">Please try again or go back.</p>
-          <button
-            onClick={() => router.back()}
-            className="mt-2 px-6 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm hover:bg-white/10 transition-all"
-          >
-            ← Go Back
-          </button>
-        </div>
-      </Wrapper>
-    );
-  }
-
-  if (!course) {
-    return (
-      <Wrapper>
-        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center px-4">
-          <div className="w-16 h-16 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-3xl">
-            📭
-          </div>
-          <p className="text-white font-semibold text-lg">Course not found</p>
-          <p className="text-gray-500 text-sm">
-            This course may have been removed or doesn&apos;t exist.
-          </p>
-          <button
-            onClick={() => router.back()}
-            className="mt-2 px-6 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm hover:bg-white/10 transition-all"
-          >
-            ← Go Back
-          </button>
-        </div>
-      </Wrapper>
-    );
-  }
+  const openResource = (link: string | null | undefined, type: "presentation" | "recording") => {
+    if (!link) {
+      toast.error(`${type === "presentation" ? "Presentation" : "Recording"} link not yet available`);
+      return;
+    }
+    window.open(link, "_blank");
+  };
 
   const nextSession =
-    modules.find((m: any) => m.isLive) || // 1. live class first
-    modules.find((m: any) => m.isUpcoming) || // 2. next scheduled
+    modules.find((m: any) => m.isLive) ||
+    modules.find((m: any) => m.isUpcoming) ||
     modules[modules.length - 1] ||
     null;
+
+  const onJoinCourse = (target = nextSession) => {
+    if (!target) return toast.error("No active class available");
+    if (!target.class_link) return toast.error("No class link available yet");
+    if (!target.isLive && !target.is_completed) return toast.error("This class is not live yet");
+    window.open(target.class_link, "_blank");
+  };
 
   const defaultBenefits = [
     { label: "Certified NFT Diploma", icon: "🎓" },
     { label: "500 LMN Credits", icon: "⭐" },
   ];
-
   const displayBenefits =
     course?.benefits && course.benefits.length > 0
-      ? course.benefits.map((b: any) =>
-          typeof b === "string" ? { label: b, icon: "⭐" } : b,
-        )
+      ? course.benefits.map((b: any) => (typeof b === "string" ? { label: b, icon: "⭐" } : b))
       : defaultBenefits;
 
-  const openResource = (
-    link: string | null | undefined,
-    type: "presentation" | "recording",
-  ) => {
-    if (!link) {
-      toast.error(
-        `${type === "presentation" ? "Presentation" : "Recording"} link not yet available`,
-      );
-      return;
-    }
-    window.open(link, "_blank");
-  };
-  const joinLink = nextSession?.class_link || selectedModule?.class_link || "";
-
-  const thumbnailSrc = course.thumbnail
+  const thumbnailSrc = course?.thumbnail
     ? course.thumbnail.startsWith("http")
       ? course.thumbnail
       : `${imageUri}${course.thumbnail}`
     : null;
+  const lecturer = course?.lecturers?.[0] || null;
 
-  const lecturer = course.lecturers?.[0] || null;
-  const lecturerPic = lecturer?.picture
-    ? lecturer.picture.startsWith("http")
-      ? lecturer.picture
-      : `${imageUri}${lecturer.picture}`
-    : null;
-
-  const onJoinCourse = () => {
-    const target = nextSession;
-
-    if (!target) {
-      toast.error("No active class available");
-      return;
-    }
-
-    if (!target.class_link) {
-      toast.error("No class link available yet");
-      return;
-    }
-
-    const now = new Date();
-    const start = new Date(target.scheduled_datetime);
-    const end = new Date(target.end_datetime);
-
-    const isLive = now >= start && now <= end;
-
-    if (!isLive && !target.is_completed) {
-      toast.error("This class is not live yet");
-      return;
-    }
-
-    window.open(target.class_link, "_blank");
+  type ModuleOption = {
+    key: string;
+    label: string;
+    body: string;
+    Icon: (p: React.SVGProps<SVGSVGElement>) => JSX.Element;
+    tone?: string;
+    disabled?: boolean;
+    action?: () => void;
   };
+
+  const moduleOptions = useMemo<ModuleOption[]>(() => {
+    if (!openModule) return [];
+    if (openModule.inferredStatus === "COMPLETED") {
+      return [
+        { key: "recording", label: "Watch the recording", body: `${openModule.duration_minutes || ""} minutes`, Icon: PlayIcon, tone: "main6", action: () => openResource(openModule.recording_link, "recording") },
+        { key: "presentation", label: "Download slides", body: "Presentation", Icon: DocIcon, action: () => openResource(openModule.presentation_link, "presentation") },
+      ];
+    }
+    if (openModule.inferredStatus === "CURRENT") {
+      return [
+        { key: "join", label: "Join the class now", body: openModule.class_link ? "Live now" : "Link not ready yet", Icon: PlayIcon, tone: "main6", action: () => onJoinCourse(openModule) },
+        { key: "presentation", label: "Download slides", body: "Presentation", Icon: DocIcon, action: () => openResource(openModule.presentation_link, "presentation") },
+      ];
+    }
+    if (openModule.isUpcoming) {
+      return [
+        { key: "presentation", label: "Download slides", body: "Prep material", Icon: DocIcon, action: () => openResource(openModule.presentation_link, "presentation") },
+        { key: "locked", label: "Join the class", body: formatModuleDateTime(openModule.scheduled_datetime), Icon: CalendarIcon, disabled: true },
+      ];
+    }
+    return [{ key: "locked", label: "Locked", body: "Opens closer to the date", Icon: LockIcon, disabled: true }];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openModule]);
+
+  if (loading) {
+    return (
+      <DashboardShell active="academy">
+        <TopBar crumb="Dashboard / Academy" title="Loading course…" />
+      </DashboardShell>
+    );
+  }
+
+  if (error || !course) {
+    return (
+      <DashboardShell active="academy">
+        <TopBar crumb="Dashboard / Academy" title={error ? "Something went wrong" : "Course not found"} />
+        <p className="fx-nempty">
+          <b>{error || "This course may have been removed or doesn't exist."}</b>
+        </p>
+        <button className="fx-cta ghost2" type="button" onClick={() => router.back()}>
+          ← Go back
+        </button>
+      </DashboardShell>
+    );
+  }
 
   return (
     <>
       <Head>
-        <title>{course.title || "Course Content"} | Candleweb</title>
+        <title>{course.title || "Course"} | Candleweb</title>
       </Head>
-      <Wrapper>
-        <div className="dash__content text-white pb-20">
-          {/* ══════════════════════════════════════════════════════
-              DESKTOP LAYOUT
-          ══════════════════════════════════════════════════════ */}
-          <div className="hidden xl:block">
-            {/* ── HERO ── */}
-            <div
-              className="relative w-full overflow-hidden rounded-2xl mb-6"
-              style={{ minHeight: 340 }}
-            >
-              {/* Thumbnail background */}
-              {thumbnailSrc ? (
-                <>
-                  <img
-                    src={thumbnailSrc}
-                    alt={course.title}
-                    className="absolute inset-0 w-full h-full object-cover"
-                  />
-                  {/* Strong dark overlay so text is always readable */}
-                  <div className="absolute inset-0 bg-black/90" />
-                </>
-              ) : (
-                <div className="absolute inset-0 bg-gradient-to-br from-[#040d0a] to-[#060e10]" />
-              )}
 
-              {/* Hero content: full-width flex row */}
-              <div className="relative z-10 flex items-stretch justify-between min-h-[340px] px-10 py-10">
-                {/* LEFT — category + title + description */}
-                <div className="flex flex-col justify-end max-w-[55%] space-y-4">
-                  {/* Pill + hours */}
-                  <div className="flex items-center gap-3">
-                    <span className="px-3 py-1 rounded-full border border-[#FFB322]/70 text-[#FFB322] text-[11px] font-semibold tracking-wider">
-                      {course.category || "Course"}
-                    </span>
-                    {course.total_hours && (
-                      <span className="flex items-center gap-1.5 text-gray-300 text-xs">
-                        <IoTimeOutline size={13} />
-                        {course.total_hours} Hours
-                      </span>
-                    )}
-                  </div>
+      <DashboardShell active="academy">
+        <TopBar crumb={`Dashboard / Academy / ${course.title}`} title={course.title} />
 
-                  {/* Title */}
-                  <h1 className="text-4xl xl:text-5xl font-extrabold leading-[1.1] text-white">
-                    {course.title}
-                  </h1>
-
-                  {/* Description */}
-                  <p className="text-gray-300 text-sm leading-relaxed max-w-md">
-                    {course.description}
-                  </p>
-
-                  <div className="space-y-2">
-                    {lecturer && (
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-full bg-gray-700 overflow-hidden">
-                          <Image
-                            src={UserAvatarImage}
-                            alt={lecturer.name}
-                            width={24}
-                            height={24}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                        <span className="text-gray-400 text-sm">
-                          By {lecturer.name}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* RIGHT — YOUR PROGRESS + CTA */}
-                <div className="flex flex-col justify-end items-end gap-5 ml-8">
-                  {/* Progress */}
-                  <div className="flex flex-col items-end gap-2">
-                    <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">
-                      Your Progress
-                    </span>
-                    <span className="text-5xl font-black text-[#27ECB0] leading-none">
-                      {progressPercent}%
-                    </span>
-                    {/* Progress bar */}
-                    <div className="w-52 h-2 rounded-full bg-white/10 overflow-hidden">
-                      <div
-                        className="h-full bg-[#27ECB0] rounded-full transition-all duration-700"
-                        style={{ width: `${progressPercent}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Continue Learning button */}
-                  <button
-                    onClick={onJoinCourse}
-                    className={`flex items-center gap-3 px-8 py-4 rounded-full font-bold text-sm transition-all w-full justify-center
-                      bg-[#FFB322] text-black hover:brightness-110 active:scale-95 shadow-[0_8px_30px_rgba(255,179,34,0.3)]
-                      ${!nextSession ? "opacity-50 cursor-not-allowed" : ""}`}
-                  >
-                    <IoPlayCircleOutline size={19} />
-                    Continue Learning
-                  </button>
-                </div>
-              </div>
+        <div className="fx-chero rv d1">
+          {thumbnailSrc && (
+            <div className="cv">
+              <Image src={thumbnailSrc} alt={course.title} fill sizes="100vw" />
             </div>
-
-            {/* ── BELOW HERO: syllabus+circle (left) + sidebar (right) ── */}
-            <div className="flex gap-5 items-start">
-              {/* ── LEFT COLUMN ── */}
-              <div className="flex-1 min-w-0 space-y-5">
-                {/* Course Syllabus card */}
-                <div className="bg-[#111827]/80 rounded-2xl border border-white/5 overflow-hidden">
-                  {/* Header */}
-                  <div className="flex items-center justify-between px-7 py-5 border-b border-white/5">
-                    <h2 className="text-base font-bold text-white">
-                      Course Syllabus
-                    </h2>
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm text-gray-400">
-                        {completedCount} / {totalModules} Modules Completed
-                      </span>
-                      {course.total_hours && (
-                        <span className="text-[10px] bg-white/10 text-gray-300 px-2 py-1 rounded-full">
-                          {course.total_hours}h Total
-                        </span>
-                      )}
-                      {modules.length > 10 && (
-                        <span
-                          onClick={() => setShowAllModules(!showAllModules)}
-                          className="text-[#27ECB0] text-xs font-semibold cursor-pointer"
-                        >
-                          {showAllModules ? "View Less" : "View All"}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Module rows */}
-                  <div className="divide-y divide-white/5">
-                    {modules.length === 0 && (
-                      <p className="text-gray-500 text-sm py-8 text-center">
-                        No modules available yet.
-                      </p>
-                    )}
-                    {displayModules.map((m: any, idx: number) => {
-                      const isCompleted = m.inferredStatus === "COMPLETED";
-                      const isCurrent = m.inferredStatus === "CURRENT";
-                      const isLocked = m.inferredStatus === "LOCKED";
-                      const isNext = m.isNext;
-                      const isSelected = selectedModuleId === m.id;
-
-                      return (
-                        <div
-                          key={m.id || idx}
-                          onClick={() => setSelectedModuleId(m.id)}
-                          className={`flex items-center gap-0 transition-all cursor-pointer
-                            ${isSelected ? "bg-[#1f1d12] border border-[#FFB322]/30" : "border-transparent"}
-                            //${isNext ? "bg-[#FFB322]/10 border-l-2 border-[#FFB322]" : ""}
-                            ${isCurrent ? "bg-[#1a1400]" : ""}
-                            ${isCompleted ? "bg-[#0d1a14]" : ""}
-                            ${isLocked ? "opacity-70" : ""}
-                          `}
-                        >
-                          {/* Left accent bar — 3px wide */}
-                          <div
-                            className={`w-[3px] self-stretch shrink-0
-                              ${isCompleted ? "bg-[#27ECB0]" : isCurrent ? "bg-[#FFB322]" : isNext ? "bg-[#FFB322]" : "bg-transparent"}
-                            `}
-                          />
-
-                          <div className="flex-1 flex items-center justify-between px-6 py-5 gap-4">
-                            {/* Icon + labels */}
-                            <div className="flex items-center gap-5">
-                              {/* Status icon — circle */}
-                              <div
-                                className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 border-2
-                                  ${
-                                    isCompleted
-                                      ? "bg-[#27ECB0]/15 border-[#27ECB0]/40 text-[#27ECB0]"
-                                      : isCurrent
-                                        ? "bg-[#FFB322]/10 border-[#FFB322]/40 text-[#FFB322]"
-                                        : "bg-white/5 border-white/10 text-gray-400"
-                                  }`}
-                              >
-                                {isCompleted && <IoCheckmarkCircle size={22} />}
-                                {isCurrent && <IoPlayCircleOutline size={20} />}
-                                {isLocked && <IoLockClosedOutline size={17} />}
-                                {/* {isNext && <IoDownloadOutline size={20} />} */}
-                              </div>
-
-                              {/* Module label + title */}
-                              <div>
-                                <p
-                                  className={`text-[10px] font-bold uppercase tracking-[0.2em] mb-1
-                                    ${isCurrent ? "text-[#FFB322]" : "text-[#27ECB0]"}
-                                  `}
-                                >
-                                  Module {String(idx + 1).padStart(2, "0")}
-                                </p>
-                                <p
-                                  className={`text-sm font-semibold leading-snug ${isLocked ? "text-gray-300" : "text-white"}`}
-                                >
-                                  {m.topic}
-                                </p>
-                                <p
-                                  className={`text-[11px] ${isLocked ? "text-gray-300" : "text-gray-400"} mt-1`}
-                                >
-                                  {formatModuleDateTime(
-                                    m.scheduled_datetime,
-                                    m.duration_minutes,
-                                  )}
-                                </p>
-                                <p className="text-[10px] text-gray-300 mt-0.5">
-                                  {m.isActuallyCompleted
-                                    ? "Completed"
-                                    : m.isNext
-                                      ? "Up Next"
-                                      : m.isLive
-                                        ? "Live Now"
-                                        : "Upcoming"}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {modules.length > 10 && (
-                    <div className="px-7 py-4 border-t border-white/5 flex justify-start">
-                      <button
-                        onClick={() => setShowAllModules(!showAllModules)}
-                        className="text-[#27ECB0] text-sm font-semibold hover:text-[#27ECB0]/80 transition-colors"
-                      >
-                        {showAllModules ? "View Less" : "View All Modules"}
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {/* Learning Circle card */}
-                <div className="bg-[#111827]/80 rounded-2xl border border-white/5 px-7 py-6">
-                  <div className="flex items-center justify-between mb-5">
-                    <h3 className="text-base font-bold text-white">
-                      Learning Circle
-                    </h3>
-                    <a
-                      href="https://chat.whatsapp.com/GnGE4gOm1wc6V6KUN74qvM?mode=gi_t"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[#27ECB0] text-xs font-semibold flex items-center gap-1 cursor-pointer hover:underline"
-                    >
-                      Visit Class Forum <IoChevronForward size={12} />
-                    </a>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="flex -space-x-3">
-                      {[1, 2, 3, 4].map((i) => (
-                        <div
-                          key={i}
-                          className="w-10 h-10 rounded-full border-2 border-[#111827] bg-gray-700 overflow-hidden relative"
-                        >
-                          <Image
-                            src={UserAvatarImage}
-                            alt={`student-${i}`}
-                            width={40}
-                            height={40}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                      ))}
-                      <div className="w-10 h-10 rounded-full border-2 border-[#111827] bg-[#27ECB0] flex items-center justify-center text-[9px] text-black font-black">
-                        +2.4k
-                      </div>
-                    </div>
-                    <p className="text-sm text-gray-400">
-                      <span className="font-bold text-white">
-                        2,482 Classmates
-                      </span>{" "}
-                      are currently active in this module.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* ── RIGHT SIDEBAR ── */}
-              <div className="w-[280px] xl:w-[300px] shrink-0 space-y-4">
-                {/* Course Rewards */}
-                <div
-                  className="rounded-2xl border border-white/5 p-6 space-y-4"
-                  style={{
-                    background:
-                      "linear-gradient(135deg, #1a1a0f 0%, #0f0f0a 100%)",
-                  }}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="w-9 h-9 bg-orange-400/10 rounded-xl flex items-center justify-center text-lg">
-                      🏆
-                    </span>
-                    <h3 className="text-sm font-bold text-white">
-                      Course Rewards
-                    </h3>
-                  </div>
-                  <p className="text-xs text-gray-500 leading-relaxed">
-                    Complete the course to unlock exclusive terminal access and
-                    blockchain credentials.
-                  </p>
-                  <div className="space-y-2.5">
-                    {displayBenefits.map((r: any, i: number) => (
-                      <div
-                        key={i}
-                        className="flex items-center gap-3 p-3 bg-white/5 rounded-xl border border-white/10"
-                      >
-                        <span className="text-lg">{r.icon || "🎁"}</span>
-                        <span className="text-xs font-semibold text-gray-300">
-                          {r.label}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Resources */}
-                <div className="bg-[#111827]/80 rounded-2xl border border-white/5 p-6 space-y-4">
-                  <h3 className="text-sm font-bold text-white">Resources</h3>
-                  <p className="text-xs text-gray-500">
-                    Selected module:{" "}
-                    <span className="font-semibold text-white">
-                      {selectedModule?.topic || "None"}
-                    </span>
-                  </p>
-                  <div className="space-y-3 overflow-hidden">
-                    <button
-                      onClick={() =>
-                        openResource(
-                          selectedModule?.presentation_link,
-                          "presentation",
-                        )
-                      }
-                      className="w-full min-w-0 flex items-center justify-between px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/5 rounded-xl text-left transition-all overflow-hidden"
-                    >
-                      <span className="flex items-center gap-2 text-gray-300 min-w-0 truncate">
-                        <IoDocumentTextOutline size={18} />
-                        <span className="truncate">Presentation</span>
-                      </span>
-                    </button>
-                    <button
-                      onClick={() =>
-                        openResource(
-                          selectedModule?.recording_link,
-                          "recording",
-                        )
-                      }
-                      className="w-full min-w-0 flex items-center justify-between px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/5 rounded-xl text-left transition-all overflow-hidden"
-                    >
-                      <span className="flex items-center gap-2 text-gray-300 min-w-0 truncate">
-                        <IoPlayCircleOutline size={18} />
-                        <span className="truncate">Recording</span>
-                      </span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Certificate download */}
-                <div className="bg-[#111827]/80 rounded-2xl border border-white/5 p-6 space-y-4">
-                  <h3 className="text-sm font-bold text-white">Certificate</h3>
-
-                  <div className="space-y-3 overflow-hidden">
-                    <button
-                      onClick={handleDownloadCertificate}
-                      disabled={certLoading || certDownloading}
-                      className={`w-full min-w-0 flex items-center justify-between px-4 py-3 border border-white/5 rounded-xl text-left transition-all overflow-hidden
-                        ${
-                          isCertificateIssued
-                            ? "bg-[#27ECB0] hover:bg-[#27ECB0]/90"
-                            : "bg-white/5 hover:bg-white/10"
-                        }
-                        ${certLoading || certDownloading ? "opacity-70 cursor-wait" : ""}
-                      `}
-                    >
-                      <span
-                        className={`flex items-center gap-2 min-w-0 truncate ${
-                          isCertificateIssued
-                            ? "text-[#111827]"
-                            : "text-gray-400"
-                        }`}
-                      >
-                        {isCertificateIssued ? (
-                          <IoDocumentTextOutline size={18} />
-                        ) : (
-                          <IoLockClosedOutline size={18} />
-                        )}
-                        <span className="truncate font-semibold">
-                          {certDownloading
-                            ? "Downloading..."
-                            : certLoading
-                              ? "Checking..."
-                              : "Download"}
-                        </span>
-                      </span>
-                    </button>
-                    {!isCertificateIssued && !certLoading && (
-                      <span className="block truncate text-gray-400 ml-1 text-[12px] italic mt-2.5">
-                        Certificate Not Yet Available
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* AI Mentor */}
-                <div
-                  className="rounded-2xl border border-white/5 p-6 space-y-3 relative overflow-hidden"
-                  style={{ background: "#111827cc" }}
-                >
-                  <div className="absolute -bottom-8 -right-8 w-32 h-32 bg-[#FFB322]/8 rounded-full blur-3xl pointer-events-none" />
-                  <div className="relative flex items-start gap-3">
-                    <span className="w-9 h-9 bg-[#FFB322]/10 rounded-xl flex items-center justify-center text-base shrink-0 mt-0.5">
-                      💡
-                    </span>
-                    <div className="space-y-1.5">
-                      <h3 className="text-sm font-bold text-white">
-                        Stuck on a problem?
-                      </h3>
-                      <p className="text-xs text-gray-500 leading-relaxed">
-                        Our AI Mentor is available 24/7 to debug your
-                        backpropagation logic and answer questions.
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => dispatch(setChatOpen(true))}
-                    className="relative text-[#FFB322] text-xs font-bold tracking-wide flex items-center gap-1.5 hover:gap-3 transition-all ml-12"
-                  >
-                    Launch Assistant →
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* ══════════════════════════════════════════════════════
-              MOBILE LAYOUT
-          ══════════════════════════════════════════════════════ */}
-          <div className="xl:hidden space-y-5">
-            {/* Top nav */}
-            <div className="flex items-center justify-between pt-1">
-              <button
-                onClick={() => router.back()}
-                className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center"
-              >
-                <IoArrowBack size={18} className="text-white" />
-              </button>
-              <p className="text-sm font-semibold text-white">Course Details</p>
-              <button className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center">
-                <IoHeadsetOutline size={18} className="text-white" />
-              </button>
-            </div>
-
-            {/* Thumbnail */}
-            <div className="relative rounded-2xl overflow-hidden h-44 bg-[#0d1117]">
-              {thumbnailSrc ? (
-                <img
-                  src={thumbnailSrc}
-                  alt={course.title}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full bg-gradient-to-br from-[#0d1a14] to-[#0d1117]" />
-              )}
-              {course.difficulty_level && (
-                <span className="absolute top-3 right-3 px-3 py-1 bg-[#27ECB0] text-black text-[10px] font-bold rounded-full capitalize">
-                  {course.difficulty_level}
-                </span>
-              )}
-            </div>
-
-            {/* Title + lecturer */}
-            <div className="space-y-2">
-              <h1 className="text-2xl font-extrabold text-white leading-tight">
-                {course.title}
-              </h1>
+          )}
+          <div className="fx-chin">
+            <div className="fx-chtx">
+              <h2>{course.title}</h2>
+              <p>{course.description}</p>
               {lecturer && (
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-gray-700 overflow-hidden">
-                    <Image
-                      src={UserAvatarImage}
-                      alt={lecturer.name}
-                      width={24}
-                      height={24}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <span className="text-gray-400 text-sm">
-                    By {lecturer.name}
-                  </span>
+                <div className="fx-tutor">
+                  <span>{(lecturer.name || "CW").slice(0, 2).toUpperCase()}</span>
+                  By {lecturer.name}
                 </div>
               )}
             </div>
-
-            {/* Progress */}
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-3">
-                <span className="text-[#27ECB0] text-sm font-bold">
-                  {progressPercent}% Completed
-                </span>
-                <span className="text-gray-500 text-xs">
-                  {completedCount}/{totalModules} Modules
-                </span>
-              </div>
-              <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-[#27ECB0] rounded-full transition-all"
-                  style={{ width: `${progressPercent}%` }}
-                />
-              </div>
-            </div>
-
-            {/* CTA */}
-            <button
-              onClick={onJoinCourse}
-              className={`w-full flex items-center justify-center gap-3 py-4 rounded-xl font-bold text-sm tracking-widest uppercase transition-all
-                bg-[#FFB322] text-black active:scale-95
-                ${!nextSession ? "opacity-50 cursor-not-allowed" : ""}`}
-            >
-              <IoPlayCircleOutline size={20} />
-              Continue Learning
-            </button>
-
-            {/* Syllabus */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h2 className="text-base font-bold text-white">
-                  Course Syllabus
-                </h2>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-gray-400">
-                    {completedCount} / {totalModules} Modules
-                  </span>
-                  {course.total_hours && (
-                    <span className="text-[10px] bg-white/10 text-gray-300 px-2 py-1 rounded-full">
-                      {course.total_hours}h Total
-                    </span>
-                  )}
-                  {modules.length > 10 && (
-                    <span
-                      onClick={() => setShowAllModules(!showAllModules)}
-                      className="text-[#27ECB0] text-xs font-semibold cursor-pointer"
-                    >
-                      {showAllModules ? "View Less" : "View All"}
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div className="space-y-2">
-                {displayModules.map((m: any, idx: number) => {
-                  const isCompleted = m.inferredStatus === "COMPLETED";
-                  const isCurrent = m.inferredStatus === "CURRENT";
-                  const isLocked = m.inferredStatus === "LOCKED";
-                  const isNext = m.isNext;
-                  const isSelected = selectedModuleId === m.id;
-                  return (
-                    <div
-                      key={m.id || idx}
-                      onClick={() => setSelectedModuleId(m.id)}
-                      className={`flex items-center gap-0 rounded-xl border overflow-hidden transition-all cursor-pointer
-                        ${isSelected ? "bg-[#1f1d12] border border-[#FFB322]/30" : "border-transparent"}
-                        ${isNext ? "bg-[#FFB322]/5 border-l-2 border-[#FFB322]" : "border-[#FFB322]"}
-                        ${isCompleted ? "bg-[#0d1a14]" : ""}
-                        ${isCurrent ? "bg-[#1a1400]" : ""}
-                        ${isLocked ? "bg-[#0d1117] opacity-60" : ""}
-                      `}
-                    >
-                      <div
-                        className={`w-[3px] self-stretch shrink-0 ${isCompleted ? "bg-[#27ECB0]" : isNext ? "bg-[#FFB322]" : isCurrent ? "bg-[#FFB322]" : "bg-transparent"}`}
-                      />
-                      <div className="flex-1 flex items-center justify-between px-4 py-4 gap-3">
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0
-                            ${isCompleted ? "bg-[#27ECB0]/15 text-[#27ECB0]" : ""}
-                            ${isCurrent ? "bg-[#FFB322]/15 text-[#FFB322]" : ""}
-                            ${isLocked ? "bg-white/5 text-gray-400" : ""}
-                          `}
-                          >
-                            {isCompleted && <IoCheckmarkCircle size={18} />}
-                            {isCurrent && <IoPlayCircleOutline size={18} />}
-                            {isLocked && <IoLockClosedOutline size={15} />}
-                          </div>
-                          <div>
-                            <p
-                              className={`text-[9px] font-bold uppercase tracking-widest mb-0.5 ${isCurrent ? "text-[#FFB322]" : "text-[#27ECB0]"}`}
-                            >
-                              Module {String(idx + 1).padStart(2, "0")}
-                            </p>
-                            <p
-                              className={`text-xs font-semibold leading-snug ${isLocked ? "text-gray-300" : "text-white"}`}
-                            >
-                              {m.topic}
-                            </p>
-                            <p className="text-[10px] text-gray-300 mt-0.5">
-                              {formatModuleDateTime(
-                                m.scheduled_datetime,
-                                m.duration_minutes,
-                              )}
-                            </p>
-                            <p className="text-[10px] text-gray-300 mt-0.5">
-                              {m.isActuallyCompleted
-                                ? "Completed"
-                                : m.isNext
-                                  ? "Up Next"
-                                  : m.isLive
-                                    ? "Live Now"
-                                    : "Upcoming"}
-                            </p>
-                          </div>
-                        </div>
-                        {isCurrent && m.isLive && (
-                          <button
-                            onClick={() => window.open(m.class_link, "_blank")}
-                            className="text-[10px] text-black bg-[#FFB322] font-bold px-3 py-1.5 rounded-lg shrink-0"
-                          >
-                            Start
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-                {modules.length > 10 && (
-                  <div className="flex justify-center pt-4 mt-2 border-t border-white/5">
-                    <button
-                      onClick={() => setShowAllModules(!showAllModules)}
-                      className="text-[#27ECB0] text-sm font-semibold hover:text-[#27ECB0]/80 transition-colors"
-                    >
-                      {showAllModules ? "View Less" : "View All Modules"}
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Course Rewards mobile */}
-            <div className="rounded-2xl border border-[#27ECB0]/20 bg-[#0d1a14] p-5 space-y-4">
-              <div className="flex items-center gap-3">
-                <span className="w-10 h-10 bg-[#27ECB0]/10 rounded-xl flex items-center justify-center text-lg">
-                  🏆
-                </span>
-                <div>
-                  <h3 className="text-sm font-bold text-white">
-                    Course Rewards
-                  </h3>
-                  <p className="text-[11px] text-gray-400">
-                    Complete the course to unlock
-                  </p>
-                </div>
-              </div>
-              <div className="space-y-2">
-                {displayBenefits.map((r: any, i: number) => (
-                  <div key={i} className="flex items-center gap-3">
-                    <span className="text-lg">{r.icon || "🎁"}</span>
-                    <p className="text-[#27ECB0] text-sm font-bold">
-                      {r.label}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Resources mobile */}
-            <div className="space-y-3 overflow-hidden">
-              <h2 className="text-base font-bold text-white">Resources</h2>
-              <p className="text-xs text-gray-500">
-                Selected module:{" "}
-                <span className="font-semibold text-white">
-                  {selectedModule?.topic || "None"}
-                </span>
-              </p>
-              <div className="grid grid-cols-1 gap-3">
-                <button
-                  onClick={() =>
-                    openResource(
-                      selectedModule?.presentation_link,
-                      "presentation",
-                    )
-                  }
-                  className="w-full min-w-0 bg-[#0d1117] border border-white/5 rounded-xl p-4 flex items-center justify-between gap-3 hover:border-[#27ECB0]/30 transition-all overflow-hidden"
-                >
-                  <span className="flex items-center gap-2 text-gray-300 min-w-0 truncate">
-                    <IoDocumentTextOutline size={22} />
-                    <span className="truncate">Presentation</span>
-                  </span>
-                </button>
-                <button
-                  onClick={() =>
-                    openResource(selectedModule?.recording_link, "recording")
-                  }
-                  className="w-full min-w-0 bg-[#0d1117] border border-white/5 rounded-xl p-4 flex items-center justify-between gap-3 hover:border-[#27ECB0]/30 transition-all overflow-hidden"
-                >
-                  <span className="flex items-center gap-2 text-gray-300 min-w-0 truncate">
-                    <IoPlayCircleOutline size={22} />
-                    <span className="truncate">Recording</span>
-                  </span>
-                </button>
-              </div>
-            </div>
-
-            {/* Certificate mobile */}
-            <div className="space-y-3 overflow-hidden">
-              <h2 className="text-base font-bold text-white">Certificate</h2>
-              <div className="grid grid-cols-1 gap-3">
-                <button
-                  onClick={handleDownloadCertificate}
-                  disabled={certLoading || certDownloading}
-                  className={`w-full min-w-0 border border-white/5 rounded-xl p-4 flex items-center justify-between gap-3 transition-all overflow-hidden
-                    ${
-                      isCertificateIssued
-                        ? "bg-[#27ECB0] hover:border-[#27ECB0]/30"
-                        : "bg-[#0d1117] hover:border-white/20"
-                    }
-                    ${certLoading || certDownloading ? "opacity-70 cursor-wait" : ""}
-                  `}
-                >
-                  <span
-                    className={`flex items-center gap-2 min-w-0 truncate ${
-                      isCertificateIssued ? "text-[#111827]" : "text-gray-400"
-                    }`}
-                  >
-                    {isCertificateIssued ? (
-                      <IoDocumentTextOutline size={22} />
-                    ) : (
-                      <IoLockClosedOutline size={22} />
-                    )}
-                    <span className="truncate font-semibold">
-                      {certDownloading
-                        ? "Downloading..."
-                        : certLoading
-                          ? "Checking..."
-                          : "Download"}
-                    </span>
-                  </span>
-                </button>
-                {!isCertificateIssued && !certLoading && (
-                  <span className="block truncate text-gray-400 ml-1 text-[12px] italic mt-1.5">
-                    Certificate Not Yet Available
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Classmates mobile */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h2 className="text-base font-bold text-white">Classmates</h2>
-              </div>
-              <div className="flex -space-x-3">
-                {[1, 2, 3, 4].map((i) => (
-                  <div
-                    key={i}
-                    className="w-9 h-9 rounded-full border-2 border-[#0d1117] bg-gray-700 overflow-hidden relative"
-                  >
-                    <Image
-                      src={UserAvatarImage}
-                      alt={`s${i}`}
-                      width={36}
-                      height={36}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                ))}
-                <div className="w-9 h-9 rounded-full border-2 border-[#0d1117] bg-[#27ECB0] flex items-center justify-center text-[9px] text-black font-black">
-                  +2.4k
-                </div>
-              </div>
-              <a
-                href="https://chat.whatsapp.com/GnGE4gOm1wc6V6KUN74qvM?mode=gi_t"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block text-center text-sm text-gray-400 py-3 hover:bg-[#27ECB0]/5 border border-white/10 rounded-xl cursor-pointer hover:border-[#27ECB0]/30 transition-all"
+            <div className="fx-chprog">
+              <em>Your progress</em>
+              <div
+                className={`fx-ring ${progressPercent >= 80 ? "" : progressPercent >= 55 ? "mid5" : "low5"}`}
+                style={{ "--v": progressPercent } as React.CSSProperties}
+                role="img"
+                aria-label="Course progress"
               >
-                Join Discussion Forum
-              </a>
+                <svg viewBox="0 0 44 44" aria-hidden="true">
+                  <circle className="tr" cx="22" cy="22" r="19" />
+                  <circle className="vl" cx="22" cy="22" r="19" />
+                </svg>
+                <b>{progressPercent}</b>
+              </div>
+              <button className="fx-cta live6" type="button" onClick={() => onJoinCourse()}>
+                Continue learning →
+              </button>
             </div>
           </div>
         </div>
-      </Wrapper>
 
-      {/* AI Agent Chat Component */}
-      <AIAgentChat
-        studentContext={{
-          course_details: { course: course },
-        }}
-      />
+        <section className="fx-sec rv d2">
+          <div className="fx-cols">
+            <div>
+              <div className="fx-sh">
+                <h2>
+                  Course syllabus <span className="sub2">{completedCount} / {totalModules} complete</span>
+                </h2>
+                {modules.length > 10 && (
+                  <button className="fx-link" type="button" onClick={() => setShowAllModules((v) => !v)}>
+                    {showAllModules ? "Show less" : `Show all ${modules.length} modules`}
+                  </button>
+                )}
+              </div>
+              <div>
+                {modules.length === 0 && <p className="fx-nempty">No modules available yet.</p>}
+                {displayModules.map((m: any, idx: number) => {
+                  const cls =
+                    m.inferredStatus === "COMPLETED" ? "done5" : m.inferredStatus === "CURRENT" ? "live5" : "lock5";
+                  const mark =
+                    m.inferredStatus === "COMPLETED" ? (
+                      <CheckIcon />
+                    ) : m.inferredStatus === "CURRENT" ? (
+                      <PlayIcon />
+                    ) : (
+                      <LockIcon />
+                    );
+                  return (
+                    <button
+                      key={m.id ?? idx}
+                      type="button"
+                      className={`fx-mod ${cls}`}
+                      onClick={() => {
+                        setSelectedModuleId(m.id);
+                        setOpenModuleId(m.id);
+                      }}
+                    >
+                      <span className="fx-mst">{mark}</span>
+                      <span className="fx-mtx">
+                        <span className="fx-mno">Module {String(idx + 1).padStart(2, "0")}</span>
+                        <b>{m.topic}</b>
+                        <span>{formatModuleDateTime(m.scheduled_datetime, m.duration_minutes)}</span>
+                      </span>
+                      <span className="fx-mgo">
+                        {m.isActuallyCompleted ? "Completed" : m.isNext ? "Up next" : m.isLive ? "Live now" : "Upcoming"}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <aside>
+              <div className="fx-panel">
+                <h4>Course rewards</h4>
+                <p className="ps">Unlocked when the course is complete.</p>
+                {displayBenefits.map((r: any, i: number) => (
+                  <div className="fx-reward2" key={i}>
+                    <i>{r.icon || "🎁"}</i>
+                    <b>{r.label}</b>
+                  </div>
+                ))}
+              </div>
+
+              <div className="fx-panel">
+                <h4>Resources</h4>
+                <p className="ps">
+                  Selected module: <b style={{ color: "var(--fx-teal2)" }}>{selectedModule?.topic || "None"}</b>
+                </p>
+                <button className="fx-res" type="button" onClick={() => openResource(selectedModule?.presentation_link, "presentation")}>
+                  <i>
+                    <DocIcon />
+                  </i>
+                  <b>Presentation</b>
+                </button>
+                <button className="fx-res" type="button" onClick={() => openResource(selectedModule?.recording_link, "recording")}>
+                  <i>
+                    <PlayIcon />
+                  </i>
+                  <b>Recording</b>
+                </button>
+              </div>
+
+              <div className="fx-panel">
+                <h4>Certificate</h4>
+                <p className="ps">
+                  {isCertificateIssued
+                    ? "Your certificate is ready."
+                    : "Unlocks once this course is fully complete."}
+                </p>
+                <button
+                  className="fx-cta main2"
+                  type="button"
+                  style={{ width: "100%" }}
+                  disabled={certLoading || certDownloading}
+                  onClick={handleDownloadCertificate}
+                >
+                  {certDownloading ? "Downloading…" : certLoading ? "Checking…" : "Download"}
+                </button>
+              </div>
+
+              <div className="fx-tut">
+                <div className="ti2">💡</div>
+                <b>Stuck on a problem?</b>
+                <p>Your AI tutor is available 24/7 to debug your workflow and answer questions.</p>
+                <button
+                  className="fx-cta ghost2"
+                  type="button"
+                  style={{ width: "100%" }}
+                  onClick={() => dispatch(setChatOpen(true))}
+                >
+                  Launch the tutor →
+                </button>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <div className="fx-caveat">
+          <i>ⓘ</i>
+          <p>
+            <b>About the live sessions.</b> Classes run at the scheduled time whether or not you
+            attend, and each one is recorded shortly after. Attending live is worth more — that&apos;s
+            where questions get answered — but missing one won&apos;t put you behind.
+          </p>
+        </div>
+      </DashboardShell>
+
+      <Dialog
+        open={!!openModule}
+        onClose={() => setOpenModuleId(null)}
+        icon={<CheckIcon />}
+        title={openModule?.topic}
+        subtitle={
+          openModule
+            ? `${formatModuleDateTime(openModule.scheduled_datetime, openModule.duration_minutes)}${
+                lecturer ? ` · live with ${lecturer.name}` : ""
+              }`
+            : ""
+        }
+        labelledBy="module-dialog-title"
+      >
+        <div className="fx-opts">
+          {moduleOptions.map((opt) => (
+            <button
+              key={opt.key}
+              type="button"
+              className={`fx-opt ${opt.tone || ""}`}
+              disabled={opt.disabled}
+              onClick={opt.action}
+            >
+              <i>
+                <opt.Icon />
+              </i>
+              <span>
+                <b>{opt.label}</b>
+                <span>{opt.body}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      </Dialog>
+
+      <AIAgentChat studentContext={{ course_details: { course } }} />
     </>
   );
-};
-
-export default CourseDetails;
+}
