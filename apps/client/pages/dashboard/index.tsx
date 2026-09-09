@@ -7,7 +7,9 @@ import AnalyticsCard from "../../components/dashboard/charts/area";
 // import Radial from "../../components/dashboard/charts/radial";
 import AddTrade from "../../components/dashboard/modal/AddTrade";
 import GapTable from "../../components/dashboard/table/GapTable";
-import Wrapper from "../../components/dashboard/wrapper";
+import DashboardShell from "../../components/dashboard/focus/DashboardShell";
+import TopBar from "../../components/dashboard/focus/TopBar";
+import useDashboardBootstrap from "../../lib/hooks/useDashboardBootstrap";
 // import { BsCurrencyDollar } from "react-icons/bs";
 // import { TbDatabase } from "react-icons/tb";
 import { DashboardSkeletonLoader, TableSkeletonLoader } from "../../components/dashboard/skeleton/SkeletonLoader";
@@ -37,6 +39,8 @@ const Dashboard = (props: Props) => {
 
 
   const { balance } = useSelector((state: RootState) => state.user)
+
+  useDashboardBootstrap();
 
   // const { user } = useUserStore((state) => state)
   // const dispatch = useDispatch<AppDispatch>()
@@ -80,7 +84,12 @@ const Dashboard = (props: Props) => {
         <title>Candleweb Dashboard</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
-      <Wrapper>
+      <DashboardShell active="portfolio">
+        <TopBar
+          crumb="Dashboard / Overview"
+          title="Overview"
+          subtitle="Your balances, open orders and how your trades are tracking."
+        />
         {/* {isLoading && <DashboardSkeletonLoader />} */}
         <div className="dash__content">
           <div className="flex items-center gap-1 md:hidden mb-3 max-w-[200px]">
@@ -128,7 +137,7 @@ const Dashboard = (props: Props) => {
             />}
           </div>
         </div>
-      </Wrapper>
+      </DashboardShell>
     </>
   );
 };

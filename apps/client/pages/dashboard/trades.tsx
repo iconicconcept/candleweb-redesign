@@ -13,7 +13,9 @@ import {
 import BarChartMixed from "../../components/dashboard/charts/barChartMixed";
 import AddTrade from "../../components/dashboard/modal/AddTrade";
 import GapTable from "../../components/dashboard/table/GapTable";
-import Wrapper from "../../components/dashboard/wrapper";
+import DashboardShell from "../../components/dashboard/focus/DashboardShell";
+import TopBar from "../../components/dashboard/focus/TopBar";
+import useDashboardBootstrap from "../../lib/hooks/useDashboardBootstrap";
 import useMediaQuery from "@mui/material/useMediaQuery";
 import { TradeSkeletonLoader } from "../../components/dashboard/skeleton/SkeletonLoader";
 import { tradeColumn } from "../../components/dashboard/table/HeaderColumns";
@@ -54,6 +56,8 @@ const TradesPage = (props: Props) => {
   const dispatch = useDispatch<AppDispatch>();
   const axiosToken = useAxiosAuth();
 
+  useDashboardBootstrap();
+
   useEffect(() => {
     dispatch(tradeService.getActiveTrade({ api: axiosToken, interval: "" }));
   }, []);
@@ -69,7 +73,12 @@ const TradesPage = (props: Props) => {
         <title>Trades Dashboard</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
-      <Wrapper>
+      <DashboardShell active="trades">
+        <TopBar
+          crumb="Dashboard / My trades"
+          title="My trades"
+          subtitle="Every trade Candleweb is running for you, and the controls to pause or stop them."
+        />
         {activeTradeLoading && <TradeSkeletonLoader />}
         {/* {<div className="trade__container px-4 sm:px-1 overflow-hidden"> */}
         {!activeTradeLoading && (
@@ -278,7 +287,7 @@ const TradesPage = (props: Props) => {
             </div>
           </div>
         )}
-      </Wrapper>
+      </DashboardShell>
       <Modal
         title={""}
         width="500px"

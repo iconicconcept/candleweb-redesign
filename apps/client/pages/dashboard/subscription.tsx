@@ -2,7 +2,9 @@ import Head from "next/head";
 import React, { useEffect, useState } from "react";
 import { Button, Heading, Typography, addExpirationDate, isMonthly, dollarFormat, formatDate, Modal } from "ui";
 import { CloseTable } from "../../components/dashboard/table/CloseTable";
-import Wrapper from "../../components/dashboard/wrapper";
+import DashboardShell from "../../components/dashboard/focus/DashboardShell";
+import TopBar from "../../components/dashboard/focus/TopBar";
+import useDashboardBootstrap from "../../lib/hooks/useDashboardBootstrap";
 import { SubscriptionSkeletonLoader } from "../../components/dashboard/skeleton/SkeletonLoader";
 import { SubscriptionProp } from "../../types/subscription";
 import { useDispatch, useSelector } from "react-redux";
@@ -56,6 +58,8 @@ const SubscriptionPage = (props: Props) => {
   // Get authentication token using custom hook
   const axiosToken = useAxiosAuth();
 
+  useDashboardBootstrap();
+
 
   // Get Ethereum paySubscription function using custom hook
   const { paySubscription } = useEthereum()
@@ -104,7 +108,12 @@ const SubscriptionPage = (props: Props) => {
         <title>Subscription Dashboard</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
-      <Wrapper>
+      <DashboardShell active="subscription">
+        <TopBar
+          crumb="Dashboard / Subscription"
+          title="Subscription"
+          subtitle="Your plan, your remaining units, and your payment history."
+        />
         {isLoading && <SubscriptionSkeletonLoader />}
         {loading && <Loader />}
         {!isLoading && <div className="sub__container px-4 sm:px-1">
@@ -270,7 +279,7 @@ const SubscriptionPage = (props: Props) => {
             }} />
           </div>
         </div>}
-      </Wrapper>
+      </DashboardShell>
       <SubscriptionModal isOpen={modalOpen.open} subscription={modalOpen.plan} setIsOpen={(e) => setModalOpen((prev) => ({
         ...prev, open: e
       }))} continueFunction={(id, network) => paymentProceed(id, network)} units={unit.unit} />

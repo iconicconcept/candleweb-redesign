@@ -33,6 +33,7 @@ const RAIL: { key: DashboardSection; label: string; href: string; Icon: any }[] 
   { key: "portfolio", label: "Overview", href: "/dashboard", Icon: GridIcon },
   { key: "trades", label: "My trades", href: "/dashboard/trades", Icon: ChartIcon },
   { key: "subscription", label: "Subscription", href: "/dashboard/subscription", Icon: CardStackIcon },
+  { key: "academy", label: "Academy", href: "/dashboard/tutor", Icon: AcademyIcon },
   { key: "notifications", label: "Notifications", href: "/dashboard/notifications", Icon: BellIcon },
   { key: "invite", label: "Invite & earn", href: "/dashboard/invite", Icon: InviteIcon },
   { key: "tasks", label: "Daily tasks", href: "/dashboard/tasks", Icon: TasksIcon },
@@ -88,13 +89,6 @@ export default function DashboardShell({ active, children }: Props) {
                 </Link>
               ))}
               <span className="sp" />
-              <Link
-                href="/dashboard/tutor"
-                className={`fx-ic ${active === "academy" ? "on" : ""}`}
-              >
-                <AcademyIcon />
-                <span className="tip">Academy</span>
-              </Link>
               <Link
                 href="/dashboard/settings"
                 className={`fx-ic ${active === "settings" ? "on" : ""}`}
