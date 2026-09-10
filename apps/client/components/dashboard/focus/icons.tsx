@@ -234,3 +234,19 @@ export const SearchIcon = (p: SVGProps<SVGSVGElement>) => (
     <path d="M16 16l4.5 4.5" />
   </svg>
 );
+
+export const BotIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}>
+    <rect x="4" y="8" width="16" height="12" rx="3" />
+    <path d="M12 4v4M9 13h.01M15 13h.01M9 17h6" />
+  </svg>
+);
+
+export const RefreshIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}>
+    <path d="M20 11A8 8 0 006.3 5.3L4 7.5" />
+    <path d="M4 4v3.5H7.5" />
+    <path d="M4 13a8 8 0 0013.7 5.7L20 16.5" />
+    <path d="M20 20v-3.5H16.5" />
+  </svg>
+);

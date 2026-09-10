@@ -17,6 +17,7 @@ import {
   TasksIcon,
   AcademyIcon,
   GearIcon,
+  BotIcon,
 } from "./icons";
 import Image from "next/image";
 import { MdSettings } from "react-icons/md";
@@ -24,6 +25,7 @@ import { MdSettings } from "react-icons/md";
 export type DashboardSection =
   | "portfolio"
   | "trades"
+  | "bots"
   | "subscription"
   | "notifications"
   | "invite"
@@ -34,6 +36,7 @@ export type DashboardSection =
 const RAIL: { key: DashboardSection; label: string; href: string; Icon: any }[] = [
   { key: "portfolio", label: "Overview", href: "/dashboard", Icon: GridIcon },
   { key: "trades", label: "My trades", href: "/dashboard/trades", Icon: ChartIcon },
+  { key: "bots", label: "My bots", href: "/dashboard/bots", Icon: BotIcon },
   { key: "subscription", label: "Subscription", href: "/dashboard/subscription", Icon: CardStackIcon },
   { key: "academy", label: "Academy", href: "/dashboard/tutor", Icon: AcademyIcon },
   { key: "notifications", label: "Notifications", href: "/dashboard/notifications", Icon: BellIcon },
@@ -44,7 +47,7 @@ const RAIL: { key: DashboardSection; label: string; href: string; Icon: any }[] 
 const MOBILE_TABS: { key: DashboardSection; label: string; href: string; Icon: any }[] = [
   { key: "portfolio", label: "Overview", href: "/dashboard", Icon: GridIcon },
   { key: "trades", label: "Trades", href: "/dashboard/trades", Icon: ChartIcon },
-  { key: "tasks", label: "Tasks", href: "/dashboard/tasks", Icon: TasksIcon },
+  { key: "bots", label: "Bots", href: "/dashboard/bots", Icon: BotIcon },
   { key: "academy", label: "Academy", href: "/dashboard/tutor", Icon: AcademyIcon },
   { key: "settings", label: "Settings", href: "/dashboard/settings", Icon: GearIcon },
 ];
@@ -80,7 +83,7 @@ export default function DashboardShell({ active, children }: Props) {
           <aside className="fx-rail">
             <div className="fx-rail-in">
               {/* <span className="fx-mark" /> */}
-              <Image src={"/favicon.ico"} width={32} height={32} />
+              <Image src={"/favicon.ico"} alt="Candleweb" width={32} height={32} />
               {RAIL.map((item) => (
                 <Link
                   key={item.key}
