@@ -1,8 +1,8 @@
 import axios from "axios";
 import useUserStore from "../lib/hooks/useUserStore";
 
-export const uri = "https://api.candleweb.io/api/";
-// export const uri = "https://sandboxapi.candleweb.io/api/";
+// export const uri = "https://api.candleweb.io/api/";
+export const uri = "https://sandboxapi.candleweb.io/api/";
 
 export const axiosApi = axios.create({
   baseURL: uri,
@@ -29,7 +29,7 @@ const processQueue = (error: any, token: string | null = null) => {
 };
 
 const refreshAccessToken = async () => {
-  const response = await fetch(`${uri}/user/refresh/get/token/`, {
+  const response = await fetch(`${uri}user/refresh/get/token/`, {
     method: "GET",
     credentials: "include",
   });

@@ -41,6 +41,18 @@ export const authSlice = createSlice({
         // It sets isLoading to false to indicate the registration request was successful
         state.isLoading = false;
       })
+      .addCase(authService.createUserWithEmail.pending, (state, action) => {
+        // Email sign-up request in progress
+        state.isLoading = true;
+      })
+      .addCase(authService.createUserWithEmail.rejected, (state, action) => {
+        // Email sign-up request failed
+        state.isLoading = false;
+      })
+      .addCase(authService.createUserWithEmail.fulfilled, (state, action) => {
+        // Email sign-up request succeeded
+        state.isLoading = false;
+      })
       .addCase(authService.loginUser.pending, (state, action) => {
         // Reducer executed when the "authService.loginUser.pending" action is dispatched
         // It sets isLoading to true to indicate a login request is in progress

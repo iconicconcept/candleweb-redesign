@@ -1,324 +1,572 @@
 import Head from "next/head";
-import React, { useEffect, useState } from "react";
-import { Button, Heading, Typography, addExpirationDate, isMonthly, dollarFormat, formatDate, Modal } from "ui";
-import { CloseTable } from "../../components/dashboard/table/CloseTable";
-import DashboardShell from "../../components/dashboard/focus/DashboardShell";
-import TopBar from "../../components/dashboard/focus/TopBar";
-import useDashboardBootstrap from "../../lib/hooks/useDashboardBootstrap";
-import { SubscriptionSkeletonLoader } from "../../components/dashboard/skeleton/SkeletonLoader";
-import { SubscriptionProp } from "../../types/subscription";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { addExpirationDate, dollarFormat, formatDate } from "ui";
 import { AppDispatch, RootState } from "../../redux/store";
 import subscriptionService from "../../services/subscriptionService";
 import useAxiosAuth from "../../lib/hooks/useAxiosAuth";
-// import { isAuthorizationHeaderSet } from "../../utils/check_auth";
 import useEthereum from "../../lib/hooks/useEthereum";
-import Loader from "../../components/Loader";
+import { isAuthorizationHeaderSet } from "../../utils/check_auth";
 import { error } from "../../components/alert/Toast";
-import { IPricingProps } from "../pricing";
+import DashboardShell from "../../components/dashboard/focus/DashboardShell";
+import TopBar from "../../components/dashboard/focus/TopBar";
+import Dialog from "../../components/dashboard/focus/Dialog";
+import { CheckIcon, ShieldIcon, CardStackIcon } from "../../components/dashboard/focus/icons";
+import { SubscriptionSkeletonLoader } from "../../components/dashboard/skeleton/SkeletonLoader";
+import Loader from "../../components/Loader";
 import SubscriptionModal from "../../components/dashboard/modal/Subscription";
+import { SubscriptionProp, Feature, SubscriptionHistoryProp } from "../../types/subscription";
+import { IPricingProps } from "../pricing";
 
-// Define the Props type for the component
-type Props = {};
+const MIN_UNITS = 20;
 
-// Define the SubscriptionPage component
-const SubscriptionPage = (props: Props) => {
-  const minimumToken = 20;
-  // Retrieve necessary data from the subscription Redux store
-  const { isLoading, subscriptions, currentPlan, subscriptionHistory, paymentIds } = useSelector(
-    (state: RootState) => state.subscription
-  );
+type FeatureRow = { label: string; ok: boolean };
+
+/** Turn a plan's raw `features[0]` object into readable card bullets. */
+const readFeatures = (feature?: Feature): FeatureRow[] => {
+  if (!feature) return [];
+  const rows: FeatureRow[] = [];
+  const title = (key: string) =>
+    key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+
+  Object.entries(feature).forEach(([key, value]) => {
+    if (key === "description" || key === "order_per_day") return;
+    if (value === null || value === undefined || value === "") return;
+
+    if (key === "max_invest_amount" || key === "min_invest_amount") {
+      const label = key === "max_invest_amount" ? "Max trade amount" : "Min trade amount";
+      rows.push({ label: `${label} ${dollarFormat(parseFloat(String(value)))}`, ok: true });
+      return;
+    }
+    if (typeof value === "boolean") {
+      rows.push({ label: title(key), ok: value });
+      return;
+    }
+    rows.push({ label: `${value} ${title(key).toLowerCase()}`, ok: true });
+  });
+
+  return rows;
+};
+
+const SubscriptionPage = () => {
   const dispatch = useDispatch<AppDispatch>();
-  const [unit, setUnit] = useState<{
-    sub_id: number;
-    unit: number
-  }>({
-    sub_id: 0,
-    unit: minimumToken
-  });
-
-  // State variables for managing user selections
-  const [modalOpen, setModalOpen] = useState<{
-    open: boolean;
-    plan?: IPricingProps;
-  }>({
-    open: false,
-  });
-  const [selectedSub, setSelectedSub] = useState<number>(0);
-
-  const [loading, setLoading] = useState(false);
-  const [cancelModal, setCancelModal] = useState<{
-    open: boolean;
-    data: number;
-  }>({
-    open: false,
-    data: 0,
-  });
-
-  // Get authentication token using custom hook
   const axiosToken = useAxiosAuth();
+  const { paySubscription } = useEthereum();
 
-  useDashboardBootstrap();
+  const { isLoading, subscriptions, currentPlan, subscriptionHistory, paymentIds } = useSelector(
+    (state: RootState) => state.subscription,
+  );
 
+  const [units, setUnits] = useState(MIN_UNITS);
+  const [choosePlan, setChoosePlan] = useState<SubscriptionProp | null>(null);
+  const [payModal, setPayModal] = useState<{ open: boolean; plan?: IPricingProps }>({ open: false });
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [paying, setPaying] = useState(false);
 
-  // Get Ethereum paySubscription function using custom hook
-  const { paySubscription } = useEthereum()
+  const fetchedTokenRef = useRef<string | null>(null);
 
-  // Fetch subscription and history data when the component mounts
   useEffect(() => {
     dispatch(subscriptionService.getSubscriptionList());
-
-    dispatch(subscriptionService.getSubscriptionHistoryList(axiosToken));
-
-    if (paymentIds.length === 0) {
-      dispatch(subscriptionService.getPaymentId());
-    }
-
+    if (paymentIds.length === 0) dispatch(subscriptionService.getPaymentId());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Function to proceed with payment and create a new subscription
-  const paymentProceed = async (id: number, network: number) => {
-    setLoading(true);
-    if (Object.keys(currentPlan).length > 0) {
-      error("You already have an active plan.")
-      return
-    }
+  useEffect(() => {
+    if (!isAuthorizationHeaderSet(axiosToken)) return;
+    const token = String(axiosToken.defaults.headers["Authorization"] ?? "");
+    if (fetchedTokenRef.current === token) return;
+    fetchedTokenRef.current = token;
+    dispatch(subscriptionService.getSubscriptionHistoryList(axiosToken));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [axiosToken, dispatch]);
 
-    setLoading(true);
-    // const sb = subscriptions[selectedSub];
-    const expDate = addExpirationDate(false);
+  const hasPlan = currentPlan && Object.keys(currentPlan).length > 0;
 
+  const planFor = (id?: number): SubscriptionProp | undefined =>
+    subscriptions.find((s) => s.id === id);
 
-    await paySubscription((modalOpen.plan?.price!).toString(), id!, expDate, network, unit.unit);
-    setModalOpen({
-      open: false, plan: undefined,
-    })
+  const activePlan = hasPlan ? planFor(currentPlan.subscription_id) : undefined;
+  const activePlanName =
+    activePlan?.name || currentPlan.subscription?.[0]?.description || "your plan";
 
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setLoading(false);
+  const activeNetworks = paymentIds.filter((p) => p.is_active);
+
+  const history = useMemo(
+    () =>
+      [...(subscriptionHistory ?? [])].sort(
+        (a, b) =>
+          new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime(),
+      ),
+    [subscriptionHistory],
+  );
+
+  const historyStatus = (h: SubscriptionHistoryProp) => {
+    if (h.is_active) return { label: "Active", off: false };
+    if (h.expiry_date && new Date(h.expiry_date).getTime() < Date.now())
+      return { label: "Expired", off: true };
+    return { label: "Ended", off: true };
   };
 
+  const openChoose = (plan: SubscriptionProp) => {
+    setUnits(MIN_UNITS);
+    setChoosePlan(plan);
+  };
 
-  // Find the details of the current subscription
-  // const currentSubscription = subscriptions.find(sub => sub.id === currentPlan.subscription_id);
+  const continueToPayment = () => {
+    if (!choosePlan) return;
+    setPayModal({
+      open: true,
+      plan: {
+        title: choosePlan.name!,
+        price: parseFloat(choosePlan.price || "0"),
+        id: choosePlan.id!,
+      },
+    });
+    setChoosePlan(null);
+  };
+
+  const paymentProceed = async (id: number, network: number) => {
+    if (hasPlan) {
+      error("You already have an active plan.");
+      return;
+    }
+    const plan = payModal.plan;
+    if (!plan) return;
+
+    setPaying(true);
+    setPayModal({ open: false });
+    try {
+      await paySubscription(plan.price.toString(), id, addExpirationDate(false), network, units);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      await new Promise((r) => setTimeout(r, 1200));
+      setPaying(false);
+    }
+  };
+
+  const cancelPlan = async () => {
+    if (!currentPlan.id) return;
+    await dispatch(
+      subscriptionService.cancelSubscription({ api: axiosToken, id: currentPlan.id }),
+    );
+    setCancelOpen(false);
+  };
+
+  const chosenTotal = choosePlan
+    ? dollarFormat(parseFloat((parseFloat(choosePlan.price || "0") * units).toFixed(2)))
+    : "";
 
   return (
     <>
       <Head>
-        <title>Subscription Dashboard</title>
+        <title>Subscription | Candleweb</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
+
       <DashboardShell active="subscription">
         <TopBar
           crumb="Dashboard / Subscription"
           title="Subscription"
-          subtitle="Your plan, your remaining units, and your payment history."
+          subtitle="Your plan, the units you have left, and every payment you have made."
         />
-        {isLoading && <SubscriptionSkeletonLoader />}
-        {loading && <Loader />}
-        {!isLoading && <div className="sub__container px-4 sm:px-1">
-          <div className="top__cards grid grid-cols-2 gap-5 sm:grid-cols-1">
-            <div className="current__plan">
-              <div className="current__header p-6 bg-card rounded-2xl">
-                <div className="titles inter">
-                  <Typography classstyle="!text-txtSec !font-medium" textsize="xs">Remaining Units</Typography>
-                  <div className="mt-2">
-                    <Heading textsize="lg" classstyle="!font-medium">{currentPlan.tokens ?? "--"}</Heading>
-                  </div>
-                </div>
+
+        {paying && <Loader />}
+
+        {isLoading && subscriptions.length === 0 ? (
+          <SubscriptionSkeletonLoader />
+        ) : (
+          <>
+            {/* ---- hero: current plan / no plan ---- */}
+            <section className="fx-sub-hero rv d1">
+              <div className="fx-chips">
+                {hasPlan ? (
+                  <>
+                    <span className="fx-chip ok4">
+                      <i />
+                      {activePlanName}, active
+                    </span>
+                    <span className="fx-chip">
+                      <i />
+                      Paid in crypto
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="fx-chip warn4">
+                      <i />
+                      No plan yet
+                    </span>
+                    <span className="fx-chip">
+                      <i />
+                      Nothing being charged
+                    </span>
+                  </>
+                )}
               </div>
-              {/* {Object.keys(currentPlan).length !== 0 && */}
-              <div className="dates__title border-b-[1px] border-[var(--card-cover)] bg-card mt-5 rounded-2xl overflow-hidden">
-                <div className="sub__date bg-[var(--card-cover)] px-6 py-6">
-                  <Typography classstyle="!text-txtSec !font-medium" textsize="xs">Unit Category</Typography>
-                  <div className="mt-2">
-                    <Heading textsize="lg" classstyle="!font-medium">{currentPlan.subscription?.[0].description ?? "--"}</Heading>
+
+              {hasPlan ? (
+                <>
+                  <p className="fx-eqlab">Units remaining</p>
+                  <p className="fx-eq">
+                    {(currentPlan.tokens ?? 0).toLocaleString()}
+                    <small>on {activePlanName}</small>
+                  </p>
+                  <span className="fx-delta">
+                    <ShieldIcon />
+                    {currentPlan.expiry_date
+                      ? `Runs until ${formatDate(currentPlan.expiry_date)}`
+                      : "Active"}
+                  </span>
+
+                  <div className="fx-substat">
+                    <div className="fx-ss">
+                      <span>Plan</span>
+                      <b style={{ textTransform: "capitalize" }}>{activePlanName}</b>
+                    </div>
+                    <div className="fx-ss">
+                      <span>Price per unit</span>
+                      <b>
+                        {activePlan?.price
+                          ? dollarFormat(parseFloat(activePlan.price))
+                          : "--"}
+                      </b>
+                    </div>
+                    <div className="fx-ss">
+                      <span>Purchased</span>
+                      <b>
+                        {currentPlan.created_at ? formatDate(currentPlan.created_at) : "--"}
+                      </b>
+                    </div>
+                    <div className="fx-ss">
+                      <span>Expires</span>
+                      <b>
+                        {currentPlan.expiry_date ? formatDate(currentPlan.expiry_date) : "--"}
+                      </b>
+                    </div>
                   </div>
-                </div>
-                <div className="sub__date grid grid-cols-2 px-6 py-6 gap-10">
-                  <div className="">
-                    <Heading textsize="xs" boldness="med" classstyle="">
-                      {currentPlan.created_at && formatDate(currentPlan.created_at!)}
-                      {!currentPlan.created_at && "--"}
-                    </Heading>
-                    <Typography classstyle="!text-txtSec text-[0.8rem]">
-                      Last purchase
-                    </Typography>
-                  </div>
-                  <div className="">
-                    <Heading textsize="xs" boldness="med" classstyle="">
-                      {Object.keys(currentPlan).length > 0 && dollarFormat(parseFloat(subscriptions!.filter((e) => e.id === currentPlan.subscription_id)[0]?.price ?? "0"))}
-                      {Object.keys(currentPlan).length < 1 && "--"}
-                    </Heading>
-                    <Typography classstyle="!text-txtSec text-[0.8rem]">
-                      Unit Price
-                    </Typography>
+                </>
+              ) : (
+                <>
+                  <p className="fx-eqlab">Costs you today</p>
+                  <p className="fx-eq">$0</p>
+                  <span className="fx-delta">
+                    <CheckIcon />
+                    Pick a plan and choose how many units to buy
+                  </span>
+
+                  <div className="fx-emptyrow">
+                    <a className="fx-cta main2" href="#plans">
+                      Choose a plan
+                    </a>
                   </div>
 
+                  <div className="fx-substat">
+                    <div className="fx-ss">
+                      <span>Plans available</span>
+                      <b>{subscriptions.length || "--"}</b>
+                    </div>
+                    <div className="fx-ss">
+                      <span>Minimum units</span>
+                      <b>{MIN_UNITS}</b>
+                    </div>
+                    <div className="fx-ss">
+                      <span>Payment</span>
+                      <b>Crypto</b>
+                    </div>
+                    <div className="fx-ss">
+                      <span>Networks</span>
+                      <b>{activeNetworks.length || "--"}</b>
+                    </div>
+                  </div>
+                </>
+              )}
+            </section>
+
+            {/* ---- plans ---- */}
+            <section className="fx-sec" id="plans" data-rv>
+              <div className="fx-sh">
+                <h2>
+                  Plans <span className="sub2">buy units against the plan that fits your trading</span>
+                </h2>
+              </div>
+
+              {subscriptions.length === 0 ? (
+                <div className="fx-soft">
+                  <p>Couldn&rsquo;t load the plans. Reload the page to try again.</p>
                 </div>
-              </div>
-              {/* } */}
-              {/* {Object.keys(currentPlan).length == 0 && <div className="h-32 w-full flex items-center justify-center">
-                <p className="text-sm text-txtSec">You don&apos;t have any active plan</p>
-              </div>} */}
-              {/* {Object.keys(currentPlan).length !== 0 && <div className="card__btn pl-6 py-4">
-                <Button classstyle="!bg-[var(--redish)]" variant="secondary" onClick={() => {
-                  setCancelModal({
-                    open: true,
-                    data: currentPlan.id!
-                  })
-                }}>
-                  Cancel
-                </Button>
-              </div>} */}
-            </div>
-            <div className="change__plan rounded-2xl bg-card overflow-hidden">
-              <div className="header py-3 px-6 border-b-[1px] border-[var(--card-cover)]">
-                <Heading textsize="xl">Change Plan</Heading>
-              </div>
-              {Object.keys(subscriptions).length === 0 && <div className="h-40 w-full flex items-center justify-center">
-                <p className="text-sm text-txtSec">Error fetching subscriptions, reload page</p>
-              </div>}
-              {Object.keys(subscriptions).length !== 0 && <div className="the__plan pt-4 px-6 border-[var(--card-cover)]">
-                <div
-                  className={`plan__type flex w-full items-center border border-primary justify-evenly rounded-full mb-5 mt-3 relative overflow-hidden before:z-[1] ${(selectedSub) === 0
-                    ? "before:!left-[0%]"
-                    : (selectedSub) === 1
-                      ? "before:!left-[33.3%]"
-                      : "before:!left-[66.6%]"
-                    }`}
-                >
-                  {subscriptions.map((plan: SubscriptionProp, index: number) => (
-                    <div
-                      className={`plan py-2 w-full z-[5] flex justify-center`}
-                      key={index + plan.name!}
-                      role="button"
-                      onClick={() => {
-                        setSelectedSub(index)
-                      }
-                      }
-                    >
-                      <Typography
-                        align="center"
-                        classstyle={`font-medium inter capitalize transition duration-1000 ${(selectedSub) === index
-                          ? "!text-dark"
-                          : ""
-                          }`}
+              ) : (
+                <div className="fx-plans">
+                  {subscriptions.map((plan) => {
+                    const isCurrent = hasPlan && plan.id === currentPlan.subscription_id;
+                    const rows = readFeatures(plan.features?.[0]);
+                    return (
+                      <div
+                        key={plan.id}
+                        className={`fx-plan ${isCurrent ? "cur9" : ""}`}
                       >
-                        {plan.name?.split(" ")[0]}
-                      </Typography>
-                    </div>
-                  ))}
-                </div>
-                <div className="quota pt-5 flex items-center justify-between">
-                  <div className="">
-                    <Typography classstyle="!text-txtSec inter !text-xs">
-                      Number of units
-                    </Typography>
+                        {isCurrent && <span className="pk9">Your plan</span>}
+                        <h3>{plan.name?.split(" ")[0]}</h3>
+                        <p className="pw9">{plan.features?.[0]?.description || " "}</p>
+                        <div className="pp9">
+                          <b>{dollarFormat(parseFloat(plan.price || "0"))}</b>
+                          <span>per unit</span>
+                        </div>
+                        <span className="pa9">Minimum {MIN_UNITS} units</span>
 
-                    <div className="flex items-center gap-5">
-                      <div className="flex gap-5 items-center justify-between m-auto w-[130px] rounded-full bg-[#595959]/45 mt-1 p-1">
-                        <button className="minus min-w-8 min-h-8 max-w-8 max-h-8 rounded-full bg-black/45 flex items-center justify-center text-3xl cursor-pointer" onClick={() => {
-                          if (unit.unit === minimumToken) return;
-                          setUnit((prev) => ({
-                            unit: subscriptions[selectedSub].id === prev.sub_id ? prev.unit - 1 : (minimumToken + 1),
-                            sub_id: subscriptions[selectedSub].id!
-                          }))
-                        }}>
-                          -
+                        <ul className="fx-pft">
+                          {rows.map((row, i) => (
+                            <li key={i} className={row.ok ? "" : "no9"}>
+                              {row.ok ? (
+                                <svg viewBox="0 0 24 24">
+                                  <path d="M20 6.5 9.2 17.3 4 12.1" />
+                                </svg>
+                              ) : (
+                                <svg viewBox="0 0 24 24">
+                                  <path d="M6 12h12" />
+                                </svg>
+                              )}
+                              {row.label}
+                            </li>
+                          ))}
+                        </ul>
+
+                        <button
+                          className={`fx-mini ${isCurrent ? "" : "go9"}`}
+                          type="button"
+                          disabled={isCurrent || hasPlan}
+                          onClick={() => openChoose(plan)}
+                        >
+                          {isCurrent
+                            ? "Current plan"
+                            : hasPlan
+                              ? "Plan active"
+                              : `Choose ${plan.name?.split(" ")[0]}`}
                         </button>
-                        {<Typography>{unit.sub_id === subscriptions[selectedSub].id ? unit.unit : minimumToken}</Typography>}
-                        <button className="plus min-w-8 min-h-8 max-w-8 max-h-8 rounded-full bg-black/45 flex items-center justify-center text-xl cursor-pointer" onClick={() => {
-                          setUnit((prev) => ({
-                            unit: subscriptions[selectedSub].id === prev.sub_id ? prev.unit + 1 : (minimumToken + 1),
-                            sub_id: subscriptions[selectedSub].id!
-                          }))
-                        }}>+</button>
                       </div>
-                      <Typography classstyle="!text-txtSec inter !text-sm sm:!hidden">
-                        Minimum of {minimumToken} units.
-                      </Typography>
-                    </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
 
+            {/* ---- how buying works + cancel ---- */}
+            <div className="fx-cols fx-sec">
+              <section>
+                <div className="fx-sh">
+                  <h2>How buying units works</h2>
+                </div>
+                <div className="fx-soft">
+                  <div className="fx-riskline">
+                    <span>Price</span>
+                    <b>Flat, per unit</b>
                   </div>
-                  <Typography classstyle="inter !font-semibold" textsize="xl">
-                    {dollarFormat(parseFloat((parseFloat(subscriptions[selectedSub].price!) * unit.unit).toFixed(2)))}
-                  </Typography>
+                  <div className="fx-riskline">
+                    <span>Minimum purchase</span>
+                    <b>{MIN_UNITS} units</b>
+                  </div>
+                  <div className="fx-riskline">
+                    <span>Paid with</span>
+                    <b>Crypto, on-chain</b>
+                  </div>
+                  <div className="fx-riskline">
+                    <span>Networks</span>
+                    <b>{activeNetworks.map((n) => n.name).join(", ") || "--"}</b>
+                  </div>
+                  <p style={{ margin: "13px 0 0", fontSize: "12.4px", color: "var(--fx-t3)", lineHeight: 1.6 }}>
+                    Each purchase is confirmed on-chain and runs until its expiry date. Prices
+                    are set per unit &mdash; the total you pay is the unit price times the number
+                    of units you buy.
+                  </p>
                 </div>
-                <div className="h-4">
+              </section>
 
+              <section>
+                <div className="fx-sh">
+                  <h2>Payment</h2>
                 </div>
-              </div>}
-              {Object.keys(subscriptions).length !== 0 && <div className="card__btn px-6 py-4">
-                <Button classstyle="blue_gradient !px-0" fullwidth onClick={() => {
-                  setModalOpen({
-                    open: true,
-                    plan: {
-                      title: subscriptions[selectedSub].name!,
-                      price: parseFloat(subscriptions[selectedSub].price!),
-                      id: subscriptions[selectedSub].id!,
-                    }
-                  })
-                }}>Proceed</Button>
-              </div>}
+                <div className="fx-soft">
+                  <div className="fx-riskline">
+                    <span>Method</span>
+                    <b>Crypto</b>
+                  </div>
+                  {hasPlan && (
+                    <div className="fx-riskline">
+                      <span>Plan expires</span>
+                      <b>
+                        {currentPlan.expiry_date
+                          ? formatDate(currentPlan.expiry_date)
+                          : "--"}
+                      </b>
+                    </div>
+                  )}
+                  {hasPlan && currentPlan.transaction_hash && (
+                    <div className="fx-riskline">
+                      <span>Last transaction</span>
+                      <b style={{ maxWidth: "160px", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {currentPlan.transaction_hash.slice(0, 10)}…
+                      </b>
+                    </div>
+                  )}
+                  {hasPlan ? (
+                    <button
+                      className="fx-mini"
+                      type="button"
+                      style={{ width: "100%", padding: "12px 0", marginTop: "14px" }}
+                      onClick={() => setCancelOpen(true)}
+                    >
+                      Cancel plan
+                    </button>
+                  ) : (
+                    <p style={{ margin: "6px 0 0", fontSize: "12.4px", color: "var(--fx-t3)", lineHeight: 1.6 }}>
+                      Your payments will show here once you are on a plan.
+                    </p>
+                  )}
+                </div>
+              </section>
             </div>
-          </div>
-          <div className="history mb-10 mt-7 bg-card">
-            <div className="history__header py-3 px-6">
-              <Heading textsize="md">History</Heading>
-            </div>
-            <CloseTable subscription={subscriptionHistory} subs={subscriptions} payment={() => {
-              setModalOpen({
-                open: true,
-                plan: {
-                  title: subscriptions[selectedSub].name!,
-                  price: parseFloat(subscriptions[selectedSub].price!),
-                  id: subscriptions[selectedSub].id!,
-                }
-              })
-            }} />
-          </div>
-        </div>}
+
+            {/* ---- funds safety ---- */}
+            <section className="fx-sec" data-rv>
+              <div className="fx-sh">
+                <h2>Your funds</h2>
+              </div>
+              <div className="fx-safe9">
+                <span className="si9">
+                  <svg viewBox="0 0 24 24">
+                    <path d="M12 3l7 3v6c0 4-3 6.5-7 9-4-2.5-7-5-7-9V6z" />
+                    <path d="M9.5 12l1.8 1.8L15 10" />
+                  </svg>
+                </span>
+                <div>
+                  <h3>Candleweb never holds your money</h3>
+                  <p>
+                    Units pay for the platform only. Your trading funds stay in your own
+                    exchange account &mdash; the API keys you connect can read and trade but can
+                    never withdraw.
+                  </p>
+                </div>
+              </div>
+            </section>
+
+            {/* ---- billing history ---- */}
+            <section className="fx-sec" data-rv>
+              <div className="fx-sh">
+                <h2>
+                  Billing history <span className="sub2">{history.length} purchase{history.length === 1 ? "" : "s"}</span>
+                </h2>
+              </div>
+              {history.length === 0 ? (
+                <div className="fx-soft">
+                  <p>No purchases yet.</p>
+                </div>
+              ) : (
+                <div className="fx-pos">
+                  {history.map((h) => {
+                    const plan = planFor(h.subscription_id);
+                    const status = historyStatus(h);
+                    const amount =
+                      plan?.price && h.tokens
+                        ? dollarFormat(parseFloat(plan.price) * h.tokens)
+                        : "--";
+                    return (
+                      <div className="fx-brow" key={h.id}>
+                        <span className="bd9">
+                          {h.created_at ? formatDate(h.created_at) : "--"}
+                        </span>
+                        <span className="bt9">
+                          {plan?.name?.split(" ")[0] ||
+                            h.subscription?.[0]?.description ||
+                            "Plan"}
+                          {h.tokens ? ` · ${h.tokens} units` : ""}
+                        </span>
+                        <span className="bm9">{amount}</span>
+                        <span className={`bs9 ${status.off ? "off9" : ""}`}>{status.label}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          </>
+        )}
       </DashboardShell>
-      <SubscriptionModal isOpen={modalOpen.open} subscription={modalOpen.plan} setIsOpen={(e) => setModalOpen((prev) => ({
-        ...prev, open: e
-      }))} continueFunction={(id, network) => paymentProceed(id, network)} units={unit.unit} />
-      <Modal
-        title={""}
-        width="500px"
-        isOpen={cancelModal.open}
-        onChnage={(e) =>
-          setCancelModal({
-            data: 0,
-            open: e,
-          })
+
+      {/* choose-units dialog */}
+      <Dialog
+        open={!!choosePlan}
+        onClose={() => setChoosePlan(null)}
+        labelledBy="choose-plan-title"
+        icon={<CardStackIcon />}
+        title={<span id="choose-plan-title">Buy {choosePlan?.name?.split(" ")[0]} units</span>}
+        subtitle={`${dollarFormat(parseFloat(choosePlan?.price || "0"))} per unit · minimum ${MIN_UNITS}`}
+        footer={
+          <>
+            <button className="fx-cta ghost2" type="button" onClick={() => setChoosePlan(null)}>
+              Back
+            </button>
+            <button className="fx-cta main2" type="button" onClick={continueToPayment}>
+              Continue to payment
+            </button>
+          </>
         }
       >
-        <div className="cancelSub__modal mt-10 flex flex-col items-center text-center">
-          <Heading textsize="lg" classstyle="text-center">Cancel Subscription</Heading>
-          <Typography classstyle="text-center !text-txtSec !my-5">Are you sure you want to cancel this subscription?</Typography>
-          <div className="mt-5 flex items-center gap-5">
-            <Button variant="border" onClick={() => {
-              setCancelModal({
-                open: false,
-                data: 0
-              })
-            }}>Cancel</Button>
-            <Button onClick={() => {
-              dispatch(subscriptionService.cancelSubscription({
-                api: axiosToken,
-                id: cancelModal.data
-              })).then((res) => {
-                setCancelModal({
-                  open: false,
-                  data: 0
-                })
-              })
-
-            }}>Proceed</Button>
-          </div>
+        <label className="fx-eqlab" style={{ display: "block", marginBottom: "8px" }}>
+          Number of units
+        </label>
+        <div className="fx-step9">
+          <button
+            className="sb9"
+            type="button"
+            disabled={units <= MIN_UNITS}
+            onClick={() => setUnits((u) => Math.max(MIN_UNITS, u - 1))}
+          >
+            −
+          </button>
+          <span className="sv9">{units}</span>
+          <button className="sb9" type="button" onClick={() => setUnits((u) => u + 1)}>
+            +
+          </button>
         </div>
-      </Modal>
+        <div className="fx-riskline" style={{ marginTop: "14px" }}>
+          <span>Total</span>
+          <b>{chosenTotal}</b>
+        </div>
+      </Dialog>
+
+      {/* cancel-plan dialog */}
+      <Dialog
+        open={cancelOpen}
+        onClose={() => setCancelOpen(false)}
+        tone="amber"
+        labelledBy="cancel-plan-title"
+        title={<span id="cancel-plan-title">Cancel your plan?</span>}
+        subtitle="You keep the units you have already bought until they expire."
+        footer={
+          <>
+            <button className="fx-cta ghost2" type="button" onClick={() => setCancelOpen(false)}>
+              Keep my plan
+            </button>
+            <button className="fx-cta main2" type="button" onClick={cancelPlan}>
+              Cancel plan
+            </button>
+          </>
+        }
+      >
+        <p className="fx-dwarn">
+          Cancelling stops the plan from renewing. Any units still on your account stay usable
+          until their expiry date.
+        </p>
+      </Dialog>
+
+      {/* payment / network selection (existing modal) */}
+      <SubscriptionModal
+        isOpen={payModal.open}
+        subscription={payModal.plan}
+        units={units}
+        setIsOpen={(e) => setPayModal((prev) => ({ ...prev, open: e }))}
+        continueFunction={(id, network) => paymentProceed(id, network)}
+      />
     </>
   );
 };

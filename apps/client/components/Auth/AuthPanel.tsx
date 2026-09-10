@@ -10,7 +10,7 @@ import useGoogleAuth from "../../lib/hooks/useGoogleAuth";
 import authService from "../../services/authService";
 import { loginUser } from "../../utils/loginUser";
 import { validateEmailAddress } from "../../utils/emailValidate";
-import { error, warning } from "../alert/Toast";
+import { error } from "../alert/Toast";
 import Loader from "../Loader";
 import type { RegisterProps } from "../../pages/auth/register";
 /* eslint-disable react/no-unescaped-entities */
@@ -79,6 +79,21 @@ export default function AuthPanel({ initialMode }: { initialMode: Mode }) {
     loginUser({
       wallet: walletAddress,
       signerPassword: signMessage,
+      setIsLoading: setBusy,
+      onSuccess: (value, type) => {
+        if (type === "success") {
+          setUser(value);
+          goDashboard();
+        }
+      },
+    });
+
+  // Email login rides the same POST /user/login/ endpoint as wallet login —
+  // the email goes in the wallet_address field per the API docs.
+  const finishWithEmail = (email: string, password: string) =>
+    loginUser({
+      wallet: email,
+      signerPassword: password,
       setIsLoading: setBusy,
       onSuccess: (value, type) => {
         if (type === "success") {
@@ -159,14 +174,50 @@ export default function AuthPanel({ initialMode }: { initialMode: Mode }) {
 
   const handleLoginSubmit = (event: React.FormEvent) => {
     event.preventDefault();
-    warning(
-      "Email sign-in isn't available yet — continue with Google or a wallet above.",
-    );
+    const email = loginForm.email.trim();
+    const password = loginForm.password;
+    if (!email || !password) {
+      error("Enter your email and password");
+      return;
+    }
+    if (!validateEmailAddress(email)) {
+      error("Enter a valid email address");
+      return;
+    }
+    setBusy(true);
+    finishWithEmail(email, password);
   };
 
-  const handleSignupSubmit = (event: React.FormEvent) => {
+  const handleSignupSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    handleWalletSignup(false);
+    const username = signupForm.username.trim();
+    const email = signupForm.email.trim();
+    const password = signupForm.password;
+    if (!username || !email || !password) {
+      error("Enter a username, email and password");
+      return;
+    }
+    if (!validateEmailAddress(email)) {
+      error("Enter a valid email address");
+      return;
+    }
+    if (password.length < 8) {
+      error("Password must be at least 8 characters");
+      return;
+    }
+    setBusy(true);
+    try {
+      await dispatch(
+        authService.createUserWithEmail({
+          data: { username, email, password },
+          onSucess: () => finishWithEmail(email, password),
+        }),
+      );
+    } catch (signupError) {
+      error(String(signupError));
+    } finally {
+      setBusy(false);
+    }
   };
 
   const switchMode = (next: Mode) => {
@@ -364,9 +415,7 @@ export default function AuthPanel({ initialMode }: { initialMode: Mode }) {
                 onGoogle={handleGoogle}
                 onWallet={handleWalletSignup}
               />
-              <div className="auth-or">
-                or use your email and a wallet
-              </div>
+              <div className="auth-or">or use your email</div>
               <form onSubmit={handleSignupSubmit}>
                 <div className="auth-fld">
                   <label htmlFor="signup-username">Username</label>
@@ -400,15 +449,39 @@ export default function AuthPanel({ initialMode }: { initialMode: Mode }) {
                     />
                   </div>
                   <p className="auth-hint">
-                    We'll send a confirmation link here.
+                    We'll send a verification code here.
                   </p>
+                </div>
+                <div className="auth-fld">
+                  <label htmlFor="signup-password">Password</label>
+                  <div className="in">
+                    <input
+                      id="signup-password"
+                      type={showPw ? "text" : "password"}
+                      autoComplete="new-password"
+                      placeholder="At least 8 characters"
+                      value={signupForm.password}
+                      onChange={(e) =>
+                        setSignupForm((f) => ({
+                          ...f,
+                          password: e.target.value,
+                        }))
+                      }
+                    />
+                    <button
+                      type="button"
+                      className="auth-peek"
+                      onClick={() => setShowPw((v) => !v)}
+                    >
+                      {showPw ? "Hide" : "Show"}
+                    </button>
+                  </div>
                 </div>
                 <button type="submit" className="auth-submit" disabled={busy}>
                   Create account <span>→</span>
                 </button>
                 <p className="auth-legal">
-                  You'll be asked to sign with a wallet to prove it's yours — it
-                  moves no funds. By continuing you agree to our{" "}
+                  By continuing you agree to our{" "}
                   <Link href="/terms">Terms</Link> and{" "}
                   <Link href="/privacy">Privacy Policy</Link>.
                 </p>

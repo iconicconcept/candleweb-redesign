@@ -56,6 +56,52 @@ const registerUser = createAsyncThunk(
   }
 );
 
+// Create an async thunk for creating a user with email + password
+const createUserWithEmail = createAsyncThunk(
+  "/user/create-with-email/", // The name of the action (used as the prefix for action types)
+  async (
+    payload: {
+      data: { username: string; email: string; password: string };
+      onSucess?: (value: any) => void;
+    },
+    thunkApi
+  ) => {
+    try {
+      // Create the account. The backend emails a 5-minute verification code,
+      // but the account is usable straight away (the code is informational),
+      // so callers can log the user in immediately afterwards.
+      const { data } = await axiosApi.post(
+        "/user/create-with-email/",
+        payload.data
+      );
+      success(data?.message || "Account created — signing you in.");
+      payload.onSucess?.(data);
+      return data;
+    } catch (err: any) {
+      const e = err as AxiosError;
+      let errorMessage = "";
+
+      if (e.response?.data) {
+        const resData = e.response.data as any;
+        if (resData.username && resData.username[0]) {
+          errorMessage = resData.username[0];
+        } else if (resData.email && resData.email[0]) {
+          errorMessage = resData.email[0];
+        } else if (resData.password && resData.password[0]) {
+          errorMessage = resData.password[0];
+        } else if (resData.message) {
+          errorMessage = resData.message;
+        } else if (resData.detail) {
+          errorMessage = resData.detail;
+        }
+      }
+      const message = errorMessage || e.message || e.toString();
+      error(message);
+      return thunkApi.rejectWithValue(message);
+    }
+  }
+);
+
 // Create an async thunk for user login
 const loginUser = createAsyncThunk(
   "/auth/login/", // The name of the action (used as the prefix for action types)
@@ -160,6 +206,7 @@ const googleLoginUser = createAsyncThunk(
 // Object containing the created async thunks
 const authService = {
   registerUser,
+  createUserWithEmail,
   loginUser,
   googleLoginUser,
 };

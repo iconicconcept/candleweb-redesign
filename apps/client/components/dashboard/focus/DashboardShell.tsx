@@ -18,6 +18,8 @@ import {
   AcademyIcon,
   GearIcon,
 } from "./icons";
+import Image from "next/image";
+import { MdSettings } from "react-icons/md";
 
 export type DashboardSection =
   | "portfolio"
@@ -77,7 +79,8 @@ export default function DashboardShell({ active, children }: Props) {
         <div className="fx-app">
           <aside className="fx-rail">
             <div className="fx-rail-in">
-              <span className="fx-mark" />
+              {/* <span className="fx-mark" /> */}
+              <Image src={"/favicon.ico"} width={32} height={32} />
               {RAIL.map((item) => (
                 <Link
                   key={item.key}
@@ -93,7 +96,7 @@ export default function DashboardShell({ active, children }: Props) {
                 href="/dashboard/settings"
                 className={`fx-ic ${active === "settings" ? "on" : ""}`}
               >
-                <GearIcon />
+                <MdSettings />
                 <span className="tip">Settings</span>
               </Link>
             </div>
