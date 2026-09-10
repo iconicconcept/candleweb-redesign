@@ -31,12 +31,16 @@ const getTasks = createAsyncThunk(
     try {
       const { data } = await api.get("/task/all/");
 
+      // When there are no tasks the API replies with `{ message: "..." }`
+      // instead of a list. That's a normal empty state, not an error — set an
+      // empty list and let the page render its own "nothing to do" message,
+      // rather than popping a toast on every visit.
       if (data?.message != null) {
-        error(data.message);
-        return;
+        thunkApi.dispatch(setTask([]));
+        return [];
       }
 
-      thunkApi.dispatch(setTask(data ?? []));
+      thunkApi.dispatch(setTask(Array.isArray(data) ? data : []));
       return data;
     } catch (err: any) {
       return thunkApi.rejectWithValue(getErrorMessage(err));

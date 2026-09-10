@@ -31,9 +31,18 @@ export default function EnrolledCourses({ courses }: { courses: EnrolledCourse[]
       </div>
       <div className="fx-courses">
         {visible.map((course) => {
-          const progress = course.progress ?? 0;
-          const done = progress >= 100;
-          const active = course.is_active !== false && course.status !== "paused";
+          const progress = Math.max(0, Math.min(100, Math.round(course.progress ?? 0)));
+          const done = progress >= 100 || course.status === "completed";
+          const started = progress > 0;
+          const paused = course.is_active === false || course.status === "paused";
+          const badgeClass = done ? "done" : !started ? "new4" : "act";
+          const badgeText = done
+            ? "Completed"
+            : paused
+              ? "Paused"
+              : !started
+                ? "Not started"
+                : "In progress";
           return (
             <div className="fx-lc" key={course.id}>
               <div className="fx-lcv">
@@ -60,9 +69,7 @@ export default function EnrolledCourses({ courses }: { courses: EnrolledCourse[]
                     {course.title?.charAt(0) ?? "C"}
                   </div>
                 )}
-                <span className={`st2 ${done ? "done" : "act"}`}>
-                  {done ? "Completed" : active ? "In progress" : "Paused"}
-                </span>
+                <span className={`st2 ${badgeClass}`}>{badgeText}</span>
               </div>
               <div className="fx-lcb">
                 <h3>{course.title}</h3>
@@ -80,7 +87,7 @@ export default function EnrolledCourses({ courses }: { courses: EnrolledCourse[]
                   style={{ width: "100%" }}
                   onClick={() => router.push(`/dashboard/tutor/course/${course.id}`)}
                 >
-                  {done ? "View certificate" : "Continue learning"} →
+                  {done ? "View course" : started ? "Continue learning" : "Start learning"} →
                 </button>
               </div>
             </div>

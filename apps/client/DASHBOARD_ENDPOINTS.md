@@ -33,6 +33,7 @@ Base URL: `https://api.candleweb.io/api/` (`apps/client/lib/axiosApi.ts`).
 | ✅ | `GET /task/reward/claim/{id}/` | claim one reward |
 | ⛔ | **`POST /task/reward/claim-all/`** | "Claim all" currently loops the single-claim endpoint once per reward. |
 | ❓ | `/task/leaderboard/` shape | page matches `account_id === user.username`; confirm it returns `account_id`, `point`, `level`. |
+| ❓ | `GET /task/all/` empty response | when there are no tasks it returns `{ "message": "..." }` instead of `[]`. FE now treats that as an empty list (was showing it as an error toast on every visit). Cleaner would be to always return an array. |
 
 ---
 
@@ -56,7 +57,7 @@ Base URL: `https://api.candleweb.io/api/` (`apps/client/lib/axiosApi.ts`).
 | ✅ | `GET /tutor/courses/featured/` | shop / catalogue |
 | ✅ | `GET /currency/retrieve/all/` | USD rate for the AI-unit revenue figure |
 | ✅ | task endpoints (see §2) | study stats / streak / rank |
-| ❓ / ⛔ | **`GET /tutor/courses/`** | page reads `data.data.results[]` and expects per-user `progress`, `is_active`, `status`. Unclear whether this returns the caller's **enrollments** or the whole catalogue. If catalogue-only, need a `GET /tutor/courses/enrolled/` (or those fields added for the authed user). |
+| ⛔ | **`GET /tutor/courses/` — per-user progress** | the "Your learning" list. The response has **no** per-user `progress` / `status` / `completed_at` / `is_enrolled` — so every enrolled course read as "In progress / 0%". FE workaround: it now fetches `GET /tutor/courses/{id}/` for each course and derives progress from `class_schedules` (a session past its `end_datetime`, or `is_completed`, counts as done). This is N extra requests — please add `progress` (0–100), `status` (`not_started`/`in_progress`/`completed`) and `completed_at` to each row of this list, **or** ship a dedicated `GET /tutor/courses/enrolled/`. Also confirm whether this endpoint (when authed) returns the caller's enrollments or the whole catalogue — the sample showed `current_enrollment_count: 0` on a course the user says they own. |
 
 ---
 
@@ -101,12 +102,30 @@ Cut as mockup-only: account-safety score, per-key withdrawal/IP-restriction dete
 
 ---
 
-## 8. Overview — `pages/dashboard/index.tsx` (chrome-only, not yet rebuilt)
+## 8. Overview — `pages/dashboard/index.tsx` (rebuilt 2026-09-10)
 
-Body still on the legacy components; theming patched for now. No new endpoints —
-uses the existing `useDashboardBootstrap` set (`/trade/portfolio/`,
-`/trade/portfolio/profit/pair/list/`, `/trade/portfolio/balance/`,
-`/exchange/record/`, active trades). Full rebuild waits for its mockup.
+Rebuilt on `.fx-*` from `candleweb-dashboard-focus.html` (+ the new-account
+variant `candleweb-new-account-dashboard.html`). The legacy body + the
+`useDashboardBootstrap` v1 `/trade/*` calls are **gone** from this route.
+
+| | Endpoint | Notes |
+|---|---|---|
+| ✅ | `GET /trading_v2/bots/` | "Your bots" strip |
+| ✅ | `GET /trading_v2/trades/` | "Your trades" list (shown as positions) + counts |
+| ✅ | `GET /trade/portfolio/balance/` | hero "Account balance" figure (sums non-CDE balances) |
+| ✅ | `GET /exchange/record/` | status chip + empty-state detection |
+| ✅ | notifications | via `TopBar` (see §3) |
+| ⛔ | **equity time series** | hero chart is a static placeholder SVG. Needs account-equity history (per exchange account, daily points). |
+| ⛔ | **open positions + stop distance** | "Your trades" rows show `—` for P&L and have no live position/entry/stop/mark. Needs the same per-trade performance / open-position data as §9. |
+| ⛔ | **daily & 30d P&L, drawdown, at-risk** | hero substats "Open P&L", "Realised · 30d" render `—`. |
+| ⛔ | **bot decision feed** | "Recent activity" spine is a design-only placeholder. Needs the per-bot decisions endpoint from §10 (`GET /trading_v2/bots/{id}/decisions/`), ideally an account-wide `GET /trading_v2/decisions/?limit=` for this feed. |
+| ⛔ | **momentum / review-readiness** | design-only — needs the decisions feed + `GET /trading_v2/bots/{id}/review/` (§10). |
+
+New-account state: shown when `bots`, `trades` and `exchangeRecord` are all
+empty — a 3-step getting-started panel linking to the real flows (Settings →
+connect exchange, `/dashboard/bots/new`, `/dashboard/trades/new`). The mockup's
+full interactive 4-step walkthrough with its own modals was **cut** — the real
+steps are their own pages.
 
 ## 9. My trades — `pages/dashboard/trades.tsx` + `pages/dashboard/trades/new.tsx`
 
@@ -135,7 +154,7 @@ Bot-facing (documented, not used by the dashboard UI): `GET /trading_v2/trades/{
 
 **Trade-detail page** (`candleweb-trade-detail-focus.html`) not built — needs a decisions-list endpoint, open-position / order data, and per-trade stats (win rate, confidence calibration). None exist.
 
-The old `tradeService` v1 endpoints (`/trade/portfolio/`, `/trade/activate/{id}/`, `/trade/cancel/{id}/`) are still used by the not-yet-rebuilt **Overview** page.
+The old `tradeService` v1 endpoints (`/trade/portfolio/`, `/trade/activate/{id}/`, `/trade/cancel/{id}/`, `/trade/active/`, `/trade/portfolio/profit/*`) are now **unused by any redesigned page** — `useDashboardBootstrap` and the legacy Overview body were the last callers. They can be retired once no other legacy route needs them.
 
 ---
 
@@ -173,6 +192,43 @@ live, health/decisions/P&L are **design-only** behind `.fx-preview`) ·
 Bot-facing (documented, not used by the dashboard UI): the bot authenticates
 its calls to `…/trades/{id}/candles/` and `…/decision/` with `dev_key` in the
 `X-Candleweb-Key` header.
+
+---
+
+## 11. History — `pages/dashboard/history.tsx` (built 2026-09-10, design-only)
+
+Built on `.fx-*` from `candleweb-history-focus.html`. New rail item `"history"`.
+The page is **entirely a preview** — there is no closed-trades data.
+
+| | Endpoint | Notes |
+|---|---|---|
+| ✅ | `GET /trading_v2/bots/` | per-bot strip lists the real bots (name + status); their closed/win-rate/net numbers are `—` |
+| ⛔ | **closed-trades list** | the whole page. Needs `GET /trading_v2/trades/history/?page=N` (or `?status=closed` on the trades list) returning, per closed position: pair, side, bot, trade name, entry price, exit price, opened_at, closed_at, exit reason (`stop_hit` / `trailing_stop` / `bot_closed` / `manual`), realised P&L (amount + pct). |
+| ⛔ | **history summary** | closed count, win rate, avg win / avg loss, net (amount + pct), best day — a `GET /trading_v2/trades/history/summary/?window=30d` block, or derive client-side from a full list. |
+| ⛔ | **per-bot history rollup** | closed / win-rate / net per bot — same, grouped by bot. |
+| ⛔ | **export** | the "Export" button needs a CSV endpoint (`GET /trading_v2/trades/history/export/`) or is done client-side once the list exists. |
+
+---
+
+## 12. Exchanges — `pages/dashboard/exchanges.tsx` (built 2026-09-11)
+
+Built on `.fx-*` from `candleweb-exchanges-focus.html` (+ empty / add-exchange
+mockups). New rail item `"exchanges"` (5th, before Daily tasks; `SwapIcon`) and a
+mobile tab; the mobile bar now ends in a **"More"** sheet holding History / Daily
+tasks / Academy / Settings. A stand-alone, richer version of the Settings
+"Exchanges" section — reuses `AddExchangeDialog`.
+
+| | Endpoint | Notes |
+|---|---|---|
+| ✅ | `GET /exchange/record/` | connected-account list (name via `/exchange/list/`, masked `API_KEY`, `is_active`) |
+| ✅ | `GET /exchange/list/` | supported exchanges — "Add another exchange" grid |
+| ✅ | `POST /exchange/record/` · `DELETE /exchange/record/{id}` | add (via `AddExchangeDialog`) / disconnect |
+| ✅ | `GET /trade/portfolio/balance/` | "Total balance" stat (sum of non-CDE balances) |
+| ✅ | `GET /trading_v2/trades/` | "trades running here" chips — matched by `trade.exchange_account === record.id` |
+| ⛔ | **per-key permission introspection** | the whole "Key safety" panel from the mockup (withdrawal on/off, IP lock, futures, spot, read, expiry → a 0-100 score). No endpoint reads back what a key actually granted. Rendered as a `.fx-preview` note; only the IP-allowlist box is real. Needs `GET /exchange/record/{id}/permissions/` (or fields on the record: `can_withdraw`, `can_trade`, `can_read`, `ip_restricted`, `expires_at`). |
+| ⛔ | **per-account balance breakdown** | mockup shows Balance / Available / In-positions **per exchange account**. `/trade/portfolio/balance/` is per-currency, not per-account. Stat band shows the account-wide total only. |
+| ❓ | `is_active` semantics | assumed `true` = key valid, `false` = expired/revoked. Confirm, and whether an `expires_at` / `last_synced_at` is available. |
+| — | "Sync all" | no dedicated endpoint — just re-fetches records + balance. |
 
 ---
 

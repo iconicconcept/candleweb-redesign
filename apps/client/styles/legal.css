@@ -370,3 +370,49 @@
     border-radius: 0;
   }
 }
+
+/* ============================================================================
+   LIGHT THEME — additive, only under :root[data-site-theme="light"] (default).
+   Dark styling above untouched; this only re-colours.
+   ========================================================================== */
+:root[data-site-theme="light"] .legal-stage {
+  --lg-bg: #f6f7f5;
+  --lg-s1: #ffffff;
+  --lg-s2: #f4f5f2;
+  --lg-line: rgba(16, 22, 18, 0.1);
+  --lg-line2: rgba(16, 22, 18, 0.18);
+  --lg-text: #14161a;
+  --lg-muted: #45484d;
+  --lg-dim: #63666b;
+  --lg-teal: #10a37f;
+  --lg-teal2: #0b8f6a;
+  --lg-deep: #0b7d5f;
+  --lg-amber: #ffb93d;
+  /* --lg-amber2 stays light gold; amber text re-coloured per-rule below. */
+
+  background: linear-gradient(180deg, #ffffff, #f6f7f5 50%, #f1f2ef);
+  box-shadow: 0 40px 110px rgba(16, 22, 18, 0.12);
+}
+:root[data-site-theme="light"] .legal-grid {
+  background-image:
+    linear-gradient(rgba(16, 22, 18, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(16, 22, 18, 0.045) 1px, transparent 1px);
+}
+:root[data-site-theme="light"] .legal-eyebrow {
+  background: rgba(16, 22, 18, 0.035);
+}
+:root[data-site-theme="light"] .legal-toggle a {
+  background: rgba(16, 22, 18, 0.035);
+}
+:root[data-site-theme="light"] .legal-body {
+  color: #3f4247;
+}
+:root[data-site-theme="light"] .legal-warnbox b {
+  color: #8a5500;
+}
+:root[data-site-theme="light"] .legal-sec code {
+  background: rgba(16, 22, 18, 0.06);
+}
+:root[data-site-theme="light"] .legal-table td {
+  border-bottom-color: rgba(16, 22, 18, 0.07);
+}

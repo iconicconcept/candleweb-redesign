@@ -7,6 +7,7 @@ import { AppDispatch } from "../../redux/store";
 import useEthereum from "../../lib/hooks/useEthereum";
 import useUserStore from "../../lib/hooks/useUserStore";
 import useGoogleAuth from "../../lib/hooks/useGoogleAuth";
+import useSiteTheme from "../../lib/hooks/useSiteTheme";
 import authService from "../../services/authService";
 import { loginUser } from "../../utils/loginUser";
 import { validateEmailAddress } from "../../utils/emailValidate";
@@ -51,6 +52,7 @@ export default function AuthPanel({ initialMode }: { initialMode: Mode }) {
   const { connectWallet, mobileConnectWallet } = useEthereum();
   const { googleAuth } = useGoogleAuth();
   const { setUser } = useUserStore((state) => state);
+  const { toggle: toggleTheme } = useSiteTheme();
 
   const [mode, setMode] = useState<Mode>(initialMode);
   const [busy, setBusy] = useState(false);
@@ -240,7 +242,43 @@ export default function AuthPanel({ initialMode }: { initialMode: Mode }) {
           <Link href="/" className="auth-brand">
             <Image src="/logo.png" alt="Candleweb" width={128} height={17} />
           </Link>
-          <p className="ask">
+          <div className="auth-top-end">
+            <button
+              type="button"
+              className="auth-theme"
+              aria-label="Switch between light and dark theme"
+              onClick={toggleTheme}
+            >
+              <svg
+                className="auth-i-sun"
+                width="17"
+                height="17"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.7"
+                strokeLinecap="round"
+                aria-hidden="true"
+              >
+                <circle cx="12" cy="12" r="4.2" />
+                <path d="M12 2.6v2.4M12 19v2.4M4.4 4.4l1.7 1.7M17.9 17.9l1.7 1.7M2.6 12H5M19 12h2.4M4.4 19.6l1.7-1.7M17.9 6.1l1.7-1.7" />
+              </svg>
+              <svg
+                className="auth-i-moon"
+                width="17"
+                height="17"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.7"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M20.5 14.5A8.6 8.6 0 019.5 3.5a8.6 8.6 0 1011 11z" />
+              </svg>
+            </button>
+            <p className="ask">
             {mode === "login" ? (
               <>
                 New here?{" "}
@@ -268,7 +306,8 @@ export default function AuthPanel({ initialMode }: { initialMode: Mode }) {
                 </a>
               </>
             )}
-          </p>
+            </p>
+          </div>
         </div>
 
         <div className="auth-layout">

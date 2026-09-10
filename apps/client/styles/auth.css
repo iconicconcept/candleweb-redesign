@@ -625,3 +625,101 @@
     transition: none !important;
   }
 }
+
+/* ============================================================================
+   Theme toggle + LIGHT THEME
+   Shares the public site's `<html data-site-theme>` (default light, set
+   pre-paint by _document). Everything below is additive — with no
+   `data-site-theme="light"` the shipped dark styling above is untouched.
+   ========================================================================== */
+.auth-top-end {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.auth-theme {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--au-line);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--au-text);
+  cursor: pointer;
+  transition: transform 0.2s, border-color 0.2s, background 0.2s;
+}
+.auth-theme:hover {
+  transform: translateY(-1px);
+  border-color: var(--au-line2);
+}
+.auth-i-sun,
+.auth-i-moon {
+  display: block;
+}
+.auth-i-moon {
+  display: none;
+}
+:root[data-site-theme="dark"] .auth-i-sun {
+  display: none;
+}
+:root[data-site-theme="dark"] .auth-i-moon {
+  display: block;
+}
+
+/* --- LIGHT THEME ------------------------------------------------------------ */
+:root[data-site-theme="light"] .auth-page {
+  --au-bg: #f6f7f5;
+  --au-s1: #ffffff;
+  --au-s2: #f4f5f2;
+  --au-s3: #eceee9;
+  --au-line: rgba(16, 22, 18, 0.1);
+  --au-line2: rgba(16, 22, 18, 0.18);
+  --au-text: #14161a;
+  --au-muted: #45484d;
+  --au-dim: #63666b;
+  --au-teal: #10a37f;
+  --au-teal2: #0b8f6a;
+  --au-deep: #0b7d5f;
+  /* --au-amber / --au-amber2 stay light gold — only the submit-button gradient uses them */
+}
+:root[data-site-theme="light"] .auth-theme {
+  background: rgba(16, 22, 18, 0.04);
+}
+:root[data-site-theme="light"] .auth-grid-tex {
+  background-image:
+    linear-gradient(rgba(16, 22, 18, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(16, 22, 18, 0.045) 1px, transparent 1px);
+}
+:root[data-site-theme="light"] .auth-eyebrow {
+  background: rgba(16, 22, 18, 0.035);
+}
+:root[data-site-theme="light"] .auth-card {
+  box-shadow: 0 30px 80px rgba(16, 22, 18, 0.12);
+}
+:root[data-site-theme="light"] .auth-tabs {
+  background: rgba(16, 22, 18, 0.04);
+}
+:root[data-site-theme="light"] .auth-tab[aria-selected="true"] {
+  box-shadow:
+    inset 0 0 0 1px rgba(16, 163, 127, 0.4),
+    0 4px 14px rgba(16, 22, 18, 0.1);
+}
+:root[data-site-theme="light"] .auth-tab:not([aria-selected="true"]):hover {
+  background: rgba(16, 22, 18, 0.04);
+}
+:root[data-site-theme="light"] .auth-wallets {
+  background: rgba(16, 22, 18, 0.045);
+}
+:root[data-site-theme="light"] .auth-wal:hover {
+  background: rgba(16, 22, 18, 0.05);
+}
+:root[data-site-theme="light"] .auth-fld input {
+  background: rgba(16, 22, 18, 0.035);
+}
+:root[data-site-theme="light"] .auth-fld input::placeholder {
+  color: #9a9d9f;
+}

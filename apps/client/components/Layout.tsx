@@ -15,6 +15,22 @@ const Layout = ({ children }: Props) => {
   const router = useRouter();
   const path = router.pathname.split("/")[1];
 
+  // Pages on the shared public chrome (PublicHeader/Footer) or the self-contained
+  // auth chrome — they get the light/dark site theme and a matching light
+  // surround behind the content.
+  const isPublicChrome = [
+    "",
+    "about",
+    "blog",
+    "tutor",
+    "candleai",
+    "docs",
+    "terms",
+    "privacy",
+    "login",
+    "register",
+  ].includes(path);
+
   return (
     <>
       <Head>
@@ -43,7 +59,10 @@ const Layout = ({ children }: Props) => {
         <meta name="theme-color" content="#ffffff"></meta>
       </Head>
       <GoogleAnalytics gaId="G-Z3EMQKEN56" />
-      <div className="main__body relative overflow-hidden min-h-screen pb-10 !max-w-[100vw]">
+      <div
+        className="main__body relative overflow-hidden min-h-screen pb-10 !max-w-[100vw]"
+        data-chrome={isPublicChrome ? "public" : undefined}
+      >
         {/* {(!path.includes("dashboard") && !path.includes("register") && !path.includes("tutor")) && ( */}
         {path !== "" &&
           path !== "about" &&

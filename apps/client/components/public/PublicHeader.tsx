@@ -1,6 +1,61 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import useSiteTheme from "../../lib/hooks/useSiteTheme";
+
+/**
+ * Light/dark toggle. Renders both icons and lets CSS show the right one based
+ * on `<html data-site-theme>` — avoids an SSR/hydration icon mismatch and the
+ * flash that a JS-decided icon would cause.
+ */
+function ThemeToggle({
+  className,
+  withLabel = false,
+  onToggle,
+}: {
+  className: string;
+  withLabel?: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={className}
+      aria-label="Switch between light and dark theme"
+      onClick={onToggle}
+    >
+      <svg
+        className="pub-i-sun"
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        aria-hidden="true"
+      >
+        <circle cx="12" cy="12" r="4.2" />
+        <path d="M12 2.6v2.4M12 19v2.4M4.4 4.4l1.7 1.7M17.9 17.9l1.7 1.7M2.6 12H5M19 12h2.4M4.4 19.6l1.7-1.7M17.9 6.1l1.7-1.7" />
+      </svg>
+      <svg
+        className="pub-i-moon"
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M20.5 14.5A8.6 8.6 0 019.5 3.5a8.6 8.6 0 1011 11z" />
+      </svg>
+      {withLabel && <span>Theme</span>}
+    </button>
+  );
+}
 
 export type PublicNavKey =
   | "home"
@@ -47,6 +102,7 @@ export default function PublicHeader({
   const [headH, setHeadH] = useState(0);
   const headRef = useRef<HTMLDivElement>(null);
   const closeMenu = () => setMenuOpen(false);
+  const { toggle: toggleTheme } = useSiteTheme();
 
   useEffect(() => {
     const onScroll = () => {
@@ -137,8 +193,14 @@ export default function PublicHeader({
                 Log in
               </Link>
             )}
+            <ThemeToggle
+              className="pub-m-theme"
+              withLabel
+              onToggle={toggleTheme}
+            />
           </div>
           <div className="pub-nav-end">
+            <ThemeToggle className="pub-theme" onToggle={toggleTheme} />
             {onLogin ? (
               <button
                 className="pub-btn pub-btn-glass pub-login"

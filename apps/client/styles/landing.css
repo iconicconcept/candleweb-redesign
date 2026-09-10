@@ -1489,3 +1489,104 @@
   .landing-tabs { margin-right: -20px; margin-left: -20px; padding: 0 20px; }
   .landing-form { padding: 20px 16px; }
 }
+
+/* ============================================================================
+   LIGHT THEME — additive. Only applies under :root[data-site-theme="light"]
+   (the default). Every dark rule above is left exactly as shipped; this block
+   only re-colours. No layout / transform / animation / keyframe is touched.
+   ========================================================================== */
+:root[data-site-theme="light"] .landing-stage {
+  --landing-bg: #f6f7f5;
+  --landing-s1: #ffffff;
+  --landing-s2: #f4f5f2;
+  --landing-s3: #eceee9;
+  --landing-line: rgba(16, 22, 18, 0.1);
+  --landing-text: #14161a;
+  --landing-muted: #45484d;
+  --landing-dim: #63666b;
+  --landing-teal: #10a37f;
+  --landing-teal-2: #0b8f6a;
+  --landing-deep: #0b7d5f;
+  --landing-amber: #ffb93d;
+  --landing-rose: #e5384f;
+  /* --landing-amber-2 stays light gold for the amber CTA gradient; amber text
+     on light surfaces is re-coloured per-rule below. */
+
+  background: linear-gradient(180deg, #ffffff, #f6f7f5 50%, #f1f2ef);
+  box-shadow: 0 40px 110px rgba(16, 22, 18, 0.12);
+}
+:root[data-site-theme="light"] .landing-stage h2 strong,
+:root[data-site-theme="light"] .landing-rows b {
+  color: #8a5500;
+}
+:root[data-site-theme="light"] .landing-grid {
+  background-image:
+    linear-gradient(rgba(16, 22, 18, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(16, 22, 18, 0.045) 1px, transparent 1px);
+}
+:root[data-site-theme="light"] .landing-eyebrow,
+:root[data-site-theme="light"] .landing-tabs button {
+  background: rgba(16, 22, 18, 0.035);
+}
+:root[data-site-theme="light"] .landing-nav-mid a:hover {
+  background: rgba(16, 22, 18, 0.06);
+}
+:root[data-site-theme="light"] .landing-data-card {
+  border-color: rgba(16, 22, 18, 0.12);
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 26px 60px rgba(16, 22, 18, 0.14);
+}
+:root[data-site-theme="light"] .landing-kv {
+  border-bottom-color: rgba(16, 22, 18, 0.08);
+}
+:root[data-site-theme="light"] .landing-kv b {
+  color: #2a2c30;
+}
+:root[data-site-theme="light"] .landing-band {
+  background: linear-gradient(
+    180deg,
+    rgba(16, 22, 18, 0.022),
+    rgba(16, 22, 18, 0.004)
+  );
+}
+:root[data-site-theme="light"] .landing-stage pre {
+  color: #4a4d52;
+  background: rgba(16, 22, 18, 0.05);
+}
+:root[data-site-theme="light"] .landing-screen {
+  box-shadow: 0 40px 90px rgba(16, 22, 18, 0.14);
+}
+:root[data-site-theme="light"] .landing-risk > i {
+  background: rgba(16, 22, 18, 0.09);
+}
+:root[data-site-theme="light"] .landing-venue-card {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.7) inset,
+    0 12px 30px rgba(16, 22, 18, 0.14);
+}
+:root[data-site-theme="light"] .landing-venue-card:hover {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.7) inset,
+    0 18px 40px rgba(16, 22, 18, 0.2);
+}
+:root[data-site-theme="light"] .landing-cta {
+  border-color: rgba(16, 22, 18, 0.1);
+  background: linear-gradient(
+    150deg,
+    rgba(16, 163, 127, 0.12),
+    rgba(255, 185, 61, 0.12) 58%,
+    rgba(16, 22, 18, 0.015)
+  );
+}
+:root[data-site-theme="light"] .landing-cta li {
+  border-bottom-color: rgba(16, 22, 18, 0.08);
+}
+:root[data-site-theme="light"] .landing-form {
+  border-color: rgba(16, 22, 18, 0.12);
+  background: rgba(255, 255, 255, 0.78);
+}
+:root[data-site-theme="light"] .landing-form input,
+:root[data-site-theme="light"] .landing-form select {
+  border-color: rgba(16, 22, 18, 0.16);
+  background: rgba(16, 22, 18, 0.035);
+}

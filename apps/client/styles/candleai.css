@@ -636,3 +636,63 @@
     transform: none !important;
   }
 }
+
+/* ============================================================================
+   LIGHT THEME — additive, only under :root[data-site-theme="light"] (default).
+   Dark styling above untouched; this only re-colours.
+   ========================================================================== */
+:root[data-site-theme="light"] .candleai-stage {
+  --cai-bg: #f6f7f5;
+  --cai-s1: #ffffff;
+  --cai-s2: #f4f5f2;
+  --cai-s3: #eceee9;
+  --cai-line: rgba(16, 22, 18, 0.1);
+  --cai-line2: rgba(16, 22, 18, 0.18);
+  --cai-text: #14161a;
+  --cai-muted: #45484d;
+  --cai-dim: #63666b;
+  --cai-teal: #10a37f;
+  --cai-teal2: #0b8f6a;
+  --cai-deep: #0b7d5f;
+  --cai-amber: #ffb93d;
+  /* --cai-amber2 stays light gold for the amber CTA gradient. */
+
+  background: linear-gradient(180deg, #ffffff, #f6f7f5 50%, #f1f2ef);
+  box-shadow: 0 40px 110px rgba(16, 22, 18, 0.12);
+}
+:root[data-site-theme="light"] .cai-grid {
+  background-image:
+    linear-gradient(rgba(16, 22, 18, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(16, 22, 18, 0.045) 1px, transparent 1px);
+}
+:root[data-site-theme="light"] .cai-band {
+  background: linear-gradient(
+    180deg,
+    rgba(16, 22, 18, 0.022),
+    rgba(16, 22, 18, 0.004)
+  );
+}
+:root[data-site-theme="light"] .cai-eyebrow {
+  background: rgba(16, 22, 18, 0.035);
+}
+:root[data-site-theme="light"] .cai-honest b {
+  color: #8a5500;
+}
+:root[data-site-theme="light"] .cai-cmp td {
+  border-bottom-color: rgba(16, 22, 18, 0.07);
+}
+:root[data-site-theme="light"] .cai-cta-box {
+  background: linear-gradient(
+    150deg,
+    rgba(16, 163, 127, 0.12),
+    rgba(255, 185, 61, 0.12) 58%,
+    rgba(16, 22, 18, 0.015)
+  );
+}
+:root[data-site-theme="light"] .cai-form {
+  background: rgba(255, 255, 255, 0.78);
+}
+:root[data-site-theme="light"] .cai-form input,
+:root[data-site-theme="light"] .cai-form select {
+  background: rgba(16, 22, 18, 0.035);
+}

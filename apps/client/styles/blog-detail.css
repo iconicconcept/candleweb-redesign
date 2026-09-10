@@ -424,3 +424,36 @@
     line-height: 1.75;
   }
 }
+
+/* ============================================================================
+   LIGHT THEME — additive. Palette vars come from .blog-stage (blog.css); this
+   block only overrides the article-body literals. Dark styling untouched.
+   ========================================================================== */
+:root[data-site-theme="light"] .blog-detail-prose {
+  color: #3f4247;
+}
+:root[data-site-theme="light"] .blog-detail-callout b {
+  color: #8a5500;
+}
+:root[data-site-theme="light"] .blog-detail-prose code {
+  background: rgba(16, 22, 18, 0.06);
+}
+/* Code blocks stay a dark slab in light mode — the syntax highlighting that
+   the API returns is inline and tuned for a dark background. */
+:root[data-site-theme="light"] .blog-detail-prose pre {
+  border-color: rgba(16, 22, 18, 0.12);
+  background: #14161a;
+  color: #c6c6be;
+}
+:root[data-site-theme="light"] .blog-detail-cta {
+  background: linear-gradient(
+    150deg,
+    rgba(16, 163, 127, 0.13),
+    rgba(255, 185, 61, 0.1) 60%,
+    rgba(16, 22, 18, 0.015)
+  );
+}
+:root[data-site-theme="light"] .blog-detail-share button,
+:root[data-site-theme="light"] .blog-detail-share a {
+  background: rgba(16, 22, 18, 0.03);
+}

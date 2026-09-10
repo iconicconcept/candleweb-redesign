@@ -320,3 +320,55 @@
     border-radius: 0;
   }
 }
+
+/* ============================================================================
+   LIGHT THEME — additive, only under :root[data-site-theme="light"] (default).
+   Dark styling above untouched; this only re-colours.
+   ========================================================================== */
+:root[data-site-theme="light"] .docs-stage {
+  --dc-s1: #ffffff;
+  --dc-s2: #f4f5f2;
+  --dc-line: rgba(16, 22, 18, 0.1);
+  --dc-line2: rgba(16, 22, 18, 0.18);
+  --dc-text: #14161a;
+  --dc-muted: #45484d;
+  --dc-dim: #63666b;
+  --dc-teal: #10a37f;
+  --dc-teal2: #0b8f6a;
+  --dc-deep: #0b7d5f;
+  --dc-amber: #ffb93d;
+  /* --dc-amber2 stays light gold — .docs-pre .s is on a dark code slab. */
+
+  background: linear-gradient(180deg, #ffffff, #f6f7f5 50%, #f1f2ef);
+  box-shadow: 0 40px 110px rgba(16, 22, 18, 0.12);
+}
+:root[data-site-theme="light"] .docs-grid {
+  background-image:
+    linear-gradient(rgba(16, 22, 18, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(16, 22, 18, 0.045) 1px, transparent 1px);
+}
+:root[data-site-theme="light"] .docs-eyebrow {
+  background: rgba(16, 22, 18, 0.035);
+}
+:root[data-site-theme="light"] .docs-sec code {
+  background: rgba(16, 22, 18, 0.06);
+}
+:root[data-site-theme="light"] .docs-req {
+  color: #8a5500;
+}
+:root[data-site-theme="light"] .docs-table td {
+  border-bottom-color: rgba(16, 22, 18, 0.07);
+}
+/* Code blocks keep a dark slab in light mode — the token colours (.k/.s/.n/.m)
+   are tuned for a dark background. */
+:root[data-site-theme="light"] .docs-pre {
+  border-color: rgba(16, 22, 18, 0.12);
+  background: #14161a;
+  color: #c6c6be;
+}
+:root[data-site-theme="light"] .docs-pre .k {
+  color: #7ef0d2;
+}
+:root[data-site-theme="light"] .docs-pre .s {
+  color: #ffd489;
+}

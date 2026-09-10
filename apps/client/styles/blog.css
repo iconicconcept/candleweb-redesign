@@ -5,3 +5,58 @@
 @media(max-width:700px){.blog-recent-grid,.blog-post-grid{grid-template-columns:1fr}.blog-archive-head{align-items:flex-start;flex-direction:column}.blog-filters{justify-content:flex-start}.blog-footer{grid-template-columns:repeat(2,1fr)}.blog-footer>div:first-child,.blog-disclaimer{grid-column:1/-1}}
 @media(max-width:560px){.blog-stage{margin:0;border-radius:0}.blog-nav{padding-top:16px}.blog-brand{padding:9px 14px}.blog-logo{width:126px}.blog-nav-end{gap:12px}.blog-nav-end>.blog-btn{padding:10px 13px;font-size:12.5px}.blog-section{padding-top:66px;padding-bottom:66px}.blog-stage h1{font-size:36px}.blog-stage h2{font-size:30px}.blog-cover{border-radius:14px}.blog-subscribe{padding:28px 20px}.blog-subscribe form{display:grid;grid-template-columns:1fr}.blog-subscribe input,.blog-subscribe .blog-btn{width:100%}.blog-footer{gap:26px 20px}}
 @media(prefers-reduced-motion:reduce){.blog-stage *{animation:none!important;transition:none!important}}
+
+/* ============================================================================
+   LIGHT THEME — additive, only under :root[data-site-theme="light"] (default).
+   Dark styling above untouched; this only re-colours. Covers blog-detail.css
+   too (it renders inside .blog-stage).
+   ========================================================================== */
+:root[data-site-theme="light"] .blog-stage {
+  --blog-bg: #f6f7f5;
+  --blog-s1: #ffffff;
+  --blog-s2: #f4f5f2;
+  --blog-s3: #eceee9;
+  --blog-line: rgba(16, 22, 18, 0.1);
+  --blog-line2: rgba(16, 22, 18, 0.18);
+  --blog-text: #14161a;
+  --blog-muted: #45484d;
+  --blog-dim: #63666b;
+  --blog-teal: #10a37f;
+  --blog-teal2: #0b8f6a;
+  --blog-deep: #0b7d5f;
+  --blog-amber: #ffb93d;
+  /* --blog-amber2 stays light gold (amber CTA gradient + cover-chart fill). */
+
+  background: linear-gradient(180deg, #ffffff, #f6f7f5 50%, #f1f2ef);
+  box-shadow: 0 40px 110px rgba(16, 22, 18, 0.12);
+}
+:root[data-site-theme="light"] .blog-grid {
+  background-image:
+    linear-gradient(rgba(16, 22, 18, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(16, 22, 18, 0.045) 1px, transparent 1px);
+}
+:root[data-site-theme="light"] .blog-eyebrow {
+  background: rgba(16, 22, 18, 0.035);
+}
+:root[data-site-theme="light"] .blog-band {
+  background: linear-gradient(
+    180deg,
+    rgba(16, 22, 18, 0.022),
+    rgba(16, 22, 18, 0.004)
+  );
+}
+:root[data-site-theme="light"] .blog-filters button,
+:root[data-site-theme="light"] .blog-pagination button {
+  background: rgba(16, 22, 18, 0.035);
+}
+:root[data-site-theme="light"] .blog-subscribe {
+  background: linear-gradient(
+    150deg,
+    rgba(16, 163, 127, 0.13),
+    rgba(255, 185, 61, 0.1) 58%,
+    rgba(16, 22, 18, 0.015)
+  );
+}
+:root[data-site-theme="light"] .blog-subscribe input {
+  background: rgba(16, 22, 18, 0.035);
+}

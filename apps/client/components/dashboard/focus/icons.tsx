@@ -250,3 +250,18 @@ export const RefreshIcon = (p: SVGProps<SVGSVGElement>) => (
     <path d="M20 20v-3.5H16.5" />
   </svg>
 );
+
+export const LedgerIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}>
+    <rect x="4" y="3" width="16" height="18" rx="2.5" />
+    <path d="M8 8h8M8 12h8M8 16h5" />
+  </svg>
+);
+
+export const MoreIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}>
+    <circle cx="5" cy="12" r="1.5" />
+    <circle cx="12" cy="12" r="1.5" />
+    <circle cx="19" cy="12" r="1.5" />
+  </svg>
+);

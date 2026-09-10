@@ -441,3 +441,154 @@
     padding: 0 12px;
   }
 }
+
+/* ============================================================================
+   Theme toggle button + LIGHT THEME
+   Everything below is additive: with no `data-site-theme="light"` on <html>
+   the shipped dark styling above is untouched. Light is the default, applied
+   pre-paint by the inline script in _document.
+   ========================================================================== */
+
+/* --- toggle button (works in both themes) --- */
+.pub-theme {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: 1px solid var(--pub-line);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--pub-text);
+  cursor: pointer;
+  transition:
+    transform 0.2s,
+    border-color 0.2s,
+    background 0.2s;
+}
+.pub-theme:hover {
+  transform: translateY(-1px);
+  border-color: var(--pub-line2);
+}
+.pub-i-sun,
+.pub-i-moon {
+  display: block;
+}
+.pub-i-moon {
+  display: none;
+}
+:root[data-site-theme="dark"] .pub-i-sun {
+  display: none;
+}
+:root[data-site-theme="dark"] .pub-i-moon {
+  display: block;
+}
+/* menu-row variant (mobile) — hidden on desktop, shown inside the open panel */
+.pub-m-theme {
+  display: none;
+}
+@media (max-width: 1000px) {
+  .pub-nav-end .pub-theme {
+    display: none;
+  }
+  .pub-nav-mid.is-open .pub-m-theme {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    margin-top: 10px;
+    padding: 16px 4px;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    color: var(--pub-text);
+    font: 500 16px "Outfit", sans-serif;
+    cursor: pointer;
+  }
+  .pub-nav-mid.is-open .pub-m-theme svg {
+    width: 20px;
+    height: 20px;
+  }
+}
+@media (min-width: 560px) and (max-width: 1000px) {
+  .pub-nav-end {
+    gap: 10px;
+  }
+}
+@media (max-width: 560px) {
+  .pub-nav-end .pub-theme {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+/* --- LIGHT THEME ------------------------------------------------------------ */
+:root[data-site-theme="light"] {
+  --pub-line: rgba(16, 22, 18, 0.1);
+  --pub-line2: rgba(16, 22, 18, 0.18);
+  --pub-text: #16181c;
+  --pub-muted: #45484d;
+  --pub-dim: #6a6d72;
+  --pub-teal-2: #0b8f6a;
+  --pub-s2: #f4f5f2;
+  /* --pub-amber / --pub-amber-2 stay light gold — the amber CTA gradient uses
+     them. Amber *text* on a light surface is re-coloured per-rule below. */
+}
+:root[data-site-theme="light"] .pub-announcement {
+  color: #8a5500;
+}
+
+:root[data-site-theme="light"] .main__body[data-chrome="public"] {
+  background: #eef0ec;
+}
+
+:root[data-site-theme="light"] .pub-theme,
+:root[data-site-theme="light"] .pub-btn.pub-btn-glass,
+:root[data-site-theme="light"] .pub-menu {
+  background: rgba(16, 22, 18, 0.04);
+}
+:root[data-site-theme="light"] .pub-nav-mid {
+  background: rgba(16, 22, 18, 0.035);
+}
+:root[data-site-theme="light"] .pub-nav-mid a:hover,
+:root[data-site-theme="light"] .pub-nav-mid a.here {
+  background: rgba(16, 22, 18, 0.06);
+}
+:root[data-site-theme="light"] .pub-nav-wrap.is-stuck {
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow:
+    0 1px 0 var(--pub-line),
+    0 18px 40px rgba(16, 22, 18, 0.1);
+}
+:root[data-site-theme="light"] .pub-announcement {
+  border-bottom-color: rgba(255, 185, 61, 0.35);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 185, 61, 0.16),
+    transparent
+  );
+}
+:root[data-site-theme="light"] .pub-menu i,
+:root[data-site-theme="light"] .pub-menu i:before,
+:root[data-site-theme="light"] .pub-menu i:after {
+  background: var(--pub-text);
+}
+:root[data-site-theme="light"] .pub-totop {
+  color: var(--pub-text);
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 12px 30px rgba(16, 22, 18, 0.16);
+}
+:root[data-site-theme="light"] .pub-totop:hover {
+  background: rgba(255, 255, 255, 0.95);
+}
+:root[data-site-theme="light"] .pub-nav-mid.is-open a:hover {
+  background: rgba(16, 22, 18, 0.05);
+}
+:root[data-site-theme="light"] .pub-btn.pub-btn-teal {
+  color: #0b8f6a;
+  border-color: rgba(11, 143, 106, 0.4);
+  background: rgba(11, 143, 106, 0.08);
+}

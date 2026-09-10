@@ -1009,3 +1009,70 @@
     background: var(--amber) !important;
   }
 }
+
+/* ============================================================================
+   LIGHT THEME — additive, only under :root[data-site-theme="light"] (default).
+   Dark styling above is untouched; this block only re-colours.
+   ========================================================================== */
+:root[data-site-theme="light"] .about-stage {
+  --bg: #f6f7f5;
+  --s1: #ffffff;
+  --s2: #f4f5f2;
+  --s3: #eceee9;
+  --line: rgba(16, 22, 18, 0.1);
+  --line2: rgba(16, 22, 18, 0.18);
+  --text: #14161a;
+  --muted: #45484d;
+  --dim: #63666b;
+  --teal: #10a37f;
+  --teal2: #0b8f6a;
+  --deep: #0b7d5f;
+  --amber: #ffb93d;
+  /* --amber2 stays light gold for the amber CTA gradient; amber text on light
+     surfaces is re-coloured per-rule below. */
+
+  background: linear-gradient(180deg, #ffffff, #f6f7f5 50%, #f1f2ef);
+  box-shadow: 0 40px 110px rgba(16, 22, 18, 0.12);
+}
+:root[data-site-theme="light"] .about-partner.about-amber h3,
+:root[data-site-theme="light"] .about-partner.about-amber small,
+:root[data-site-theme="light"] .about-team:nth-child(5) h3,
+:root[data-site-theme="light"] .about-timeline-row.now time {
+  color: #8a5500;
+}
+:root[data-site-theme="light"] .about-grid {
+  background-image:
+    linear-gradient(rgba(16, 22, 18, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(16, 22, 18, 0.045) 1px, transparent 1px);
+}
+:root[data-site-theme="light"] .about-eyebrow {
+  background: rgba(16, 22, 18, 0.035);
+}
+:root[data-site-theme="light"] .about-band {
+  background: linear-gradient(
+    180deg,
+    rgba(16, 22, 18, 0.022),
+    rgba(16, 22, 18, 0.004)
+  );
+}
+:root[data-site-theme="light"] .about-pull {
+  background: linear-gradient(90deg, rgba(16, 163, 127, 0.09), transparent);
+}
+:root[data-site-theme="light"] .about-cta {
+  background: linear-gradient(
+    150deg,
+    rgba(16, 163, 127, 0.12),
+    rgba(255, 185, 61, 0.12) 58%,
+    rgba(16, 22, 18, 0.015)
+  );
+}
+:root[data-site-theme="light"] .about-cta li {
+  border-bottom-color: rgba(16, 22, 18, 0.08);
+}
+:root[data-site-theme="light"] .about-form {
+  background: rgba(255, 255, 255, 0.78);
+}
+:root[data-site-theme="light"] .about-form input,
+:root[data-site-theme="light"] .about-form select {
+  background: rgba(16, 22, 18, 0.035);
+}

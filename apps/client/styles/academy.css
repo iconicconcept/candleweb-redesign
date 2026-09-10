@@ -981,3 +981,74 @@
     transform: none !important;
   }
 }
+
+/* ============================================================================
+   LIGHT THEME — additive, only under :root[data-site-theme="light"] (default).
+   Dark styling above untouched; this only re-colours.
+   ========================================================================== */
+:root[data-site-theme="light"] .academy-stage {
+  --ac-bg: #f6f7f5;
+  --ac-s1: #ffffff;
+  --ac-s2: #f4f5f2;
+  --ac-s3: #eceee9;
+  --ac-line: rgba(16, 22, 18, 0.1);
+  --ac-line2: rgba(16, 22, 18, 0.18);
+  --ac-text: #14161a;
+  --ac-muted: #45484d;
+  --ac-dim: #63666b;
+  --ac-teal: #10a37f;
+  --ac-teal2: #0b8f6a;
+  --ac-deep: #0b7d5f;
+  --ac-amber: #ffb93d;
+  /* --ac-amber2 stays light gold — .ac-c-flag.soon sits on a dark chip. */
+
+  background: linear-gradient(180deg, #ffffff, #f6f7f5 50%, #f1f2ef);
+  box-shadow: 0 40px 110px rgba(16, 22, 18, 0.12);
+}
+:root[data-site-theme="light"] .ac-grid {
+  background-image:
+    linear-gradient(rgba(16, 22, 18, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(16, 22, 18, 0.045) 1px, transparent 1px);
+}
+:root[data-site-theme="light"] .ac-band {
+  background: linear-gradient(
+    180deg,
+    rgba(16, 22, 18, 0.022),
+    rgba(16, 22, 18, 0.004)
+  );
+}
+:root[data-site-theme="light"] .ac-eyebrow {
+  background: rgba(16, 22, 18, 0.035);
+}
+:root[data-site-theme="light"] .ac-hero-dots button {
+  background: rgba(16, 22, 18, 0.16);
+}
+:root[data-site-theme="light"] .ac-filt {
+  background: rgba(16, 22, 18, 0.035);
+}
+:root[data-site-theme="light"] .ac-c-buy {
+  background: rgba(16, 22, 18, 0.02);
+}
+:root[data-site-theme="light"] .ac-mentored {
+  background: rgba(16, 22, 18, 0.03);
+}
+:root[data-site-theme="light"] .ac-logo-card {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.7) inset,
+    0 10px 26px rgba(16, 22, 18, 0.12);
+}
+:root[data-site-theme="light"] .ac-cta-box {
+  background: linear-gradient(
+    150deg,
+    rgba(16, 163, 127, 0.12),
+    rgba(255, 185, 61, 0.12) 58%,
+    rgba(16, 22, 18, 0.015)
+  );
+}
+:root[data-site-theme="light"] .ac-form {
+  background: rgba(255, 255, 255, 0.78);
+}
+:root[data-site-theme="light"] .ac-form input,
+:root[data-site-theme="light"] .ac-form select {
+  background: rgba(16, 22, 18, 0.035);
+}

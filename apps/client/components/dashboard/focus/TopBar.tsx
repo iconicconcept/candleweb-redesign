@@ -18,9 +18,21 @@ import {
 import { setActiveTrade, setPortfolioTrade, setYearAnalysis, setYearList } from "../../../redux/slices/tradeSlice";
 import { setBalance } from "../../../redux/slices/userSlice";
 import { setIsSuccessful } from "../../../redux/slices/authSlice";
+import { success } from "../../alert/Toast";
 import Popover from "./Popover";
 import Dialog from "./Dialog";
-import { BellIcon, SignOutIcon, CheckIcon, SunIcon, MoonIcon } from "./icons";
+import {
+  BellIcon,
+  SignOutIcon,
+  CheckIcon,
+  SunIcon,
+  MoonIcon,
+  GridIcon,
+  CardStackIcon,
+  InviteIcon,
+  AcademyIcon,
+  GearIcon,
+} from "./icons";
 
 type Props = {
   crumb?: React.ReactNode;
@@ -28,13 +40,14 @@ type Props = {
   subtitle?: React.ReactNode;
 };
 
-const ACCOUNT_LINKS = [
-  { label: "Portfolio", href: "/dashboard" },
-  { label: "Trades", href: "/dashboard/trades" },
-  { label: "Subscription", href: "/dashboard/subscription" },
-  { label: "Invite & earn", href: "/dashboard/invite" },
-  { label: "Academy", href: "/dashboard/tutor" },
-  { label: "Settings", href: "/dashboard/settings" },
+/* Secondary destinations — not in the icon rail. Notifications has its own
+   bell; these live only here in the account popover. */
+const ACCOUNT_LINKS: { label: string; href: string; Icon: any }[] = [
+  { label: "Portfolio", href: "/dashboard", Icon: GridIcon },
+  { label: "Subscription", href: "/dashboard/subscription", Icon: CardStackIcon },
+  { label: "Invite & earn", href: "/dashboard/invite", Icon: InviteIcon },
+  { label: "Academy", href: "/dashboard/tutor", Icon: AcademyIcon },
+  { label: "Settings", href: "/dashboard/settings", Icon: GearIcon },
 ];
 
 export default function TopBar({ crumb, title, subtitle }: Props) {
@@ -43,7 +56,10 @@ export default function TopBar({ crumb, title, subtitle }: Props) {
   const axiosToken = useAxiosAuth();
   const { user, removeUser } = useUserStore((state) => state);
   const { notification } = useSelector((state: RootState) => state.notification);
+  const { exchangeRecord } = useSelector((state: RootState) => state.exchange);
   const { theme, toggle: toggleTheme } = useDashboardTheme();
+
+  const exCount = exchangeRecord?.length ?? user?.user_exchanges?.length ?? 0;
 
   const [openPop, setOpenPop] = useState<"notif" | "account" | null>(null);
   const [confirmSignOut, setConfirmSignOut] = useState(false);
@@ -71,6 +87,7 @@ export default function TopBar({ crumb, title, subtitle }: Props) {
   };
 
   const signOut = () => {
+    setConfirmSignOut(false);
     removeUser();
     dispatch(setIsSuccessful(false));
     dispatch(setSubscription([]));
@@ -86,6 +103,7 @@ export default function TopBar({ crumb, title, subtitle }: Props) {
     dispatch(setYearAnalysis([]));
     dispatch(setCurrentPlan({}));
     dispatch(setBalance(""));
+    success("Signed out. Your trades keep running on the exchange.");
     router.push("/");
   };
 
@@ -198,6 +216,14 @@ export default function TopBar({ crumb, title, subtitle }: Props) {
             <span>{user?.email || user?.wallet_address}</span>
           </div>
         </div>
+
+        <div className="fx-accmeta">
+          <span>{user?.is_live_mode ? "Live mode" : "Demo mode"}</span>
+          <span>
+            {exCount} exchange{exCount === 1 ? "" : "s"}
+          </span>
+        </div>
+
         <nav className="fx-accnav">
           {ACCOUNT_LINKS.map((link) => (
             <Link
@@ -206,9 +232,19 @@ export default function TopBar({ crumb, title, subtitle }: Props) {
               className="fx-an"
               onClick={() => setOpenPop(null)}
             >
+              <link.Icon />
               <span>{link.label}</span>
             </Link>
           ))}
+          <button
+            className="fx-an"
+            type="button"
+            onClick={toggleTheme}
+          >
+            {theme === "light" ? <SunIcon /> : <MoonIcon />}
+            <span>Appearance</span>
+            <em>{theme === "light" ? "Light" : "Dark"}</em>
+          </button>
           <button
             className="fx-an out9"
             type="button"

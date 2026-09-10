@@ -56,9 +56,46 @@ export default function AcademyDashboard() {
     setCoursesLoading(true);
     axiosToken
       .get("/tutor/courses/")
-      .then(({ data }) => {
-        const raw = data?.data?.results ?? [];
-        setCourses(Array.isArray(raw) ? raw : []);
+      .then(async ({ data }) => {
+        const raw: any[] = Array.isArray(data?.data?.results) ? data.data.results : [];
+        // The list endpoint carries no per-user progress, so every course would
+        // read as "In progress / 0%". Pull each course's schedule and derive it
+        // the same way the course-detail page does (a session whose end time has
+        // passed, or one flagged is_completed, counts as done). Capped so an
+        // unexpectedly large list can't fan out into a request storm.
+        const enriched = await Promise.all(
+          raw.map(async (c, i) => {
+            if (i >= 15) return { ...c, progress: c.progress ?? 0 };
+            try {
+              const { data: d } = await axiosToken.get(`/tutor/courses/${c.id}/`);
+              const detail = d?.data ?? d ?? {};
+              const sched: any[] = Array.isArray(detail.class_schedules)
+                ? detail.class_schedules
+                : [];
+              const now = Date.now();
+              const total = sched.length;
+              const doneCount = sched.filter(
+                (m) =>
+                  m?.is_completed === true ||
+                  (m?.end_datetime && new Date(m.end_datetime).getTime() < now),
+              ).length;
+              const progress =
+                total > 0
+                  ? Math.round((doneCount / total) * 100)
+                  : (c.progress ?? 0);
+              return {
+                ...c,
+                progress,
+                status: progress >= 100 ? "completed" : c.status,
+                is_active: detail.is_active ?? c.is_active,
+                instructor_name: c.instructor_name,
+              };
+            } catch {
+              return { ...c, progress: c.progress ?? 0 };
+            }
+          }),
+        );
+        setCourses(enriched);
       })
       .catch(() => setCourses([]))
       .finally(() => setCoursesLoading(false));

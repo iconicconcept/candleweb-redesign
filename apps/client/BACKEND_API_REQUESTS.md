@@ -1,0 +1,334 @@
+# Candleweb Dashboard — API requests for the backend
+
+**From:** Frontend team
+**Re:** Endpoints the redesigned dashboard needs before each page is fully functional
+**Base URL:** `https://api.candleweb.io/api/`
+**Auth:** same bearer token as every other authed endpoint, unless noted.
+
+---
+
+## How to read this
+
+The dashboard has been rebuilt page by page. Most pages are already wired to
+existing endpoints and working. This document lists **only what is still
+missing or unconfirmed**, so you know exactly what to build.
+
+Each item has: what the UI needs it for, a **proposed** request/response
+(rename freely — just tell us the final shape), and what the frontend does
+today as a stand-in.
+
+Priority:
+
+| P | Meaning |
+|---|---|
+| **P1** | A visible feature is broken / faked without it |
+| **P2** | Works today but via an ugly workaround (e.g. a loop of single calls) |
+| **P3** | Confirm-only — no build, just tell us the shape/enum and we adjust |
+
+---
+
+## P1 — New endpoints (a feature is faked or blocked without these)
+
+### 1.1 Trading pairs list
+- **Why:** `trading_v2` trades store `pair` as an integer id. The New-trade form
+  needs to show a dropdown of tradeable pairs. Right now it shows a **hard-coded
+  list of 5 pairs** (`BTC/USDT`…`LINK/USDT`) that may not match your DB ids.
+- **Proposed:** `GET /trading_v2/pairs/`
+  ```json
+  [
+    { "id": 1, "symbol": "BTC/USDT", "base": "BTC", "quote": "USDT", "is_active": true },
+    { "id": 2, "symbol": "ETH/USDT", "base": "ETH", "quote": "USDT", "is_active": true }
+  ]
+  ```
+- **Used by:** `pages/dashboard/trades/new.tsx`
+
+### 1.2 Exchange accounts list (for trading_v2)
+- **Why:** trades store `exchange_account` as an integer id. The form needs the
+  user's connected exchange accounts to choose from. Currently a **hard-coded
+  list** (`KuCoin · main`, `Binance · main`, …).
+- **Question:** is this the same thing as `GET /exchange/record/`? If so, tell us
+  and we'll use that. If `trading_v2` has its own account model, we need its list.
+- **Proposed:** `GET /trading_v2/exchange-accounts/`
+  ```json
+  [
+    { "id": 1, "label": "KuCoin · main", "exchange": "kucoin", "is_active": true }
+  ]
+  ```
+- **Used by:** `pages/dashboard/trades/new.tsx`
+
+### 1.3 Per-account balance
+- **Why:** the New-trade form has a "Free to allocate" panel and the trades list
+  has a "capital allocated / in positions / free" band. Both render `—` today.
+- **Proposed:** `GET /trading_v2/exchange-accounts/{id}/balance/`
+  ```json
+  {
+    "currency": "USDT",
+    "total": "5000.00",
+    "allocated_to_trades": "3200.00",
+    "free": "1800.00"
+  }
+  ```
+- **Used by:** `pages/dashboard/trades/new.tsx`, `pages/dashboard/trades.tsx`
+
+### 1.4 Per-trade performance
+- **Why:** the trades list shows a "P&L · 30d" figure per trade and the (not yet
+  built) trade-detail page needs full stats. All `—` today.
+- **Proposed:** either a field block on each `GET /trading_v2/trades/` row, or
+  `GET /trading_v2/trades/{id}/performance/`
+  ```json
+  {
+    "realized_pnl": "125.40",
+    "unrealized_pnl": "-12.10",
+    "pnl_pct_30d": 4.7,
+    "open_position": {
+      "side": "LONG", "size": "0.05", "entry_price": "63500.00", "mark_price": "63980.00"
+    },
+    "win_rate": 0.61,
+    "trades_count_30d": 34
+  }
+  ```
+- **Used by:** `pages/dashboard/trades.tsx` (+ future trade-detail page)
+
+### 1.5 Bot decision history
+- **Why:** the bot-detail page has a "Recent decisions" table (candle → the bot's
+  call → what the order did). It's a **design-only placeholder** right now.
+- **Proposed:** `GET /trading_v2/bots/{id}/decisions/?page=N`
+  ```json
+  {
+    "count": 128,
+    "next": "...?page=2",
+    "results": [
+      {
+        "id": 9001,
+        "created_at": "2026-09-10T14:00:00Z",
+        "trade": 12,
+        "pair_symbol": "BTC/USDT",
+        "candle_close_time": "2026-09-10T13:59:59Z",
+        "action": "buy",            // buy | sell | hold | (or signal strength)
+        "size_pct": 25,
+        "reply_ms": 840,            // how long the bot took to answer
+        "status": "filled",        // filled | rejected | no_reply | error
+        "rationale": "higher-low held, RSI 41"
+      }
+    ]
+  }
+  ```
+- **Used by:** `pages/dashboard/bots/[id]/index.tsx`
+
+### 1.6 Bot health / uptime
+- **Why:** bot-detail shows "Uptime · 30d", "Median reply time", "Decisions · 30d".
+  All `—` today.
+- **Proposed:** `GET /trading_v2/bots/{id}/health/`
+  ```json
+  {
+    "uptime_pct_30d": 99.2,
+    "median_reply_ms": 780,
+    "p95_reply_ms": 2100,
+    "decisions_30d": 412,
+    "calls_today": 96,
+    "success_rate_30d": 0.98,
+    "last_seen_at": "2026-09-10T14:00:00Z"
+  }
+  ```
+- **Used by:** `pages/dashboard/bots/[id]/index.tsx`
+
+### 1.7 Bot review / recommendation
+- **Why:** `pages/dashboard/bots/[id]/review.tsx` is built as a **full design-only
+  page** — verdict, "what's working / what's costing you", a suggested prompt
+  change. Nothing behind it.
+- **Depends on 1.5** (needs decision history to analyse).
+- **Proposed:** `GET /trading_v2/bots/{id}/review/`
+  ```json
+  {
+    "status": "ready",             // ready | not_enough_data
+    "decisions_analysed": 240,
+    "grade": "B-",
+    "prompt_consistency": 0.72,     // how often it followed its own stated rules
+    "estimated_cost_of_top_issue": "-180.00",
+    "findings_good": ["Entries after a clean higher-low held longer than average"],
+    "findings_bad":  ["Selling the first red candle after a run — most reversed within 3 candles"],
+    "suggested_prompt_change": {
+      "before": "Sell when a red candle closes.",
+      "after":  "Sell when two consecutive red candles close AND volume rises.",
+      "supporting_decision_ids": [9001, 9014, 9037]
+    }
+  }
+  ```
+- **Used by:** `pages/dashboard/bots/[id]/review.tsx`
+
+### 1.8 Update profile (username / email)
+- **Why:** Settings shows username and email **read-only** — there is no way to
+  change them. (The old settings page's "Edit" button was a no-op.)
+- **Proposed:** `PATCH /user/profile/`  →  `{ "username": "...", "email": "..." }`
+  Return the updated profile. If email changes need re-verification, return
+  `{ "email_verification_sent": true }` and we'll show that.
+- **Used by:** `pages/dashboard/settings.tsx`
+
+### 1.9 All-notifications feed (not just unread)
+- **Why:** the Notifications page has an "All" tab and a total count, but only
+  `GET /notification/unread/` exists — read notifications can't be displayed.
+- **Proposed:** `GET /notification/?page=N` (all statuses, paginated, same row
+  shape as the unread feed) — or add a `?status=all|read|unread` param to the
+  existing endpoint.
+- **Used by:** `pages/dashboard/notifications.tsx`
+
+### 1.10 Closed-trades history
+- **Why:** the whole **History** page (`pages/dashboard/history.tsx`) is a
+  design-only preview — there is no closed-position data anywhere.
+- **Proposed:** `GET /trading_v2/trades/history/?page=N` (or `?status=closed` on
+  the trades list)
+  ```json
+  {
+    "count": 412,
+    "next": "...?page=2",
+    "results": [
+      {
+        "id": 55012,
+        "trade": 12,
+        "trade_name": "ETH momentum",
+        "pair_symbol": "ETH/USDT",
+        "bot_name": "Momentum v3",
+        "side": "LONG",
+        "entry_price": "3214.80",
+        "exit_price": "3268.42",
+        "opened_at": "2026-09-10T13:10:00Z",
+        "closed_at": "2026-09-10T14:45:00Z",
+        "exit_reason": "trailing_stop",   // stop_hit | trailing_stop | bot_closed | manual
+        "realized_pnl": "84.20",
+        "realized_pnl_pct": 1.67
+      }
+    ]
+  }
+  ```
+- **Used by:** `pages/dashboard/history.tsx`
+
+### 1.11 History summary
+- **Why:** the History page's summary band (closed count, win rate, avg win / avg
+  loss, net, best day) and the per-bot rollup.
+- **Proposed:** `GET /trading_v2/trades/history/summary/?window=30d`
+  ```json
+  {
+    "window": "30d",
+    "closed_count": 412,
+    "won": 241, "lost": 171,
+    "win_rate": 0.585,
+    "avg_win_pct": 1.31, "avg_loss_pct": -0.84,
+    "net_amount": "232.40", "net_pct": 2.84,
+    "best_day": { "date": "2026-08-22", "amount": "118.30" },
+    "by_bot": [
+      { "bot": 3, "bot_name": "Momentum v3", "closed": 186, "win_rate": 0.61, "net_pct": 3.1 }
+    ]
+  }
+  ```
+- **Used by:** `pages/dashboard/history.tsx` (can be derived client-side if 1.10 returns everything)
+
+### 1.12 Account equity history
+- **Why:** the Overview hero chart. Currently a static placeholder line.
+- **Proposed:** `GET /trading_v2/exchange-accounts/{id}/equity/?window=30d` (or
+  account-agnostic `GET /trading_v2/equity/?window=30d`)
+  ```json
+  { "currency": "USDT", "points": [ { "t": "2026-08-11T00:00:00Z", "equity": "8120.00" } ] }
+  ```
+- **Used by:** `pages/dashboard/index.tsx`
+
+### 1.13 Account-wide decision feed
+- **Why:** the Overview "Recent activity" spine. Same data as the per-bot
+  decisions (1.5) but across all of the user's bots, newest first.
+- **Proposed:** `GET /trading_v2/decisions/?limit=20` — same row shape as 1.5
+  plus `bot_name`.
+- **Used by:** `pages/dashboard/index.tsx`
+
+---
+
+## P2 — Bulk endpoints (works now, but the frontend loops single calls)
+
+### 2.1 Claim all task rewards
+- **Now:** "Claim all" fires `GET /task/reward/claim/{id}/` once per reward in a loop.
+- **Proposed:** `POST /task/reward/claim-all/` → claims every claimable reward,
+  returns the list of claimed ids + new balance.
+- **Used by:** `pages/dashboard/tasks.tsx`
+
+### 2.2 Mark all notifications read
+- **Now:** "Mark all read" loops `GET /notification/{id}` per unread item.
+- **Proposed:** `POST /notification/read-all/` → marks all as read, returns count.
+- **Used by:** `pages/dashboard/notifications.tsx`
+
+---
+
+## P3 — Confirm only (no build — just tell us the shape and we adjust)
+
+### Trades (v2)
+
+| # | Question |
+|---|---|
+| 3.1 | **`decider_type` enum.** Docs show only `OWN_BOT`. We send `"CANDLE_AI"` for the built-in AI with `bot: null`. Is that the right value? Should `bot` be omitted entirely instead of `null`? |
+| 3.2 | **`status` enum.** We assume `RUNNING` / `PAUSED` / `ERROR`. Docs only showed `PAUSED`. Confirm the full set. |
+| 3.3 | **Indicator keys.** Docs example: `rsi, macd, macd_signal, sma_50`. We hard-code a set (`rsi, macd, macd_signal, sma_20/50/200, ema_50/200, atr, bb_upper/lower, stoch, volume`). Give us the canonical list, or an endpoint `GET /trading_v2/indicators/`. |
+| 3.4 | **Demo vs live.** The mockup had a Demo/Live switch; the v2 trade payload has no such field. Is demo/live implied by the exchange account, or is it missing? |
+| 3.5 | **`indicators` on write.** We send `string[]`; reads come back as a comma/space string. Confirm write format. |
+
+### Bots (v2)
+
+| # | Question |
+|---|---|
+| 3.6 | **Enum values.** Docs spell out only `platform=N8N_CLOUD`, `reach_mode=PUSH`, `on_no_reply=SKIP`, `decision_style=BUY_SELL_HOLD`, `status=ACTIVE`. We assume the rest — confirm or correct: <br>• `platform`: `N8N_CLOUD, N8N_SELF, MAKE, ZAPIER, OWN_CODE, OTHER` <br>• `reach_mode`: `PUSH, PULL` <br>• `on_no_reply`: `SKIP, HOLD, CLOSE` <br>• `decision_style`: `BUY_SELL_HOLD, BUY_HOLD, SIGNAL_STRENGTH` <br>• `status`: `ACTIVE, PAUSED, FAILING` |
+| 3.7 | **`model_name`.** Free-text, or is there a server-side enum? We show a suggested list but send whatever's typed. |
+| 3.8 | **`dev_key` on reads.** We assume it comes back full only on create + regenerate-key, and is masked/absent on `GET /bots/{id}/`. Confirm — the settings page shows `••••` when it's empty. |
+| 3.9 | **`test-connection` response.** We expect `{ ok: bool, status_code?: int, body?: any, error?: string }`. Confirm field names. Confirm it never returns a non-2xx for a failed webhook (we rely on that). |
+| 3.10 | **`regenerate-key` response.** We expect `{ status: string, dev_key: string }`. Confirm. |
+
+### Other pages
+
+| # | Question |
+|---|---|
+| 3.11 | **Subscription history — `amount_paid`.** Rows from `GET /subscription/user/history/` have no stored charged amount. We derive `plan.price × tokens`, which breaks when a plan's price changes or a plan is deleted. Please store and return the **actual amount charged + currency** per purchase. |
+| 3.12 | **Subscription expiry.** At `expiry_date`, are unused `tokens` voided, or does only the plan status change? |
+| 3.13 | **Task leaderboard shape.** We match `account_id === user.username` and read `point`, `level`. Confirm those field names. |
+| 3.14 | **`GET /tutor/courses/`.** We read `data.data.results[]` and expect per-user `progress`, `is_active`, `status`. Does this return the caller's **enrolled** courses or the whole catalogue? If catalogue-only, we need `GET /tutor/courses/enrolled/` (or those per-user fields added). |
+| 3.15 | **Course completion.** Does `GET /tutor/courses/{id}/` include per-lesson / per-module completion state for the caller? Needed for the progress bars. |
+| 3.16 | **Referral record fields.** Confirm `GET /referral/user/referral/record/` returns `claimed_earning` and `unclaimed_earning`. |
+| 3.17 | **Referral claim.** Confirm the reward claim is on-chain only (`PUT /referral/user/referral/{id}/claim/` with `transaction_hash`) and there's no server-only claim path. |
+
+---
+
+## Bugs / cross-cutting
+
+- **Token-refresh URL has a double slash.** `lib/axiosApi.ts` and
+  `lib/hooks/useRefreshToken.ts` call `${uri}/user/refresh/get/token/` where
+  `uri` already ends in `/`, producing `//`. We can fix it on the frontend —
+  please confirm the server does (or doesn't) tolerate `//` so we know whether
+  it's urgent.
+
+---
+
+## Already working (for reference — no action needed)
+
+- **Subscription:** `GET /subscription/retrieve/all/`, `/user/history/`,
+  `/payment/methods/all/`, `POST /subscription/user/`, `GET /subscription/cancel/{id}`
+- **Tasks:** `GET /task/all/ /stats/ /streak/ /leaderboard/ /reward/`,
+  `POST /task/reward/`, `GET /task/reward/claim/{id}/`
+- **Notifications:** `GET /notification/unread/?page=N`, `GET /notification/{id}`,
+  `GET /notification/clear/`
+- **Academy:** `GET /tutor/courses/featured/`, `GET /tutor/courses/{id}/`,
+  `GET /certificate/{username}/`, `GET /currency/retrieve/all/`
+- **Invite:** `GET /referral/user/referral/record/ /subscribed/ /unsubscribed/`,
+  `PUT /referral/user/referral/{id}/claim/`
+- **Settings:** `GET /user/profile/`, `GET /trade/portfolio/balance/`,
+  `PUT /user/update-wallet-password/`, `GET /exchange/list/ /record/`,
+  exchange add/remove, `POST /user/delete`
+- **Trades (v2):** `GET/POST /trading_v2/trades/`, `GET/PATCH/DELETE /trading_v2/trades/{id}/`,
+  `POST /trading_v2/trades/{id}/start/ /pause/`
+- **Bots (v2):** `GET/POST /trading_v2/bots/`, `GET/PATCH/DELETE /trading_v2/bots/{id}/`,
+  `POST /trading_v2/bots/{id}/pause/ /resume/ /regenerate-key/`,
+  `POST /trading_v2/bots/test-connection/`
+
+---
+
+## Features cut from mockups (no backend needed — for your awareness)
+
+These were in the designs but have been **removed** from the build, not deferred:
+email invites, referral funnel analytics / rate tiers / milestones / payout
+widget, task weekly-goals / badges, notification delivery-preferences /
+quiet-hours, account-safety score, per-API-key withdrawal/IP detection,
+wallet-network selector, subscription flat monthly plans / bot-review allowances
+/ volume meters / proration.
