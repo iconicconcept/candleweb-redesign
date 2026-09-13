@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
@@ -12,7 +11,8 @@ import authService from "../../services/authService";
 import { loginUser } from "../../utils/loginUser";
 import { validateEmailAddress } from "../../utils/emailValidate";
 import { error } from "../alert/Toast";
-import Loader from "../Loader";
+import BrandLogo from "../public/BrandLogo";
+import DashboardEntryLoader from "./DashboardEntryLoader";
 import type { RegisterProps } from "../../pages/auth/register";
 /* eslint-disable react/no-unescaped-entities */
 
@@ -229,7 +229,7 @@ export default function AuthPanel({ initialMode }: { initialMode: Mode }) {
 
   return (
     <div className="auth-page">
-      {busy && <Loader />}
+      {busy && <DashboardEntryLoader />}
       <div className="auth-aura">
         <b className="b1" />
         <b className="b2" />
@@ -240,7 +240,7 @@ export default function AuthPanel({ initialMode }: { initialMode: Mode }) {
       <div className="auth-stage">
         <div className="auth-top">
           <Link href="/" className="auth-brand">
-            <Image src="/logo.png" alt="Candleweb" width={128} height={17} />
+            <BrandLogo height={17} />
           </Link>
           <div className="auth-top-end">
             <button

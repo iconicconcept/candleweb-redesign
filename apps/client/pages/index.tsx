@@ -5,6 +5,7 @@ import { Fragment, useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import PublicHeader from "../components/public/PublicHeader";
 import PublicFooter from "../components/public/PublicFooter";
+import BrandLogo from "../components/public/BrandLogo";
 import { Written } from "../components/public/Written";
 
 const bars = [214, 196, 184, 168, 150, 140, 122, 110, 86, 66, 60, 40];
@@ -18,16 +19,7 @@ const VENUES = [
 ];
 
 function Mark() {
-  return (
-    <Image
-      src="/logo.png"
-      alt="Candleweb"
-      width={136}
-      height={18}
-      className="landing-logo"
-      priority
-    />
-  );
+  return <BrandLogo className="landing-logo" height={18} priority />;
 }
 function ButtonLink({
   href,
@@ -418,7 +410,7 @@ export default function Home() {
             <div className="landing-screen landing-rise">
               <div className="landing-screen-bar">
                 <span>
-                  <Mark /> Candleweb
+                  <Mark />
                 </span>
                 <span>
                   BTC/USDT 64,356.10 <b>+1.42%</b>

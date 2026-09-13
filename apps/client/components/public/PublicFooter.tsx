@@ -1,5 +1,5 @@
-import Image from "next/image";
 import Link from "next/link";
+import BrandLogo from "./BrandLogo";
 
 type Props = {
   /** Short blurb under the logo. */
@@ -44,13 +44,7 @@ export default function PublicFooter({
     <footer className="pub-footer pub-wrap">
       <div className="pub-footer-brand">
         <Link href="/" className="pub-brand">
-          <Image
-            src="/logo.png"
-            alt="Candleweb"
-            width={136}
-            height={18}
-            className="pub-logo"
-          />
+          <BrandLogo className="pub-logo" height={18} />
         </Link>
         <p>{description}</p>
       </div>

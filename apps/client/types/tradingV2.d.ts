@@ -18,8 +18,10 @@ export interface TradeV2 {
   pair_name?: string;
   timeframe: TradeV2Timeframe;
   allocated_amount: string;
-  /** Serialized on read (comma/space list); sent as string[] on write. */
-  indicators: string;
+  /** Documented as a comma/space string on read (sent as string[] on write),
+   * but has been observed coming back as string[] on read too — the trades
+   * page's `indicatorChips` helper tolerates either shape. */
+  indicators: string | string[];
   candle_history_len: number;
   decider_type: TradeV2DeciderType;
   bot: number | null;

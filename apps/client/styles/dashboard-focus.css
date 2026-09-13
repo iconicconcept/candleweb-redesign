@@ -228,6 +228,17 @@
     radial-gradient(760px 460px at 96% 6%, rgba(255, 194, 77, 0.055), transparent 60%);
 }
 
+/* `.main__body` (Layout.tsx) clips overflow for the marketing pages, but any
+   non-visible overflow on an ancestor — clip included — stops position:sticky
+   from tracking the real page scroll in most browsers. That's what was making
+   the icon rail scroll away with the page instead of staying put. The
+   viewport-level guard (`body { overflow-x: hidden }` in globals.css) already
+   stops horizontal scroll, so the dashboard doesn't need this ancestor to clip
+   too — safe to open it back up just here. */
+.main__body[data-chrome="dashboard"] {
+  overflow: visible;
+}
+
 .fx-app {
   position: relative;
   z-index: 1;
@@ -596,6 +607,72 @@ button.fx-me[aria-expanded="true"] {
 @media (min-width: 1080px) {
   .fx-tabs {
     display: none;
+  }
+}
+
+/* ---- the active nav icon gets up and walks while you scroll, and waves
+   when the page sits idle. `.ico2` swaps its still icon for a tiny walking
+   figure; `NavIcon` (DashboardShell) only renders this wrapper for whichever
+   rail/tab item is the current page. ---- */
+.ico2 {
+  position: relative;
+  display: block;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  transition: transform 0.34s cubic-bezier(0.34, 1.4, 0.5, 1);
+}
+.ico2 svg {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  transition: opacity 0s, transform 0.22s cubic-bezier(0.34, 1.4, 0.5, 1);
+}
+.ico2 .ic-walk {
+  opacity: 0;
+  transform: scale(0.72) rotate(-6deg);
+}
+.walking9 .ico2 .ic-dash {
+  opacity: 0;
+  transform: scale(0.78);
+}
+.walking9 .ico2 .ic-walk {
+  opacity: 1;
+  transform: scale(1) rotate(0);
+}
+.walking9 .ico2 .ic-walk.left9 {
+  transform: scale(1) scaleX(-1);
+}
+.ico2 .wk {
+  transform-origin: 12px 12px;
+}
+.ic-walk .torso,
+.ic-walk .arm,
+.ic-walk .leg {
+  stroke-linecap: round;
+}
+.ic-walk .arm {
+  stroke-width: 1.5;
+}
+.fx-tabs .ico2 {
+  width: 19px;
+  height: 19px;
+}
+.waving9 .ico2 {
+  transform: scale(1.16);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ico2 .ic-walk {
+    display: none;
+  }
+  .ico2 .ic-dash {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .waving9 .ico2 {
+    transform: none;
   }
 }
 

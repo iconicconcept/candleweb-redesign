@@ -7,9 +7,11 @@ import useUserStore from "../../../lib/hooks/useUserStore";
 import { isAuthorizationHeaderSet } from "../../../utils/check_auth";
 import notificationService from "../../../services/notificationService";
 import exchangeServices from "../../../services/exchangeService";
+import useNavWalker from "../../../lib/hooks/useNavWalker";
 import CheckLogin from "../CheckLogin";
 import AIAgentChat from "../AIAgentChat";
 import Popover from "./Popover";
+import NavIcon from "./NavIcon";
 import {
   GridIcon,
   ChartIcon,
@@ -90,6 +92,8 @@ export default function DashboardShell({ active, children }: Props) {
   const moreRef = useRef<HTMLButtonElement>(null);
   const moreActive = MORE_LINKS.some((l) => l.key === active);
 
+  useNavWalker();
+
   useEffect(() => {
     if (!isAuthorizationHeaderSet(axiosToken)) return;
     if (user && Object.keys(notification).length < 1) {
@@ -117,7 +121,7 @@ export default function DashboardShell({ active, children }: Props) {
                   href={item.href}
                   className={`fx-ic ${active === item.key ? "on" : ""}`}
                 >
-                  <item.Icon />
+                  <NavIcon Icon={item.Icon} active={active === item.key} />
                   <span className="tip">{item.label}</span>
                 </Link>
               ))}
@@ -128,7 +132,7 @@ export default function DashboardShell({ active, children }: Props) {
                   href={item.href}
                   className={`fx-ic ${active === item.key ? "on" : ""}`}
                 >
-                  <item.Icon />
+                  <NavIcon Icon={item.Icon} active={active === item.key} />
                   <span className="tip">{item.label}</span>
                 </Link>
               ))}
@@ -144,7 +148,7 @@ export default function DashboardShell({ active, children }: Props) {
               href={item.href}
               className={active === item.key ? "on" : ""}
             >
-              <item.Icon />
+              <NavIcon Icon={item.Icon} active={active === item.key} />
               {item.label}
             </Link>
           ))}

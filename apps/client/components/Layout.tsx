@@ -30,6 +30,7 @@ const Layout = ({ children }: Props) => {
     "login",
     "register",
   ].includes(path);
+  const isDashboard = path === "dashboard";
 
   return (
     <>
@@ -61,7 +62,7 @@ const Layout = ({ children }: Props) => {
       <GoogleAnalytics gaId="G-Z3EMQKEN56" />
       <div
         className="main__body relative overflow-hidden min-h-screen pb-10 !max-w-[100vw]"
-        data-chrome={isPublicChrome ? "public" : undefined}
+        data-chrome={isPublicChrome ? "public" : isDashboard ? "dashboard" : undefined}
       >
         {/* {(!path.includes("dashboard") && !path.includes("register") && !path.includes("tutor")) && ( */}
         {path !== "" &&
@@ -88,9 +89,9 @@ const Layout = ({ children }: Props) => {
             />
           )}
         {children}
-        <div
-          className={`bottom__border absolute bottom-0 left-0 right-0 bg-bottom-border w-full h-[31px] ${path.includes("dashboard") ? "ai:!hidden" : ""}`}
-        ></div>
+        {!isDashboard && (
+          <div className="bottom__border absolute bottom-0 left-0 right-0 bg-bottom-border w-full h-[31px]"></div>
+        )}
       </div>
       {/* {isFooter && <Footer />} */}
     </>

@@ -12,6 +12,7 @@ import TopBar from "../../components/dashboard/focus/TopBar";
 import Dialog from "../../components/dashboard/focus/Dialog";
 import { TrashIcon } from "../../components/dashboard/focus/icons";
 import { TradeV2, TradeV2Status } from "../../types/tradingV2";
+import { indicatorChips } from "../../lib/tradingV2Indicators";
 
 const STATUS_META: Record<TradeV2Status, { label: string; cls: string }> = {
   RUNNING: { label: "Running", cls: "on5" },
@@ -26,12 +27,6 @@ const DIRECTION_LABEL: Record<string, string> = {
 };
 
 type Filter = "all" | "running" | "paused";
-
-const indicatorChips = (raw: string): string[] =>
-  (raw || "")
-    .split(/[,\s]+/)
-    .map((s) => s.trim())
-    .filter(Boolean);
 
 const TradesPage = () => {
   const dispatch = useDispatch<AppDispatch>();

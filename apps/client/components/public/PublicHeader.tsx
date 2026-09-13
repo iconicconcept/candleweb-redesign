@@ -1,7 +1,7 @@
-import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import useSiteTheme from "../../lib/hooks/useSiteTheme";
+import BrandLogo from "./BrandLogo";
 
 /**
  * Light/dark toggle. Renders both icons and lets CSS show the right one based
@@ -158,14 +158,7 @@ export default function PublicHeader({
       >
         <nav className="pub-nav" aria-label="Main navigation">
           <Link href="/" className="pub-brand" onClick={closeMenu}>
-            <Image
-              src="/logo.png"
-              alt="Candleweb"
-              width={136}
-              height={18}
-              className="pub-logo"
-              priority
-            />
+            <BrandLogo className="pub-logo" height={18} priority />
           </Link>
           <div className={`pub-nav-mid ${menuOpen ? "is-open" : ""}`}>
             {NAV_LINKS.map((link) => (

@@ -10,6 +10,7 @@ import { isAuthorizationHeaderSet } from "../../../utils/check_auth";
 import { error } from "../../../components/alert/Toast";
 import DashboardShell from "../../../components/dashboard/focus/DashboardShell";
 import TopBar from "../../../components/dashboard/focus/TopBar";
+import { indicatorChips } from "../../../lib/tradingV2Indicators";
 import {
   TradeV2,
   TradeV2Direction,
@@ -142,10 +143,7 @@ const NewTradePage = () => {
         pair: t.pair,
         timeframe: t.timeframe,
         allocated_amount: String(parseFloat(t.allocated_amount) || ""),
-        indicators: (t.indicators || "")
-          .split(/[,\s]+/)
-          .map((s) => s.trim())
-          .filter(Boolean),
+        indicators: indicatorChips(t.indicators),
         candle_history_len: t.candle_history_len,
         decider_type: t.decider_type,
         bot: t.bot,

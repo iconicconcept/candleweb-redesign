@@ -238,6 +238,25 @@ Priority:
   plus `bot_name`.
 - **Used by:** `pages/dashboard/index.tsx`
 
+### 1.14 What an exchange key can actually do
+- **Why:** the new Exchanges page wants to show each connected key a safety
+  score (can it withdraw? is it locked to our IP? does it expire soon?). We
+  have no way to check any of that right now.
+- **Proposed:** either new fields on `GET /exchange/record/` or a
+  `GET /exchange/record/{id}/permissions/`:
+  ```json
+  { "can_withdraw": false, "can_trade": true, "can_read": true,
+    "ip_restricted": true, "expires_at": null }
+  ```
+- **Used by:** `pages/dashboard/exchanges.tsx`
+
+### 1.15 Balance per exchange account
+- **Why:** same page also wants Balance / Available / In-open-positions **per
+  connected account**. `/trade/portfolio/balance/` only gives per-currency
+  totals across everything, not split by which exchange it's on.
+- **Proposed:** `GET /exchange/record/{id}/balance/` (same shape as 1.3).
+- **Used by:** `pages/dashboard/exchanges.tsx`
+
 ---
 
 ## P2 — Bulk endpoints (works now, but the frontend loops single calls)
@@ -288,6 +307,8 @@ Priority:
 | 3.15 | **Course completion.** Does `GET /tutor/courses/{id}/` include per-lesson / per-module completion state for the caller? Needed for the progress bars. |
 | 3.16 | **Referral record fields.** Confirm `GET /referral/user/referral/record/` returns `claimed_earning` and `unclaimed_earning`. |
 | 3.17 | **Referral claim.** Confirm the reward claim is on-chain only (`PUT /referral/user/referral/{id}/claim/` with `transaction_hash`) and there's no server-only claim path. |
+| 3.18 | **`is_active` on `GET /exchange/record/`.** We show this as "Active" / "Expired". Confirm that's what it means, and whether there's also an `expires_at` or `last_synced_at` we could show. |
+| 3.19 | **`GET /task/all/` when there are no tasks.** It replies `{ "message": "..." }` instead of an empty list. We now treat that as "no tasks" on our side, but it'd be cleaner if this always returned `[]`. |
 
 ---
 

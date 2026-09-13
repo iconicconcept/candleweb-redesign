@@ -592,3 +592,23 @@
   border-color: rgba(11, 143, 106, 0.4);
   background: rgba(11, 143, 106, 0.08);
 }
+
+/* BrandLogo (shared wordmark): white-text logo.png on dark, black-text
+   c_logo.png on light — both render, this just shows the right one. Global
+   so it covers every page that uses BrandLogo (public header/footer,
+   landing, and the auth pages, which share this same site theme).
+   !important: BrandLogo passes each caller's own sizing class (.pub-logo,
+   .landing-logo, ...) onto BOTH logo elements, and those classes also set
+   `display: block`. Without !important here, whichever stylesheet loads
+   later in _app.tsx (equal specificity) wins that fight instead of the
+   theme toggle — which is exactly how both logos ended up visible at once
+   on the landing page (landing.css loads after this file). */
+.brand-logo-light {
+  display: none !important;
+}
+:root[data-site-theme="light"] .brand-logo-dark {
+  display: none !important;
+}
+:root[data-site-theme="light"] .brand-logo-light {
+  display: inline-block !important;
+}
