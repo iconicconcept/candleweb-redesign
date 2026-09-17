@@ -5,6 +5,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { dollarFormat } from "ui";
 import { AppDispatch, RootState } from "../../redux/store";
 import tradingV2Service from "../../services/tradingV2Service";
+import userService from "../../services/userService";
 import useAxiosAuth from "../../lib/hooks/useAxiosAuth";
 import { isAuthorizationHeaderSet } from "../../utils/check_auth";
 import DashboardShell from "../../components/dashboard/focus/DashboardShell";
@@ -12,6 +13,7 @@ import TopBar from "../../components/dashboard/focus/TopBar";
 import Dialog from "../../components/dashboard/focus/Dialog";
 import { TrashIcon } from "../../components/dashboard/focus/icons";
 import { TradeV2, TradeV2Status } from "../../types/tradingV2";
+import { BalanceProp } from "../../types/user";
 import { indicatorChips } from "../../lib/tradingV2Indicators";
 
 const STATUS_META: Record<TradeV2Status, { label: string; cls: string }> = {
@@ -34,6 +36,7 @@ const TradesPage = () => {
   const { trades, tradesLoading: isLoading, tradesLoaded: loaded } = useSelector(
     (state: RootState) => state.tradingV2,
   );
+  const { balance } = useSelector((state: RootState) => state.user);
 
   const [filter, setFilter] = useState<Filter>("all");
   const [busyId, setBusyId] = useState<number | null>(null);
@@ -44,7 +47,17 @@ const TradesPage = () => {
     if (!isAuthorizationHeaderSet(axiosToken) || fetchedRef.current) return;
     fetchedRef.current = true;
     dispatch(tradingV2Service.listTrades(axiosToken));
+    if (!balance || balance.length === 0) dispatch(userService.getBalance(axiosToken));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [axiosToken, dispatch]);
+
+  const totalBalance = useMemo(
+    () =>
+      (balance || [])
+        .filter((b: BalanceProp) => b.name?.toLowerCase() !== "cde")
+        .reduce((s: number, b: BalanceProp) => s + (Number(b.balance) || 0), 0),
+    [balance],
+  );
 
   const shown = useMemo(() => {
     if (filter === "running") return trades.filter((t) => t.status === "RUNNING");
@@ -53,6 +66,10 @@ const TradesPage = () => {
   }, [trades, filter]);
 
   const runningCount = trades.filter((t) => t.status === "RUNNING").length;
+  const capitalAllocated = trades.reduce((s, t) => s + (parseFloat(t.allocated_amount) || 0), 0);
+  const balanceKnown = !!balance && balance.length > 0;
+  const freeToAllocate = balanceKnown ? Math.max(0, totalBalance - capitalAllocated) : null;
+  const allocPct = balanceKnown && totalBalance > 0 ? Math.min(100, (capitalAllocated / totalBalance) * 100) : 0;
 
   const toggleRun = async (t: TradeV2) => {
     setBusyId(t.id);
@@ -117,11 +134,7 @@ const TradesPage = () => {
           <div className="fx-cap2" style={{ marginTop: 0 }}>
             <div className="fx-cp">
               <span>Capital allocated</span>
-              <b>
-                {dollarFormat(
-                  trades.reduce((s, t) => s + (parseFloat(t.allocated_amount) || 0), 0),
-                )}
-              </b>
+              <b>{dollarFormat(capitalAllocated)}</b>
               <i>across {trades.length} trades</i>
             </div>
             <div className="fx-cp">
@@ -131,13 +144,31 @@ const TradesPage = () => {
             </div>
             <div className="fx-cp">
               <span>Free to allocate</span>
-              <b className="mut2">—</b>
-              <i>needs a balance endpoint</i>
+              <b className={freeToAllocate == null ? "mut2" : undefined}>
+                {freeToAllocate == null ? "—" : dollarFormat(freeToAllocate)}
+              </b>
+              <i>{freeToAllocate == null ? "needs a balance endpoint" : "across your exchanges"}</i>
             </div>
             <div className="fx-cp">
               <span>Net · 30d</span>
               <b className="mut2">—</b>
               <i>needs a P&amp;L endpoint</i>
+            </div>
+          </div>
+          <div className="fx-capbar" style={{ marginTop: "20px" }}>
+            <div className="cb">
+              <i className="p1" style={{ width: `${allocPct}%` }} />
+              <i className="p3" style={{ width: `${100 - allocPct}%` }} />
+            </div>
+            <div className="fx-caplab">
+              <span>
+                <i className="k1" />
+                Allocated — {dollarFormat(capitalAllocated)}
+              </span>
+              <span>
+                <i className="k3" />
+                Free — {freeToAllocate == null ? "—" : dollarFormat(freeToAllocate)}
+              </span>
             </div>
           </div>
         </section>

@@ -8,7 +8,17 @@ import Dialog from "../Dialog";
 import { CheckIcon, TasksIcon } from "../icons";
 import type { RewardTaskProp, TaskProp } from "../../../../types/task";
 
-type Filter = "open" | "ready" | "done";
+type Filter = "open" | "review" | "ready" | "done";
+
+/* No `end_date` means nothing to be late against. */
+function dueState(endDate?: Date | string | null): { cls: string; label: string } {
+  if (!endDate) return { cls: "", label: "no deadline" };
+  const days = Math.ceil((new Date(endDate).getTime() - Date.now()) / 86400000);
+  if (days < 0) return { cls: "late8", label: `${Math.abs(days)} day${Math.abs(days) === 1 ? "" : "s"} overdue` };
+  if (days === 0) return { cls: "soon8", label: "due today" };
+  if (days === 1) return { cls: "soon8", label: "due tomorrow" };
+  return { cls: "", label: `due in ${days} days` };
+}
 
 export default function DailyTasks() {
   const dispatch = useDispatch<AppDispatch>();
@@ -21,7 +31,10 @@ export default function DailyTasks() {
   const [busy, setBusy] = useState(false);
 
   const pending = tasks ?? [];
-  const ready = (completed ?? []).filter((r) => !r.is_reward_claimed);
+  /* A submitted task sits in `completed` same as a verified one — the only
+     way to tell "waiting on a human" from "ready to claim" is is_verified. */
+  const underReview = (completed ?? []).filter((r) => !r.is_reward_claimed && !r.is_verified);
+  const ready = (completed ?? []).filter((r) => !r.is_reward_claimed && r.is_verified);
   const claimed = (completed ?? []).filter((r) => r.is_reward_claimed);
 
   const refresh = () => {
@@ -69,19 +82,26 @@ export default function DailyTasks() {
   };
 
   const visible =
-    filter === "done" ? claimed : filter === "ready" ? ready : pending;
+    filter === "done" ? claimed : filter === "review" ? underReview : filter === "ready" ? ready : pending;
 
   return (
     <>
       <div className="fx-sh">
-        <h2>Daily tasks</h2>
+        <h2>Your tasks</h2>
         <div className="fx-tabs2">
           <button
             type="button"
             className={`fx-tab2 ${filter === "open" ? "on" : ""}`}
             onClick={() => setFilter("open")}
           >
-            To do
+            To do <em>{pending.length}</em>
+          </button>
+          <button
+            type="button"
+            className={`fx-tab2 ${filter === "review" ? "on" : ""}`}
+            onClick={() => setFilter("review")}
+          >
+            With a marker <em>{underReview.length}</em>
           </button>
           <button
             type="button"
@@ -95,7 +115,7 @@ export default function DailyTasks() {
             className={`fx-tab2 ${filter === "done" ? "on" : ""}`}
             onClick={() => setFilter("done")}
           >
-            Claimed
+            Claimed <em>{claimed.length}</em>
           </button>
         </div>
       </div>
@@ -106,39 +126,57 @@ export default function DailyTasks() {
             <b>
               {filter === "open"
                 ? "Nothing to do right now."
-                : filter === "ready"
-                  ? "No rewards waiting."
-                  : "Nothing claimed yet."}
+                : filter === "review"
+                  ? "Nothing with a marker right now."
+                  : filter === "ready"
+                    ? "No rewards waiting."
+                    : "Nothing claimed yet."}
             </b>
           </p>
         )}
 
         {filter === "open" &&
-          pending.map((task, idx) => (
-            <div className="fx-tk" key={task.id ?? idx}>
+          pending.map((task, idx) => {
+            const due = dueState(task.end_date);
+            return (
+              <div className="fx-tk" key={task.id ?? idx}>
+                <span className="fx-tkico">
+                  <TasksIcon />
+                </span>
+                <div className="fx-tkb">
+                  <b>{task.title}</b>
+                  <div className="fx-tkm">
+                    <span className={`fx-due ${due.cls}`}>{due.label}</span>
+                  </div>
+                </div>
+                <div className="fx-tka">
+                  <span className="fx-tkr">
+                    +{parseInt(task.token_reward ?? "0")} credits · {parseInt(task.point_reward ?? "0")} pts
+                  </span>
+                  <button className="fx-mini" type="button" onClick={() => setVerifyTask(task)}>
+                    Submit
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+
+        {filter === "review" &&
+          underReview.map((reward, idx) => (
+            <div className="fx-tk" key={reward.id ?? idx}>
               <span className="fx-tkico">
                 <TasksIcon />
               </span>
               <div className="fx-tkb">
-                <b>{task.title}</b>
+                <b>{reward.title}</b>
                 <div className="fx-tkm">
-                  <span>{parseInt(task.point_reward ?? "0")} points</span>
-                  {task.token_reward && <span>{parseInt(task.token_reward)} CDE</span>}
+                  <span className="fx-due wait8">with a marker</span>
                 </div>
               </div>
               <div className="fx-tka">
-                <button
-                  className="fx-mini"
-                  type="button"
-                  onClick={() => {
-                    if (task.url) window.open(task.url, "_blank");
-                  }}
-                >
-                  View
-                </button>
-                <button className="fx-mini go" type="button" onClick={() => setVerifyTask(task)}>
-                  Submit
-                </button>
+                <span className="fx-tkr">
+                  +{parseInt(reward.ai_unit ?? "0")} credits · {parseInt(reward.point ?? "0")} pts
+                </span>
               </div>
             </div>
           ))}
@@ -152,13 +190,12 @@ export default function DailyTasks() {
               <div className="fx-tkb">
                 <b>{reward.title}</b>
                 <div className="fx-tkm">
-                  <span>{parseInt(reward.point ?? "0")} points</span>
-                  {reward.ai_unit && <span>{parseInt(reward.ai_unit)} CDE</span>}
+                  <span className="fx-due">reward waiting</span>
                 </div>
               </div>
               <div className="fx-tka">
                 <span className="fx-tkr">
-                  +{parseInt(reward.ai_unit ?? "0")} credits
+                  +{parseInt(reward.ai_unit ?? "0")} credits · {parseInt(reward.point ?? "0")} pts
                 </span>
                 <button className="fx-mini claim" type="button" onClick={() => claim(reward)}>
                   Claim
@@ -176,11 +213,11 @@ export default function DailyTasks() {
               <div className="fx-tkb">
                 <b>{reward.title}</b>
                 <div className="fx-tkm">
-                  <span>{parseInt(reward.point ?? "0")} points</span>
+                  <span className="fx-due wait8">claimed</span>
                 </div>
               </div>
               <div className="fx-tka">
-                <span className="fx-tkr">Claimed</span>
+                <span className="fx-tkr">+{parseInt(reward.ai_unit ?? "0")} claimed</span>
               </div>
             </div>
           ))}

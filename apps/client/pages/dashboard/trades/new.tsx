@@ -5,11 +5,13 @@ import { useDispatch, useSelector } from "react-redux";
 import { dollarFormat } from "ui";
 import { AppDispatch, RootState } from "../../../redux/store";
 import tradingV2Service from "../../../services/tradingV2Service";
+import userService from "../../../services/userService";
 import useAxiosAuth from "../../../lib/hooks/useAxiosAuth";
 import { isAuthorizationHeaderSet } from "../../../utils/check_auth";
 import { error } from "../../../components/alert/Toast";
 import DashboardShell from "../../../components/dashboard/focus/DashboardShell";
 import TopBar from "../../../components/dashboard/focus/TopBar";
+import { CheckIcon } from "../../../components/dashboard/focus/icons";
 import { indicatorChips } from "../../../lib/tradingV2Indicators";
 import {
   TradeV2,
@@ -18,6 +20,7 @@ import {
   TradeV2Payload,
   TradeV2Timeframe,
 } from "../../../types/tradingV2";
+import { BalanceProp } from "../../../types/user";
 
 /* ------------------------------------------------------------------ *
  * Reference lists — no backend endpoint exists for pairs / exchange
@@ -42,14 +45,23 @@ const PLACEHOLDER_PAIRS = [
    list hasn't loaded yet or the account has none. */
 const FALLBACK_BOTS: { id: number; name: string }[] = [];
 
-const TIMEFRAMES: { v: TradeV2Timeframe; calls: number }[] = [
-  { v: "1m", calls: 1440 },
-  { v: "5m", calls: 288 },
-  { v: "15m", calls: 96 },
-  { v: "1h", calls: 24 },
-  { v: "4h", calls: 6 },
-  { v: "1d", calls: 1 },
+/* `stop` is the typical stop distance assumed for that candle size — used
+   only to illustrate what a risk % works out to in section 05, same as the
+   original design. */
+const TIMEFRAMES: { v: TradeV2Timeframe; calls: number; stop: number; every: string }[] = [
+  { v: "1m", calls: 1440, stop: 0.6, every: "Every minute" },
+  { v: "5m", calls: 288, stop: 1.1, every: "Every 5 minutes" },
+  { v: "15m", calls: 96, stop: 2.4, every: "Every 15 minutes" },
+  { v: "1h", calls: 24, stop: 3.6, every: "Every hour" },
+  { v: "4h", calls: 6, stop: 5.2, every: "Every 4 hours" },
+  { v: "1d", calls: 1, stop: 7.5, every: "Once a day" },
 ];
+
+function listWords(arr: string[]) {
+  if (arr.length === 0) return "nothing";
+  if (arr.length === 1) return arr[0];
+  return arr.slice(0, -1).join(", ") + " and " + arr[arr.length - 1];
+}
 
 /* Front-end's assumed indicator set — confirm the canonical keys with the
    backend (docs example: rsi, macd, macd_signal, sma_50). */
@@ -114,12 +126,14 @@ const NewTradePage = () => {
   const dispatch = useDispatch<AppDispatch>();
   const axiosToken = useAxiosAuth();
   const { trades, bots } = useSelector((state: RootState) => state.tradingV2);
+  const { balance } = useSelector((state: RootState) => state.user);
   const botOptions = bots.length ? bots : FALLBACK_BOTS;
 
   const editId = typeof router.query.id === "string" ? parseInt(router.query.id, 10) : null;
   const editing = editId != null && !Number.isNaN(editId);
 
   const [form, setForm] = useState<FormState>(DEFAULTS);
+  const [environment, setEnvironment] = useState<"demo" | "live">("demo");
   const [busy, setBusy] = useState<null | "save" | "start">(null);
   const [existing, setExisting] = useState<TradeV2 | null>(null);
   const loadedRef = useRef<number | null>(null);
@@ -129,6 +143,9 @@ const NewTradePage = () => {
     if (!isAuthorizationHeaderSet(axiosToken) || botsFetchedRef.current) return;
     botsFetchedRef.current = true;
     dispatch(tradingV2Service.listBots(axiosToken));
+    dispatch(tradingV2Service.listTrades(axiosToken));
+    if (!balance || balance.length === 0) dispatch(userService.getBalance(axiosToken));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [axiosToken, dispatch]);
 
   // hydrate for edit
@@ -176,10 +193,57 @@ const NewTradePage = () => {
   const riskCash = alloc * (form.risk_pct / 100);
   const ceilingCash = alloc * (form.max_size_pct / 100);
 
+  /* Real balance + what every other trade has already claimed from it —
+     "per-exchange-account" balances aren't possible yet since the exchange
+     accounts above are placeholders, not real connected accounts. */
+  const totalBalance = useMemo(
+    () =>
+      (balance || [])
+        .filter((b: BalanceProp) => b.name?.toLowerCase() !== "cde")
+        .reduce((s: number, b: BalanceProp) => s + (Number(b.balance) || 0), 0),
+    [balance],
+  );
+  const balanceKnown = !!balance && balance.length > 0;
+  const otherAllocated = trades.reduce(
+    (s, t) => (existing && t.id === existing.id ? s : s + (parseFloat(t.allocated_amount) || 0)),
+    0,
+  );
+  const freeBeforeThis = balanceKnown ? Math.max(0, totalBalance - otherAllocated) : null;
+  const stillFree = freeBeforeThis != null ? Math.max(0, freeBeforeThis - alloc) : null;
+  const otherPct = balanceKnown && totalBalance > 0 ? Math.min(100, (otherAllocated / totalBalance) * 100) : 0;
+  const thisPct =
+    balanceKnown && totalBalance > 0 ? Math.min(100 - otherPct, (alloc / totalBalance) * 100) : 0;
+
   const pairName =
     PLACEHOLDER_PAIRS.find((p) => p.id === form.pair)?.name ||
     existing?.pair_name ||
     `Pair #${form.pair}`;
+
+  const tf = TIMEFRAMES.find((t) => t.v === form.timeframe)!;
+  const wantCash = alloc > 0 ? riskCash / (tf.stop / 100) : 0;
+  const capped = alloc > 0 && wantCash > ceilingCash + 0.5;
+
+  const deciderReady = form.decider_type === "CANDLE_AI" || !!form.bot;
+  const summaryReady = alloc > 0 && deciderReady;
+  const whoDecides =
+    form.decider_type === "CANDLE_AI"
+      ? "CandleAI"
+      : botOptions.find((b) => b.id === form.bot)?.name || existing?.bot_name || "your bot";
+  const replyWord =
+    form.direction === "LONG" ? "a buy" : form.direction === "SHORT" ? "a sell" : "a buy or a sell";
+  const indicatorNames = form.indicators.map((k) => INDICATORS.find((i) => i.key === k)?.label || k);
+  const stopBit = form.trailing_stop
+    ? "trails it as the price moves in your favour"
+    : "leaves the stop where it was set";
+  const summaryText = summaryReady
+    ? `${tf.every}, Candleweb sends ${pairName} candles with ${
+        form.indicators.length ? listWords(indicatorNames) : "no indicators"
+      } to ${whoDecides}. If it replies with ${replyWord}, Candleweb places the order on your account, ` +
+      `risking at most ${form.risk_pct.toFixed(1)}% of the ${dollarFormat(alloc)} allocated — about ` +
+      `${dollarFormat(riskCash)}, and never more than ${dollarFormat(ceilingCash)} in one position — sets ` +
+      `the stop to match, ${stopBit}, and closes the position when the stop is hit. Pause it whenever you like.`
+    : "Allocate some money and choose who decides. This paragraph will then spell out exactly what " +
+      "Candleweb is about to do on your behalf, in the order it will happen.";
 
   const missing = useMemo(() => {
     const m: string[] = [];
@@ -252,7 +316,6 @@ const NewTradePage = () => {
     }
   };
 
-  const tf = TIMEFRAMES.find((t) => t.v === form.timeframe)!;
   const tradeIdForUrl = existing ? String(existing.id) : "{trade_id}";
 
   return (
@@ -296,6 +359,40 @@ const NewTradePage = () => {
               <p className="fx-fsub">
                 Candleweb watches this market and sends every closed candle to whoever decides.
               </p>
+
+              <div className="fx-envrow">
+                <span className="fx-fl">Environment</span>
+                <div className="fx-env" role="group" aria-label="Environment">
+                  <button
+                    type="button"
+                    className={`fx-eb ${environment === "demo" ? "sel3" : ""}`}
+                    aria-pressed={environment === "demo"}
+                    onClick={() => setEnvironment("demo")}
+                  >
+                    <b>Demo</b>
+                    <span>Paper money, live prices</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`fx-eb live8 ${environment === "live" ? "sel3" : ""}`}
+                    aria-pressed={environment === "live"}
+                    onClick={() => setEnvironment("live")}
+                  >
+                    <b>Live</b>
+                    <span>Real orders, real money</span>
+                  </button>
+                </div>
+                <p className="fx-envnote">
+                  {environment === "live" ? (
+                    <>
+                      <em>Real orders on your exchange account, with real money, from the moment you start it.</em>{" "}
+                      Everything else works the same as demo.
+                    </>
+                  ) : (
+                    "Orders are filled on paper at the live price. Your bot is called exactly the same way — only the fill is simulated, and nothing reaches the exchange. You can switch this trade to live later."
+                  )}
+                </p>
+              </div>
 
               <div className="fx-fr two2">
                 <div>
@@ -372,6 +469,52 @@ const NewTradePage = () => {
                   </p>
                 </div>
               </div>
+
+              <div className={`fx-bal ${balanceKnown ? "" : "cold"}`} style={{ marginTop: "16px" }}>
+                <div className="fx-balh">
+                  <b>Your balance</b>
+                  <span className={`fx-live ${balanceKnown ? "" : "stale"}`}>
+                    <i />
+                    <span>{balanceKnown ? "Across your connected exchanges" : "Not connected yet"}</span>
+                  </span>
+                </div>
+                <div className="fx-balgrid">
+                  <div className="fx-bg1">
+                    <span>Total</span>
+                    <b>{balanceKnown ? dollarFormat(totalBalance) : "—"}</b>
+                  </div>
+                  <div className="fx-bg1">
+                    <span>Allocated to other trades</span>
+                    <b>{dollarFormat(otherAllocated)}</b>
+                  </div>
+                  <div className="fx-bg1">
+                    <span>Free to allocate</span>
+                    <b className="free4">{freeBeforeThis != null ? dollarFormat(freeBeforeThis) : "—"}</b>
+                  </div>
+                </div>
+                <div className="fx-balbar">
+                  <i className="o5" style={{ width: `${otherPct}%` }} />
+                </div>
+                <div className="fx-ballab">
+                  <span>
+                    <i className="k4" />
+                    Other trades
+                  </span>
+                  <span>
+                    <i className="k6" />
+                    Unallocated
+                  </span>
+                </div>
+                {!balanceKnown && (
+                  <p className="fx-warn2">
+                    <em>●</em>
+                    <span>
+                      No balance connected yet — connect an exchange under Exchanges to see what&rsquo;s free to
+                      allocate.
+                    </span>
+                  </p>
+                )}
+              </div>
             </section>
 
             {/* 02 — allocation */}
@@ -410,34 +553,36 @@ const NewTradePage = () => {
                   </p>
                 </div>
                 <div>
-                  <label className="fx-fl" htmlFor="hist">
-                    Candle history sent
-                  </label>
-                  <div className="fx-inp">
-                    <select
-                      id="hist"
-                      value={form.candle_history_len}
-                      onChange={(e) => set("candle_history_len", parseInt(e.target.value, 10))}
-                    >
-                      {HISTORY_OPTIONS.map((n) => (
-                        <option key={n} value={n}>
-                          {n} candles
-                        </option>
-                      ))}
-                    </select>
+                  <span className="fx-fl">After allocating</span>
+                  <div className="fx-balgrid two4">
+                    <div className="fx-bg1">
+                      <span>This trade</span>
+                      <b className="free4">{dollarFormat(alloc)}</b>
+                    </div>
+                    <div className="fx-bg1">
+                      <span>Still free</span>
+                      <b>{stillFree != null ? dollarFormat(stillFree) : "—"}</b>
+                    </div>
                   </div>
-                  <p className="fx-hint">
-                    How much context arrives with each call. More history means a bigger payload,
-                    not a better decision.
-                  </p>
+                  <div className="fx-balbar">
+                    <i className="o5" style={{ width: `${otherPct}%` }} />
+                    <i className="t5" style={{ width: `${thisPct}%` }} />
+                  </div>
+                  <div className="fx-ballab">
+                    <span>
+                      <i className="k4" />
+                      Other trades
+                    </span>
+                    <span>
+                      <i className="k5" />
+                      This trade
+                    </span>
+                    <span>
+                      <i className="k6" />
+                      Free
+                    </span>
+                  </div>
                 </div>
-              </div>
-
-              <div className="fx-flat2" style={{ marginTop: "16px" }}>
-                <span className="fx-preview">
-                  <i>◔</i> Balance panel — pending an endpoint
-                </span>
-                <b style={{ marginLeft: "auto" }}>Free to allocate: —</b>
               </div>
             </section>
 
@@ -468,6 +613,31 @@ const NewTradePage = () => {
                 Sent as <code>{form.indicators.join(", ") || "none"}</code>. Confirm the canonical
                 keys with the backend.
               </p>
+
+              <div className="fx-fr two2" style={{ marginTop: "16px" }}>
+                <div>
+                  <label className="fx-fl" htmlFor="hist">
+                    Candle history sent
+                  </label>
+                  <div className="fx-inp">
+                    <select
+                      id="hist"
+                      value={form.candle_history_len}
+                      onChange={(e) => set("candle_history_len", parseInt(e.target.value, 10))}
+                    >
+                      {HISTORY_OPTIONS.map((n) => (
+                        <option key={n} value={n}>
+                          {n} candles
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <p className="fx-hint">
+                    How much context arrives with each call. More history means a bigger payload,
+                    not a better decision.
+                  </p>
+                </div>
+              </div>
 
               {form.decider_type === "OWN_BOT" && (
                 <div className="fx-epbox">
@@ -502,6 +672,17 @@ const NewTradePage = () => {
                     <b>Note.</b> Authenticate with the bot&rsquo;s developer key in the{" "}
                     <code>X-Candleweb-Key</code> header. Both URLs are secret.
                     {!existing && " The real trade id fills in once you save."}
+                  </p>
+                </div>
+              )}
+
+              {form.decider_type === "CANDLE_AI" && (
+                <div className="fx-aibox">
+                  <b>CandleAI doesn&rsquo;t need an endpoint</b>
+                  <p>
+                    There&rsquo;s nothing to wire up. CandleAI reads the same candles and indicators you
+                    picked above and decides on every close. Your limits in section 05 still apply to it,
+                    exactly as they would to your own bot.
                   </p>
                 </div>
               )}
@@ -606,9 +787,6 @@ const NewTradePage = () => {
                       <span className={`fx-sldval ${form.risk_pct > 5 ? "hot4" : ""}`}>
                         {form.risk_pct.toFixed(1)}%<em>of this allocation</em>
                       </span>
-                      <span className="fx-sldcash">
-                        ≈ {alloc > 0 ? dollarFormat(riskCash) : "—"}
-                      </span>
                     </div>
                     <input
                       type="range"
@@ -650,14 +828,31 @@ const NewTradePage = () => {
                       ))}
                     </select>
                   </div>
-                  <div className="fx-sldout">
+                  <div className={`fx-sldout ${capped ? "capped" : ""}`}>
                     {alloc > 0 ? (
-                      <>
-                        A hard ceiling of <b>{dollarFormat(ceilingCash)}</b> on any one order. A bot
-                        that asks for more is refused, and the refusal is logged.
-                      </>
+                      capped ? (
+                        <>
+                          At {form.risk_pct.toFixed(1)}% risk on {dollarFormat(alloc)}, a typical{" "}
+                          {tf.stop}% stop on {form.timeframe} candles asks for a position of about{" "}
+                          <b>
+                            {dollarFormat(wantCash)} ({Math.round((wantCash / alloc) * 100)}%)
+                          </b>
+                          . Your {form.max_size_pct}% ceiling cuts it to{" "}
+                          <b>{dollarFormat(ceilingCash)}</b>. A bot that asks for more than the ceiling
+                          outright is refused instead, and the refusal is logged.
+                        </>
+                      ) : (
+                        <>
+                          At {form.risk_pct.toFixed(1)}% risk on {dollarFormat(alloc)}, a typical{" "}
+                          {tf.stop}% stop on {form.timeframe} candles works out to about{" "}
+                          <b>
+                            {dollarFormat(wantCash)} ({Math.round((wantCash / alloc) * 100)}%)
+                          </b>{" "}
+                          — inside your {form.max_size_pct}% ceiling of {dollarFormat(ceilingCash)}.
+                        </>
+                      )
                     ) : (
-                      "Set an allocation and we'll show what the ceiling works out to."
+                      "Set an allocation above and this works out what a typical order comes to."
                     )}
                   </div>
                 </div>
@@ -706,6 +901,14 @@ const NewTradePage = () => {
             </section>
 
             <section className="fx-fsec">
+              <div className="fx-rv2">
+                <div className="rh2">
+                  <CheckIcon />
+                  <b>Before you start it</b>
+                </div>
+                <p>{summaryText}</p>
+              </div>
+
               <div className="fx-actions">
                 <button
                   className="fx-cta ghost2"

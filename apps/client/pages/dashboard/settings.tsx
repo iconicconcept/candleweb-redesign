@@ -14,7 +14,7 @@ import useEthereum from "../../lib/hooks/useEthereum";
 import { isAuthorizationHeaderSet } from "../../utils/check_auth";
 import { getFirstAndLastLetter } from "../../utils/constants";
 import { maskEmailUsername } from "../../utils/emailValidate";
-import { success, error } from "../../components/alert/Toast";
+import { success, error, warning } from "../../components/alert/Toast";
 import { setExchangeRecord } from "../../redux/slices/exchangeSlice";
 import { setNotification } from "../../redux/slices/notificationSlice";
 import {
@@ -41,12 +41,22 @@ import AddExchangeDialog from "../../components/dashboard/focus/settings/AddExch
 import {
   CheckIcon,
   WarnIcon,
-  WalletIcon,
   CopyIcon,
   PlusIcon,
 } from "../../components/dashboard/focus/icons";
 
 const CONFIG_IPS = ["65.21.47.124", "107.155.122.236", "209.182.234.182"];
+
+/* Which chain the address on file lives on — display/validation only. The
+   API has nowhere to store this yet (BACKEND_API_REQUESTS.md: "wallet-network
+   selector" is on the list of things not built on the backend). */
+const NETWORKS = ["USDT · TRC-20", "USDT · ERC-20", "USDC · ERC-20", "BTC", "ETH"];
+
+/* Same shape check as the mockup — confirms the string at least looks like
+   an address for one of the common chains, not that it's real. */
+function addrShapeOK(v: string) {
+  return /^(0x[a-fA-F0-9]{40}|T[a-zA-Z0-9]{33}|bc1[a-z0-9]{25,50})$/.test(v.trim());
+}
 
 export default function SettingsDashboard() {
   const dispatch = useDispatch<AppDispatch>();
@@ -61,6 +71,8 @@ export default function SettingsDashboard() {
   const [confirmLive, setConfirmLive] = useState(false);
   const [modeBusy, setModeBusy] = useState(false);
   const [walletBusy, setWalletBusy] = useState(false);
+  const [network, setNetwork] = useState(NETWORKS[0]);
+  const [manualAddress, setManualAddress] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<{ id: string; name: string } | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -149,6 +161,32 @@ export default function SettingsDashboard() {
     }
   };
 
+  /* Pasted address, no wallet signature — the API's password field is
+     optional, but /user/update-wallet-password/ is documented as
+     "connect-wallet only", so this is a real call whose acceptance is up
+     to the backend, not something to fake client-side either way. */
+  const saveManualAddress = async () => {
+    if (walletBusy || !addrShapeOK(manualAddress)) return;
+    setWalletBusy(true);
+    try {
+      const value: any = await dispatch(
+        userService.updateWalletAddress({
+          wallet_address: manualAddress.trim(),
+          api: axiosToken,
+        }),
+      );
+      if (value?.error) {
+        error(typeof value.payload === "string" ? value.payload : "Couldn't save that address.");
+        return;
+      }
+      setUser({ ...value.payload, access_token: user?.access_token });
+      setManualAddress("");
+      success("Withdrawal address saved");
+    } finally {
+      setWalletBusy(false);
+    }
+  };
+
   const copyIp = async (ip: string) => {
     try {
       await navigator.clipboard.writeText(ip);
@@ -217,7 +255,7 @@ export default function SettingsDashboard() {
             <i>of {exchangeRecord.length} connected</i>
           </div>
           <div className="fx-cp">
-            <span>Withdrawal wallet</span>
+            <span>Withdrawal address</span>
             <b style={{ fontSize: 22 }}>{walletSet ? "Set" : "Not set"}</b>
             <i>
               {walletSet
@@ -226,11 +264,34 @@ export default function SettingsDashboard() {
             </i>
           </div>
           <div className="fx-cp">
-            <span>Email</span>
-            <b style={{ fontSize: 22 }}>{user?.email ? "Verified" : "—"}</b>
-            <i>{user?.email ? maskEmailUsername(user.email) : " "}</i>
+            <span>Account safety</span>
+            <b className="mut2">—</b>
+            <i>needs a permissions endpoint</i>
           </div>
         </div>
+
+        <section className="fx-sec">
+          <div className="fx-sh">
+            <h2>Account safety</h2>
+            <span className="fx-preview">
+              <i>◔</i> Scoring needs a permissions endpoint
+            </span>
+          </div>
+          <p className="fx-hint" style={{ marginBottom: walletSet ? 0 : 16 }}>
+            Candleweb can&rsquo;t yet read back which permissions your exchange keys actually carry
+            — whether one can withdraw, or is locked to our IP addresses — so it can&rsquo;t score
+            your setup the way the design calls for. What it can tell you for certain:{" "}
+            {walletSet
+              ? "you have a withdrawal address on file."
+              : "you don’t have a withdrawal address on file yet."}
+          </p>
+          {!walletSet && (
+            <p className="fx-warn2">
+              <em>●</em>
+              <span>Add one below — without it, there&rsquo;s nowhere for a payout to go.</span>
+            </p>
+          )}
+        </section>
 
         <section className="fx-sec">
           <div className="fx-sh">
@@ -252,6 +313,15 @@ export default function SettingsDashboard() {
                   <em>Username</em>
                   <b>{user?.username ?? "—"}</b>
                 </div>
+                <button
+                  className="fx-mini"
+                  type="button"
+                  onClick={() =>
+                    warning("Changing your username isn't available yet — it needs a profile update endpoint.")
+                  }
+                >
+                  Edit
+                </button>
               </div>
               <div className="fx-frow">
                 <div className="fx-fk">
@@ -261,6 +331,15 @@ export default function SettingsDashboard() {
                     {user?.email && <span className="fx-vf">Verified</span>}
                   </b>
                 </div>
+                <button
+                  className="fx-mini"
+                  type="button"
+                  onClick={() =>
+                    warning("Changing your email isn't available yet — it needs a profile update endpoint.")
+                  }
+                >
+                  Change
+                </button>
               </div>
             </div>
           </div>
@@ -307,36 +386,62 @@ export default function SettingsDashboard() {
 
         <section className="fx-sec">
           <div className="fx-sh">
-            <h2>Withdrawal wallet</h2>
+            <h2>Withdrawal address</h2>
             <span className="sub2">Where payouts go. Candleweb never moves funds on its own.</span>
           </div>
           <div className="fx-fr two2">
             <div>
-              <label className="fx-fl">Current address</label>
+              <label className="fx-fl" htmlFor="wNet">
+                Network
+              </label>
               <div className="fx-inp">
-                <input
-                  type="text"
-                  readOnly
-                  value={user?.wallet_address ?? ""}
-                  placeholder="No wallet connected yet"
-                />
+                <select id="wNet" value={network} onChange={(e) => setNetwork(e.target.value)}>
+                  {NETWORKS.map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
               </div>
               <p className="fx-hint">
-                Connecting a wallet only proves it&rsquo;s yours. It moves no funds and gives
-                Candleweb no access to them.
+                Sending to the wrong network loses the funds. Nobody can reverse that, including
+                us.
               </p>
             </div>
-            <div style={{ display: "flex", alignItems: "flex-start" }}>
-              <button
-                className="fx-cta ghost2"
-                type="button"
-                style={{ minWidth: 0 }}
-                disabled={walletBusy}
-                onClick={connectWalletAddress}
-              >
-                <WalletIcon />
-                {walletBusy ? "Waiting for wallet…" : walletSet ? "Change wallet" : "Connect wallet"}
-              </button>
+            <div>
+              <label className="fx-fl" htmlFor="wAddr">
+                Wallet address
+              </label>
+              <div className="fx-inp">
+                <input
+                  id="wAddr"
+                  type="text"
+                  spellCheck={false}
+                  autoComplete="off"
+                  placeholder="Paste your wallet address"
+                  value={manualAddress}
+                  onChange={(e) => setManualAddress(e.target.value)}
+                />
+              </div>
+              <div className="fx-key" style={{ marginTop: 9 }}>
+                <button
+                  className="fx-mini"
+                  type="button"
+                  disabled={walletBusy}
+                  onClick={connectWalletAddress}
+                >
+                  {walletBusy ? "Waiting for wallet…" : "Connect a wallet instead"}
+                </button>
+                <button
+                  className="fx-mini go"
+                  type="button"
+                  disabled={!addrShapeOK(manualAddress) || walletBusy}
+                  onClick={saveManualAddress}
+                >
+                  Save address
+                </button>
+              </div>
+              <p className="fx-hint">Paste the address exactly. We check the shape, not the owner.</p>
             </div>
           </div>
         </section>

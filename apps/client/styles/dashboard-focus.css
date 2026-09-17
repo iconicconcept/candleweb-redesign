@@ -47,6 +47,7 @@
   --w12: rgba(255, 255, 255, 0.12);
   --w14: rgba(255, 255, 255, 0.14);
   --w18: rgba(255, 255, 255, 0.18);
+  --w22: rgba(255, 255, 255, 0.22);
   --w30: rgba(255, 255, 255, 0.3);
   --w55: rgba(255, 255, 255, 0.55);
   --k20: rgba(0, 0, 0, 0.2);
@@ -124,6 +125,7 @@
   --w12: rgba(14, 21, 18, 0.15);
   --w14: rgba(14, 21, 18, 0.175);
   --w18: rgba(14, 21, 18, 0.225);
+  --w22: rgba(14, 21, 18, 0.275);
   --w30: rgba(14, 21, 18, 0.3);
   --w55: rgba(14, 21, 18, 0.3);
   --k20: rgba(14, 21, 18, 0.034);
@@ -1083,6 +1085,14 @@ button.fx-me[aria-expanded="true"] {
   padding: 14px 20px;
   font-size: 14px;
 }
+/* the dialog's own gradient + glow makes the page-default input background
+   (var(--w04), a ~4-5% tint) read as almost nothing against it — bump it up
+   a little just inside dialogs so empty fields don't look like blank space. */
+.fx-dlg .fx-inp input,
+.fx-dlg .fx-inp select,
+.fx-dlg .fx-ta {
+  background: var(--w06);
+}
 .fx-dlg h2 {
   font-size: clamp(20px, 2.6vw, 24px);
   font-weight: 600;
@@ -1452,6 +1462,9 @@ button.fx-me[aria-expanded="true"] {
 .fx-cp b.am6 {
   color: var(--fx-amber);
 }
+.fx-cp b.mut2 {
+  color: var(--fx-t3);
+}
 .fx-cp i {
   font-style: normal;
   display: block;
@@ -1554,6 +1567,20 @@ button.fx-me[aria-expanded="true"] {
 }
 .fx-cta:hover {
   transform: translateY(-2px);
+}
+/* .fx-mini/.fx-btn size their own icons, but .fx-cta never got the same
+   rule — an icon dropped in (e.g. WalletIcon) rendered at the SVG default
+   intrinsic size (~300x150px) with default black fill, since `base()` in
+   icons.tsx only sets viewBox, leaving width/height/stroke to CSS. */
+.fx-cta svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex: 0 0 auto;
 }
 .fx-cta.main2 {
   background: var(--fx-teal);
@@ -1902,6 +1929,10 @@ button.fx-me[aria-expanded="true"] {
   color: var(--fx-rose);
   border-color: rgba(255, 107, 133, 0.4);
   background: rgba(255, 107, 133, 0.08);
+}
+.fx-due.wait8 {
+  color: var(--fx-t3);
+  border-style: dashed;
 }
 .fx-tka {
   display: flex;
@@ -2616,6 +2647,19 @@ button.fx-me[aria-expanded="true"] {
     transform: none;
   }
 }
+/* used by .fx-live's connection dot — was referenced sitewide (bot status
+   dots, live chips) but never actually defined, so those never pulsed. */
+@keyframes fxLive {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.82);
+  }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .fx-root * {
@@ -3003,6 +3047,176 @@ button.fx-me[aria-expanded="true"] {
   font-style: normal;
   color: var(--fx-amber);
   font-weight: 600;
+}
+.fx-envrow {
+  margin-bottom: 22px;
+}
+
+/* balance panel */
+.fx-bal {
+  border: 1px solid rgba(46, 230, 168, 0.28);
+  border-radius: 16px;
+  padding: 16px;
+  margin-top: 16px;
+  background: linear-gradient(160deg, rgba(46, 230, 168, 0.09), var(--w012));
+}
+.fx-bal.cold {
+  border-color: rgba(255, 194, 77, 0.32);
+  background: linear-gradient(160deg, rgba(255, 194, 77, 0.09), var(--w012));
+}
+.fx-balh {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 13px;
+  flex-wrap: wrap;
+}
+.fx-balh b {
+  font-size: 13.6px;
+  font-weight: 600;
+}
+.fx-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--fx-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  color: var(--fx-t3);
+}
+.fx-live i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--fx-teal);
+  font-style: normal;
+  box-shadow: 0 0 7px var(--fx-teal);
+  animation: fxLive 2.4s ease-in-out infinite;
+}
+.fx-live.stale i {
+  background: var(--fx-amber);
+  box-shadow: 0 0 7px var(--fx-amber);
+}
+.fx-balgrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--fx-line);
+  border: 1px solid var(--fx-line);
+  border-radius: 13px;
+  overflow: hidden;
+}
+.fx-balgrid.two4 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (min-width: 640px) {
+  .fx-balgrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .fx-balgrid.two4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.fx-bg1 {
+  background: var(--fx-1);
+  padding: 13px 14px;
+  min-width: 0;
+}
+.fx-bg1 span {
+  display: block;
+  font-family: var(--fx-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--fx-t3);
+  margin-bottom: 7px;
+}
+.fx-bg1 b {
+  font-family: var(--fx-mono);
+  font-size: 15px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.fx-bg1 b.free4 {
+  color: var(--fx-teal2);
+}
+.fx-bg1 b.over4 {
+  color: var(--fx-rose2);
+}
+.fx-balbar {
+  height: 8px;
+  border-radius: 99px;
+  background: var(--w07);
+  margin-top: 14px;
+  overflow: hidden;
+  display: flex;
+}
+.fx-balbar i {
+  display: block;
+  height: 100%;
+  font-style: normal;
+  transition: width 0.45s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.fx-balbar i.o5 {
+  background: var(--w22);
+}
+.fx-balbar i.t5 {
+  background: linear-gradient(90deg, var(--fx-deep), var(--fx-teal));
+}
+.fx-balbar i.x5 {
+  background: linear-gradient(90deg, #a8384c, var(--fx-rose));
+}
+.fx-ballab {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 11px;
+  font-family: var(--fx-mono);
+  font-size: 10px;
+  color: var(--fx-t3);
+}
+.fx-ballab span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.fx-ballab i {
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  font-style: normal;
+}
+.fx-ballab i.k4 {
+  background: var(--w22);
+}
+.fx-ballab i.k5 {
+  background: var(--fx-teal);
+}
+.fx-ballab i.k6 {
+  background: var(--w07);
+}
+
+/* CandleAI callout */
+.fx-aibox {
+  border: 1px solid rgba(255, 194, 77, 0.3);
+  background: rgba(255, 194, 77, 0.05);
+  border-radius: 16px;
+  padding: 18px;
+  margin-top: 18px;
+}
+.fx-aibox b {
+  display: block;
+  font-size: 13.5px;
+  color: var(--fx-amber2);
+  margin-bottom: 7px;
+}
+.fx-aibox p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--fx-t2);
+  line-height: 1.65;
+  max-width: 64ch;
 }
 
 /* IP callout */
@@ -4431,6 +4645,29 @@ button.fx-me[aria-expanded="true"] {
   .fx-momgrid {
     grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
   }
+}
+.fx-scorehead {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 4px;
+}
+.fx-scorehead .vt {
+  flex: 1;
+  min-width: 0;
+}
+.fx-scorehead .vt b {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin-bottom: 4px;
+}
+.fx-scorehead .vt p {
+  margin: 0;
+  font-size: 12.8px;
+  color: var(--fx-t3);
+  line-height: 1.55;
 }
 .fx-meter {
   margin-top: 4px;
@@ -6565,7 +6802,7 @@ a.nm4:hover {
   overflow-x: auto;
   padding: 18px 0 0;
   scrollbar-width: none;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 .fx-filters::-webkit-scrollbar {
   display: none;
@@ -6662,6 +6899,23 @@ a.nm4:hover {
 }
 .fx-bb .bnums b.dn3 {
   color: var(--fx-rose2);
+}
+@media (max-width: 760px) {
+  /* .fx-bb's padding/border-right are a divider between side-by-side desktop
+     columns — only ever reset for :first-child. Once the row wraps to one
+     card per line on mobile, every card is visually "first", so the same
+     divider spacing left the rest looking indented against the first one. */
+  .fx-bbar {
+    flex-direction: column;
+  }
+  .fx-bb {
+    padding: 14px 0;
+    border-right: 0;
+    border-bottom: 1px solid var(--fx-line);
+  }
+  .fx-bb:last-child {
+    border-bottom: 0;
+  }
 }
 .fx-day {
   display: flex;

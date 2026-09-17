@@ -118,6 +118,7 @@ export default function AddExchangeDialog({ open, onClose, onAdded }: Props) {
             type="text"
             autoComplete="off"
             spellCheck={false}
+            placeholder="Paste your API key"
             value={form.API_KEY}
             onChange={(e) => setForm((f) => ({ ...f, API_KEY: e.target.value }))}
           />
@@ -134,6 +135,7 @@ export default function AddExchangeDialog({ open, onClose, onAdded }: Props) {
             type="text"
             autoComplete="off"
             spellCheck={false}
+            placeholder="Paste your API secret"
             value={form.API_SECRET}
             onChange={(e) => setForm((f) => ({ ...f, API_SECRET: e.target.value }))}
           />
@@ -151,6 +153,7 @@ export default function AddExchangeDialog({ open, onClose, onAdded }: Props) {
               type="text"
               autoComplete="off"
               spellCheck={false}
+              placeholder="Paste your API passphrase"
               value={form.API_PASSPHRASE ?? ""}
               onChange={(e) => setForm((f) => ({ ...f, API_PASSPHRASE: e.target.value }))}
             />
