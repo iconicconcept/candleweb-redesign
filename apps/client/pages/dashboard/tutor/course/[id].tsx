@@ -432,42 +432,42 @@ export default function CourseFocus() {
             where questions get answered — but missing one won&apos;t put you behind.
           </p>
         </div>
-      </DashboardShell>
 
-      <Dialog
-        open={!!openModule}
-        onClose={() => setOpenModuleId(null)}
-        icon={<CheckIcon />}
-        title={openModule?.topic}
-        subtitle={
-          openModule
-            ? `${formatModuleDateTime(openModule.scheduled_datetime, openModule.duration_minutes)}${
-                lecturer ? ` · live with ${lecturer.name}` : ""
-              }`
-            : ""
-        }
-        labelledBy="module-dialog-title"
-      >
-        <div className="fx-opts">
-          {moduleOptions.map((opt) => (
-            <button
-              key={opt.key}
-              type="button"
-              className={`fx-opt ${opt.tone || ""}`}
-              disabled={opt.disabled}
-              onClick={opt.action}
-            >
-              <i>
-                <opt.Icon />
-              </i>
-              <span>
-                <b>{opt.label}</b>
-                <span>{opt.body}</span>
-              </span>
-            </button>
-          ))}
-        </div>
-      </Dialog>
+        <Dialog
+          open={!!openModule}
+          onClose={() => setOpenModuleId(null)}
+          icon={<CheckIcon />}
+          title={openModule?.topic}
+          subtitle={
+            openModule
+              ? `${formatModuleDateTime(openModule.scheduled_datetime, openModule.duration_minutes)}${
+                  lecturer ? ` · live with ${lecturer.name}` : ""
+                }`
+              : ""
+          }
+          labelledBy="module-dialog-title"
+        >
+          <div className="fx-opts">
+            {moduleOptions.map((opt) => (
+              <button
+                key={opt.key}
+                type="button"
+                className={`fx-opt ${opt.tone || ""}`}
+                disabled={opt.disabled}
+                onClick={opt.action}
+              >
+                <i>
+                  <opt.Icon />
+                </i>
+                <span>
+                  <b>{opt.label}</b>
+                  <span>{opt.body}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </Dialog>
+      </DashboardShell>
 
       <AIAgentChat studentContext={{ course_details: { course } }} />
     </>

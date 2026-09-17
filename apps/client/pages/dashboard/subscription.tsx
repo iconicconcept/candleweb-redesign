@@ -490,74 +490,74 @@ const SubscriptionPage = () => {
             </section>
           </>
         )}
+
+        {/* choose-units dialog */}
+        <Dialog
+          open={!!choosePlan}
+          onClose={() => setChoosePlan(null)}
+          labelledBy="choose-plan-title"
+          icon={<CardStackIcon />}
+          title={<span id="choose-plan-title">Buy {choosePlan?.name?.split(" ")[0]} units</span>}
+          subtitle={`${dollarFormat(parseFloat(choosePlan?.price || "0"))} per unit · minimum ${MIN_UNITS}`}
+          footer={
+            <>
+              <button className="fx-cta ghost2" type="button" onClick={() => setChoosePlan(null)}>
+                Back
+              </button>
+              <button className="fx-cta main2" type="button" onClick={continueToPayment}>
+                Continue to payment
+              </button>
+            </>
+          }
+        >
+          <label className="fx-eqlab" style={{ display: "block", marginBottom: "8px" }}>
+            Number of units
+          </label>
+          <div className="fx-step9">
+            <button
+              className="sb9"
+              type="button"
+              disabled={units <= MIN_UNITS}
+              onClick={() => setUnits((u) => Math.max(MIN_UNITS, u - 1))}
+            >
+              −
+            </button>
+            <span className="sv9">{units}</span>
+            <button className="sb9" type="button" onClick={() => setUnits((u) => u + 1)}>
+              +
+            </button>
+          </div>
+          <div className="fx-riskline" style={{ marginTop: "14px" }}>
+            <span>Total</span>
+            <b>{chosenTotal}</b>
+          </div>
+        </Dialog>
+
+        {/* cancel-plan dialog */}
+        <Dialog
+          open={cancelOpen}
+          onClose={() => setCancelOpen(false)}
+          tone="amber"
+          labelledBy="cancel-plan-title"
+          title={<span id="cancel-plan-title">Cancel your plan?</span>}
+          subtitle="You keep the units you have already bought until they expire."
+          footer={
+            <>
+              <button className="fx-cta ghost2" type="button" onClick={() => setCancelOpen(false)}>
+                Keep my plan
+              </button>
+              <button className="fx-cta main2" type="button" onClick={cancelPlan}>
+                Cancel plan
+              </button>
+            </>
+          }
+        >
+          <p className="fx-dwarn">
+            Cancelling stops the plan from renewing. Any units still on your account stay usable
+            until their expiry date.
+          </p>
+        </Dialog>
       </DashboardShell>
-
-      {/* choose-units dialog */}
-      <Dialog
-        open={!!choosePlan}
-        onClose={() => setChoosePlan(null)}
-        labelledBy="choose-plan-title"
-        icon={<CardStackIcon />}
-        title={<span id="choose-plan-title">Buy {choosePlan?.name?.split(" ")[0]} units</span>}
-        subtitle={`${dollarFormat(parseFloat(choosePlan?.price || "0"))} per unit · minimum ${MIN_UNITS}`}
-        footer={
-          <>
-            <button className="fx-cta ghost2" type="button" onClick={() => setChoosePlan(null)}>
-              Back
-            </button>
-            <button className="fx-cta main2" type="button" onClick={continueToPayment}>
-              Continue to payment
-            </button>
-          </>
-        }
-      >
-        <label className="fx-eqlab" style={{ display: "block", marginBottom: "8px" }}>
-          Number of units
-        </label>
-        <div className="fx-step9">
-          <button
-            className="sb9"
-            type="button"
-            disabled={units <= MIN_UNITS}
-            onClick={() => setUnits((u) => Math.max(MIN_UNITS, u - 1))}
-          >
-            −
-          </button>
-          <span className="sv9">{units}</span>
-          <button className="sb9" type="button" onClick={() => setUnits((u) => u + 1)}>
-            +
-          </button>
-        </div>
-        <div className="fx-riskline" style={{ marginTop: "14px" }}>
-          <span>Total</span>
-          <b>{chosenTotal}</b>
-        </div>
-      </Dialog>
-
-      {/* cancel-plan dialog */}
-      <Dialog
-        open={cancelOpen}
-        onClose={() => setCancelOpen(false)}
-        tone="amber"
-        labelledBy="cancel-plan-title"
-        title={<span id="cancel-plan-title">Cancel your plan?</span>}
-        subtitle="You keep the units you have already bought until they expire."
-        footer={
-          <>
-            <button className="fx-cta ghost2" type="button" onClick={() => setCancelOpen(false)}>
-              Keep my plan
-            </button>
-            <button className="fx-cta main2" type="button" onClick={cancelPlan}>
-              Cancel plan
-            </button>
-          </>
-        }
-      >
-        <p className="fx-dwarn">
-          Cancelling stops the plan from renewing. Any units still on your account stay usable
-          until their expiry date.
-        </p>
-      </Dialog>
 
       {/* payment / network selection (existing modal) */}
       <SubscriptionModal

@@ -576,97 +576,97 @@ const BotSettingsPage = () => {
             </div>
           </>
         )}
+
+        {/* regenerate-key confirm */}
+        <Dialog
+          open={confirmKey}
+          onClose={() => setConfirmKey(false)}
+          tone="amber"
+          labelledBy="key-warn-title"
+          icon={<WarnIcon />}
+          title={<span id="key-warn-title">Regenerate the developer key?</span>}
+          subtitle="The current key stops working the moment you do"
+          footer={
+            <>
+              <button className="fx-cta ghost2" type="button" onClick={() => setConfirmKey(false)}>
+                Keep current key
+              </button>
+              <button
+                className="fx-cta dgr2"
+                type="button"
+                disabled={busy === "key"}
+                onClick={regenerate}
+              >
+                {busy === "key" ? "Working…" : "Regenerate key"}
+              </button>
+            </>
+          }
+        >
+          <p className="fx-dwarn">
+            Every n8n workflow, Make scenario or script that calls Candleweb for this bot will need
+            the new key pasted in. Until then, those calls fail and the bot shows as not responding.
+          </p>
+        </Dialog>
+
+        {/* new key — shown once */}
+        <Dialog
+          open={!!newKey}
+          onClose={() => setNewKey(null)}
+          labelledBy="newkey-title"
+          icon={<RefreshIcon />}
+          title={<span id="newkey-title">New developer key</span>}
+          subtitle="Copy it now — it is shown once"
+          footer={
+            <>
+              <button className="fx-cta ghost2" type="button" onClick={copyKey}>
+                Copy key
+              </button>
+              <button className="fx-cta main2" type="button" onClick={() => setNewKey(null)}>
+                Done
+              </button>
+            </>
+          }
+        >
+          <div className="fx-key" style={{ marginTop: 0 }}>
+            <code>{newKey}</code>
+          </div>
+          <p className="fx-dwarn">
+            Update every workflow that calls Candleweb for this bot with this value in the{" "}
+            <code>X-Candleweb-Key</code> header.
+          </p>
+        </Dialog>
+
+        {/* delete confirm */}
+        <Dialog
+          open={confirmDelete}
+          onClose={() => setConfirmDelete(false)}
+          tone="amber"
+          labelledBy="del-bot-title"
+          icon={<TrashIcon />}
+          title={<span id="del-bot-title">Remove {bot?.name}?</span>}
+          subtitle="This cannot be undone"
+          footer={
+            <>
+              <button className="fx-cta ghost2" type="button" onClick={() => setConfirmDelete(false)}>
+                Keep the bot
+              </button>
+              <button
+                className="fx-cta dgr2"
+                type="button"
+                disabled={busy === "delete"}
+                onClick={doDelete}
+              >
+                {busy === "delete" ? "Removing…" : "Remove bot"}
+              </button>
+            </>
+          }
+        >
+          <p className="fx-dwarn">
+            The bot and its prompt are deleted for good. Trades it decides for pause until you assign
+            another decider.
+          </p>
+        </Dialog>
       </DashboardShell>
-
-      {/* regenerate-key confirm */}
-      <Dialog
-        open={confirmKey}
-        onClose={() => setConfirmKey(false)}
-        tone="amber"
-        labelledBy="key-warn-title"
-        icon={<WarnIcon />}
-        title={<span id="key-warn-title">Regenerate the developer key?</span>}
-        subtitle="The current key stops working the moment you do"
-        footer={
-          <>
-            <button className="fx-cta ghost2" type="button" onClick={() => setConfirmKey(false)}>
-              Keep current key
-            </button>
-            <button
-              className="fx-cta dgr2"
-              type="button"
-              disabled={busy === "key"}
-              onClick={regenerate}
-            >
-              {busy === "key" ? "Working…" : "Regenerate key"}
-            </button>
-          </>
-        }
-      >
-        <p className="fx-dwarn">
-          Every n8n workflow, Make scenario or script that calls Candleweb for this bot will need
-          the new key pasted in. Until then, those calls fail and the bot shows as not responding.
-        </p>
-      </Dialog>
-
-      {/* new key — shown once */}
-      <Dialog
-        open={!!newKey}
-        onClose={() => setNewKey(null)}
-        labelledBy="newkey-title"
-        icon={<RefreshIcon />}
-        title={<span id="newkey-title">New developer key</span>}
-        subtitle="Copy it now — it is shown once"
-        footer={
-          <>
-            <button className="fx-cta ghost2" type="button" onClick={copyKey}>
-              Copy key
-            </button>
-            <button className="fx-cta main2" type="button" onClick={() => setNewKey(null)}>
-              Done
-            </button>
-          </>
-        }
-      >
-        <div className="fx-key" style={{ marginTop: 0 }}>
-          <code>{newKey}</code>
-        </div>
-        <p className="fx-dwarn">
-          Update every workflow that calls Candleweb for this bot with this value in the{" "}
-          <code>X-Candleweb-Key</code> header.
-        </p>
-      </Dialog>
-
-      {/* delete confirm */}
-      <Dialog
-        open={confirmDelete}
-        onClose={() => setConfirmDelete(false)}
-        tone="amber"
-        labelledBy="del-bot-title"
-        icon={<TrashIcon />}
-        title={<span id="del-bot-title">Remove {bot?.name}?</span>}
-        subtitle="This cannot be undone"
-        footer={
-          <>
-            <button className="fx-cta ghost2" type="button" onClick={() => setConfirmDelete(false)}>
-              Keep the bot
-            </button>
-            <button
-              className="fx-cta dgr2"
-              type="button"
-              disabled={busy === "delete"}
-              onClick={doDelete}
-            >
-              {busy === "delete" ? "Removing…" : "Remove bot"}
-            </button>
-          </>
-        }
-      >
-        <p className="fx-dwarn">
-          The bot and its prompt are deleted for good. Trades it decides for pause until you assign
-          another decider.
-        </p>
-      </Dialog>
     </>
   );
 };

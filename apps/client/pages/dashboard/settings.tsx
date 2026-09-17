@@ -527,122 +527,122 @@ export default function SettingsDashboard() {
             Delete account
           </button>
         </div>
-      </DashboardShell>
 
-      <Dialog
-        open={confirmLive}
-        onClose={() => setConfirmLive(false)}
-        tone="amber"
-        icon={<WarnIcon />}
-        title="Switch to live trading?"
-        subtitle="Applies to every trade started from now on"
-        labelledBy="live-title"
-        footer={
-          <>
-            <button className="fx-cta ghost2" type="button" onClick={() => setConfirmLive(false)}>
-              Stay on demo
-            </button>
-            <button
-              className="fx-cta live6"
-              type="button"
-              disabled={modeBusy}
-              onClick={() => {
-                setConfirmLive(false);
-                runModeSwitch(true);
-              }}
-            >
-              Switch to live
-            </button>
-          </>
-        }
-      >
-        <p className="fx-dwarn">
-          New trades will place real orders on your exchange account, with real money, from the
-          moment you start them. Trades already running keep the mode they were started in, and
-          every limit you set — risk, order ceiling, direction — works identically.
-        </p>
-        <p className="fx-dwarn">You can switch back to demo at any time, and it takes effect immediately.</p>
-      </Dialog>
+        <Dialog
+          open={confirmLive}
+          onClose={() => setConfirmLive(false)}
+          tone="amber"
+          icon={<WarnIcon />}
+          title="Switch to live trading?"
+          subtitle="Applies to every trade started from now on"
+          labelledBy="live-title"
+          footer={
+            <>
+              <button className="fx-cta ghost2" type="button" onClick={() => setConfirmLive(false)}>
+                Stay on demo
+              </button>
+              <button
+                className="fx-cta live6"
+                type="button"
+                disabled={modeBusy}
+                onClick={() => {
+                  setConfirmLive(false);
+                  runModeSwitch(true);
+                }}
+              >
+                Switch to live
+              </button>
+            </>
+          }
+        >
+          <p className="fx-dwarn">
+            New trades will place real orders on your exchange account, with real money, from the
+            moment you start them. Trades already running keep the mode they were started in, and
+            every limit you set — risk, order ceiling, direction — works identically.
+          </p>
+          <p className="fx-dwarn">You can switch back to demo at any time, and it takes effect immediately.</p>
+        </Dialog>
 
-      <Dialog
-        open={!!removeTarget}
-        onClose={() => setRemoveTarget(null)}
-        tone="amber"
-        icon={<WarnIcon />}
-        title={`Remove ${exchangeName(removeTarget?.name)}?`}
-        subtitle="Candleweb stops seeing it immediately"
-        labelledBy="remove-exchange-title"
-        footer={
-          <>
-            <button className="fx-cta ghost2" type="button" onClick={() => setRemoveTarget(null)}>
-              Keep it
-            </button>
-            <button className="fx-cta live6" type="button" onClick={confirmRemoveExchange}>
-              Remove
-            </button>
-          </>
-        }
-      >
-        <p className="fx-dwarn">
-          Any trade pointing at this account stops placing orders, and every trade associated with
-          this exchange is removed. Positions already open keep the stops on them.
-        </p>
-        <p className="fx-dwarn">
-          Removing it here <b>does not revoke the key</b>. Delete it on the exchange as well, or it
-          stays valid for whoever holds it.
-        </p>
-      </Dialog>
+        <Dialog
+          open={!!removeTarget}
+          onClose={() => setRemoveTarget(null)}
+          tone="amber"
+          icon={<WarnIcon />}
+          title={`Remove ${exchangeName(removeTarget?.name)}?`}
+          subtitle="Candleweb stops seeing it immediately"
+          labelledBy="remove-exchange-title"
+          footer={
+            <>
+              <button className="fx-cta ghost2" type="button" onClick={() => setRemoveTarget(null)}>
+                Keep it
+              </button>
+              <button className="fx-cta live6" type="button" onClick={confirmRemoveExchange}>
+                Remove
+              </button>
+            </>
+          }
+        >
+          <p className="fx-dwarn">
+            Any trade pointing at this account stops placing orders, and every trade associated with
+            this exchange is removed. Positions already open keep the stops on them.
+          </p>
+          <p className="fx-dwarn">
+            Removing it here <b>does not revoke the key</b>. Delete it on the exchange as well, or it
+            stays valid for whoever holds it.
+          </p>
+        </Dialog>
 
-      <Dialog
-        open={deleteOpen}
-        onClose={() => setDeleteOpen(false)}
-        tone="amber"
-        icon={<WarnIcon />}
-        title="Delete your account"
-        subtitle="You can't reverse this action"
-        labelledBy="delete-account-title"
-        footer={
-          <>
-            <button className="fx-cta ghost2" type="button" onClick={() => setDeleteOpen(false)}>
-              Keep my account
-            </button>
-            <button
-              className="fx-cta live6"
-              type="button"
-              disabled={deleteText.trim() !== (user?.username ?? "")}
-              onClick={confirmDeleteAccount}
-            >
-              Delete it
-            </button>
-          </>
-        }
-      >
-        <p className="fx-dwarn">
-          This removes your profile, bots, trades and course progress. It <b>does not</b> touch
-          your money or your exchange accounts — you still have to revoke each API key yourself.
-        </p>
-        <div className="fx-fld" style={{ marginTop: 18 }}>
-          <label className="fx-fl" htmlFor="delete-confirm">
-            Type <b style={{ color: "var(--fx-t1)" }}>{user?.username}</b> to confirm
-          </label>
-          <div className="fx-inp">
-            <input
-              id="delete-confirm"
-              type="text"
-              autoComplete="off"
-              placeholder="Your username"
-              value={deleteText}
-              onChange={(e) => setDeleteText(e.target.value)}
-            />
+        <Dialog
+          open={deleteOpen}
+          onClose={() => setDeleteOpen(false)}
+          tone="amber"
+          icon={<WarnIcon />}
+          title="Delete your account"
+          subtitle="You can't reverse this action"
+          labelledBy="delete-account-title"
+          footer={
+            <>
+              <button className="fx-cta ghost2" type="button" onClick={() => setDeleteOpen(false)}>
+                Keep my account
+              </button>
+              <button
+                className="fx-cta live6"
+                type="button"
+                disabled={deleteText.trim() !== (user?.username ?? "")}
+                onClick={confirmDeleteAccount}
+              >
+                Delete it
+              </button>
+            </>
+          }
+        >
+          <p className="fx-dwarn">
+            This removes your profile, bots, trades and course progress. It <b>does not</b> touch
+            your money or your exchange accounts — you still have to revoke each API key yourself.
+          </p>
+          <div className="fx-fld" style={{ marginTop: 18 }}>
+            <label className="fx-fl" htmlFor="delete-confirm">
+              Type <b style={{ color: "var(--fx-t1)" }}>{user?.username}</b> to confirm
+            </label>
+            <div className="fx-inp">
+              <input
+                id="delete-confirm"
+                type="text"
+                autoComplete="off"
+                placeholder="Your username"
+                value={deleteText}
+                onChange={(e) => setDeleteText(e.target.value)}
+              />
+            </div>
           </div>
-        </div>
-      </Dialog>
+        </Dialog>
 
-      <AddExchangeDialog
-        open={addOpen}
-        onClose={() => setAddOpen(false)}
-        onAdded={() => dispatch(exchangeServices.getExchangeRecords(axiosToken))}
-      />
+        <AddExchangeDialog
+          open={addOpen}
+          onClose={() => setAddOpen(false)}
+          onAdded={() => dispatch(exchangeServices.getExchangeRecords(axiosToken))}
+        />
+      </DashboardShell>
     </>
   );
 }

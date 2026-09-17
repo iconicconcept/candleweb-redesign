@@ -293,41 +293,41 @@ const TradesPage = () => {
             );
           })}
         </section>
-      </DashboardShell>
 
-      <Dialog
-        open={!!confirmDelete}
-        onClose={() => setConfirmDelete(null)}
-        tone="amber"
-        labelledBy="del-trade-title"
-        icon={<TrashIcon />}
-        title={<span id="del-trade-title">Delete this trade?</span>}
-        subtitle={
-          confirmDelete
-            ? `${confirmDelete.pair_name || `Pair #${confirmDelete.pair}`} · ${confirmDelete.timeframe}`
-            : ""
-        }
-        footer={
-          <>
-            <button className="fx-cta ghost2" type="button" onClick={() => setConfirmDelete(null)}>
-              Keep it
-            </button>
-            <button
-              className="fx-cta dgr2"
-              type="button"
-              disabled={busyId === confirmDelete?.id}
-              onClick={doDelete}
-            >
-              Delete trade
-            </button>
-          </>
-        }
-      >
-        <p className="fx-dwarn">
-          The setup is removed for good. If the trade is running it is stopped first — an open
-          position is not closed automatically, so close it from the exchange if you need to.
-        </p>
-      </Dialog>
+        <Dialog
+          open={!!confirmDelete}
+          onClose={() => setConfirmDelete(null)}
+          tone="amber"
+          labelledBy="del-trade-title"
+          icon={<TrashIcon />}
+          title={<span id="del-trade-title">Delete this trade?</span>}
+          subtitle={
+            confirmDelete
+              ? `${confirmDelete.pair_name || `Pair #${confirmDelete.pair}`} · ${confirmDelete.timeframe}`
+              : ""
+          }
+          footer={
+            <>
+              <button className="fx-cta ghost2" type="button" onClick={() => setConfirmDelete(null)}>
+                Keep it
+              </button>
+              <button
+                className="fx-cta dgr2"
+                type="button"
+                disabled={busyId === confirmDelete?.id}
+                onClick={doDelete}
+              >
+                Delete trade
+              </button>
+            </>
+          }
+        >
+          <p className="fx-dwarn">
+            The setup is removed for good. If the trade is running it is stopped first — an open
+            position is not closed automatically, so close it from the exchange if you need to.
+          </p>
+        </Dialog>
+      </DashboardShell>
     </>
   );
 };

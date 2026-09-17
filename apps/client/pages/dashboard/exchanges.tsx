@@ -332,45 +332,45 @@ const DashboardExchangesPage = () => {
             exchange and our access ends immediately; open positions keep the stops already on them.
           </p>
         </div>
+
+        <Dialog
+          open={!!removeTarget}
+          onClose={() => setRemoveTarget(null)}
+          tone="amber"
+          icon={<WarnIcon />}
+          title={`Disconnect ${exchangeName(removeTarget?.name)}?`}
+          subtitle="Candleweb stops seeing it immediately"
+          labelledBy="remove-exchange-title"
+          footer={
+            <>
+              <button className="fx-cta ghost2" type="button" onClick={() => setRemoveTarget(null)}>
+                Keep it
+              </button>
+              <button className="fx-cta live6" type="button" onClick={confirmRemove}>
+                Disconnect
+              </button>
+            </>
+          }
+        >
+          <p className="fx-dwarn">
+            Any trade pointing at this account stops placing orders, and every trade associated with
+            this exchange is removed. Positions already open keep the stops on them.
+          </p>
+          <p className="fx-dwarn">
+            Disconnecting here <b>does not revoke the key</b>. Delete it on the exchange as well, or it
+            stays valid for whoever holds it.
+          </p>
+        </Dialog>
+
+        <AddExchangeDialog
+          open={addOpen}
+          onClose={() => setAddOpen(false)}
+          onAdded={() => {
+            dispatch(exchangeServices.getExchangeRecords(axiosToken));
+            dispatch(userService.getBalance(axiosToken));
+          }}
+        />
       </DashboardShell>
-
-      <Dialog
-        open={!!removeTarget}
-        onClose={() => setRemoveTarget(null)}
-        tone="amber"
-        icon={<WarnIcon />}
-        title={`Disconnect ${exchangeName(removeTarget?.name)}?`}
-        subtitle="Candleweb stops seeing it immediately"
-        labelledBy="remove-exchange-title"
-        footer={
-          <>
-            <button className="fx-cta ghost2" type="button" onClick={() => setRemoveTarget(null)}>
-              Keep it
-            </button>
-            <button className="fx-cta live6" type="button" onClick={confirmRemove}>
-              Disconnect
-            </button>
-          </>
-        }
-      >
-        <p className="fx-dwarn">
-          Any trade pointing at this account stops placing orders, and every trade associated with
-          this exchange is removed. Positions already open keep the stops on them.
-        </p>
-        <p className="fx-dwarn">
-          Disconnecting here <b>does not revoke the key</b>. Delete it on the exchange as well, or it
-          stays valid for whoever holds it.
-        </p>
-      </Dialog>
-
-      <AddExchangeDialog
-        open={addOpen}
-        onClose={() => setAddOpen(false)}
-        onAdded={() => {
-          dispatch(exchangeServices.getExchangeRecords(axiosToken));
-          dispatch(userService.getBalance(axiosToken));
-        }}
-      />
     </>
   );
 };

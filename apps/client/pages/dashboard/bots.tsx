@@ -209,37 +209,37 @@ const BotsPage = () => {
             );
           })}
         </section>
-      </DashboardShell>
 
-      <Dialog
-        open={!!confirmDelete}
-        onClose={() => setConfirmDelete(null)}
-        tone="amber"
-        labelledBy="del-bot-title"
-        icon={<TrashIcon />}
-        title={<span id="del-bot-title">Remove {confirmDelete?.name}?</span>}
-        subtitle="This one cannot be undone"
-        footer={
-          <>
-            <button className="fx-cta ghost2" type="button" onClick={() => setConfirmDelete(null)}>
-              Keep the bot
-            </button>
-            <button
-              className="fx-cta dgr2"
-              type="button"
-              disabled={busyId === confirmDelete?.id}
-              onClick={doDelete}
-            >
-              Remove bot
-            </button>
-          </>
-        }
-      >
-        <p className="fx-dwarn">
-          The bot and its prompt are deleted. Any trade this bot decides for is left without a
-          decider and pauses — its stops stay in place — until you assign another bot or CandleAI.
-        </p>
-      </Dialog>
+        <Dialog
+          open={!!confirmDelete}
+          onClose={() => setConfirmDelete(null)}
+          tone="amber"
+          labelledBy="del-bot-title"
+          icon={<TrashIcon />}
+          title={<span id="del-bot-title">Remove {confirmDelete?.name}?</span>}
+          subtitle="This one cannot be undone"
+          footer={
+            <>
+              <button className="fx-cta ghost2" type="button" onClick={() => setConfirmDelete(null)}>
+                Keep the bot
+              </button>
+              <button
+                className="fx-cta dgr2"
+                type="button"
+                disabled={busyId === confirmDelete?.id}
+                onClick={doDelete}
+              >
+                Remove bot
+              </button>
+            </>
+          }
+        >
+          <p className="fx-dwarn">
+            The bot and its prompt are deleted. Any trade this bot decides for is left without a
+            decider and pauses — its stops stay in place — until you assign another bot or CandleAI.
+          </p>
+        </Dialog>
+      </DashboardShell>
     </>
   );
 };

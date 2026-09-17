@@ -594,46 +594,46 @@ const AddBotPage = () => {
             </div>
           </aside>
         </div>
-      </DashboardShell>
 
-      {/* dev_key — shown once */}
-      <Dialog
-        open={!!created}
-        onClose={() => {
-          setCreated(null);
-          router.push("/dashboard/bots");
-        }}
-        labelledBy="key-title"
-        icon={<CheckIcon />}
-        title={<span id="key-title">{created?.name} is added</span>}
-        subtitle="Copy the developer key now — it is shown once"
-        footer={
-          <>
-            <button className="fx-cta ghost2" type="button" onClick={copyKey}>
-              Copy key
-            </button>
-            <button
-              className="fx-cta main2"
-              type="button"
-              onClick={() => {
-                setCreated(null);
-                router.push("/dashboard/bots");
-              }}
-            >
-              Done
-            </button>
-          </>
-        }
-      >
-        <div className="fx-key" style={{ marginTop: 0 }}>
-          <code>{created?.dev_key}</code>
-        </div>
-        <p className="fx-dwarn">
-          Your bot must send this key back in the <code>X-Candleweb-Key</code> header. If you lose
-          it, regenerate a new one from the bot&rsquo;s settings — the old one stops working the
-          moment you do.
-        </p>
-      </Dialog>
+        {/* dev_key — shown once */}
+        <Dialog
+          open={!!created}
+          onClose={() => {
+            setCreated(null);
+            router.push("/dashboard/bots");
+          }}
+          labelledBy="key-title"
+          icon={<CheckIcon />}
+          title={<span id="key-title">{created?.name} is added</span>}
+          subtitle="Copy the developer key now — it is shown once"
+          footer={
+            <>
+              <button className="fx-cta ghost2" type="button" onClick={copyKey}>
+                Copy key
+              </button>
+              <button
+                className="fx-cta main2"
+                type="button"
+                onClick={() => {
+                  setCreated(null);
+                  router.push("/dashboard/bots");
+                }}
+              >
+                Done
+              </button>
+            </>
+          }
+        >
+          <div className="fx-key" style={{ marginTop: 0 }}>
+            <code>{created?.dev_key}</code>
+          </div>
+          <p className="fx-dwarn">
+            Your bot must send this key back in the <code>X-Candleweb-Key</code> header. If you lose
+            it, regenerate a new one from the bot&rsquo;s settings — the old one stops working the
+            moment you do.
+          </p>
+        </Dialog>
+      </DashboardShell>
     </>
   );
 };
