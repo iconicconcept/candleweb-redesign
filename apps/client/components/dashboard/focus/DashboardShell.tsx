@@ -9,7 +9,7 @@ import notificationService from "../../../services/notificationService";
 import exchangeServices from "../../../services/exchangeService";
 import useNavWalker from "../../../lib/hooks/useNavWalker";
 import CheckLogin from "../CheckLogin";
-import AIAgentChat from "../AIAgentChat";
+// import AIAgentChat from "../AIAgentChat";
 import Popover from "./Popover";
 import NavIcon from "./NavIcon";
 import {
@@ -188,7 +188,7 @@ export default function DashboardShell({ active, children }: Props) {
         </nav>
       </Popover>
 
-      <AIAgentChat />
+      {/* <AIAgentChat /> */}
     </CheckLogin>
   );
 }

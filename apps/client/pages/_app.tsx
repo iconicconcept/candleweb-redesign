@@ -18,7 +18,6 @@ import type { AppProps } from "next/app";
 import { Toaster } from "react-hot-toast";
 import { Provider } from "react-redux";
 import { wrapper } from "../redux/store";
-import CookieConsent from "react-cookie-consent";
 import Script from "next/script";
 
 export default function App({ Component, pageProps }: AppProps) {
@@ -29,20 +28,6 @@ export default function App({ Component, pageProps }: AppProps) {
       <Provider store={store}>
         <Layout>
           <Component {...props.pageProps} />
-          <CookieConsent
-            style={{
-              background: "var(--card-bg)",
-            }}
-            buttonStyle={{
-              background: "var(--primary)",
-              borderRadius: "30px",
-              fontWeight: "bold",
-              padding: "8px 20px",
-            }}
-            buttonText={"Accept"}
-          >
-            This website uses cookies to enhance the user experience.
-          </CookieConsent>
           <Script
             id="custom-script"
             strategy="afterInteractive" // Load script after the page is interactive

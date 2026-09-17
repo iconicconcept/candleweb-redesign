@@ -403,7 +403,7 @@
   width: min(266px, 60%);
 }
 .landing-card-c {
-  bottom: 0;
+  top: 61%;
   left: 11%;
   width: min(322px, 72%);
 }
