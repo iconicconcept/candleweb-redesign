@@ -12,6 +12,13 @@ export interface EnrolledCourse {
   is_active?: boolean;
   instructor_name?: string;
   status?: string;
+  /* Populated by tutor/index.tsx from the course's own `class_schedules` (the
+     list endpoint carries no per-user module breakdown) — used by the
+     "Where you stand" section, not by this component. */
+  totalModules?: number;
+  completedModulesCount?: number;
+  remainingMinutes?: number;
+  firstCompletedAt?: string;
 }
 
 export default function EnrolledCourses({ courses }: { courses: EnrolledCourse[] }) {

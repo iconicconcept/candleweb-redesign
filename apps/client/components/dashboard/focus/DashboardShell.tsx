@@ -164,29 +164,34 @@ export default function DashboardShell({ active, children }: Props) {
             More
           </button>
         </nav>
-      </div>
 
-      <Popover
-        open={moreOpen}
-        onClose={() => setMoreOpen(false)}
-        anchorRef={moreRef}
-        label="More"
-        title={<b>More</b>}
-      >
-        <nav className="fx-accnav" style={{ borderTop: 0 }}>
-          {MORE_LINKS.map((item) => (
-            <Link
-              key={item.key}
-              href={item.href}
-              className={`fx-an ${active === item.key ? "on" : ""}`}
-              onClick={() => setMoreOpen(false)}
-            >
-              <item.Icon />
-              <span>{item.label}</span>
-            </Link>
-          ))}
-        </nav>
-      </Popover>
+        {/* Must stay inside .fx-root — that's where the fx-* theme tokens
+            (--float2, --fx-t1, …) are declared, light theme included. A
+            popover rendered outside it gets no colors: var(--float2) is
+            undefined there, so `background` falls back to transparent and
+            the sheet looks like a foggy, near-invisible smear. */}
+        <Popover
+          open={moreOpen}
+          onClose={() => setMoreOpen(false)}
+          anchorRef={moreRef}
+          label="More"
+          title={<b>More</b>}
+        >
+          <nav className="fx-accnav" style={{ borderTop: 0 }}>
+            {MORE_LINKS.map((item) => (
+              <Link
+                key={item.key}
+                href={item.href}
+                className={`fx-an ${active === item.key ? "on" : ""}`}
+                onClick={() => setMoreOpen(false)}
+              >
+                <item.Icon />
+                <span>{item.label}</span>
+              </Link>
+            ))}
+          </nav>
+        </Popover>
+      </div>
 
       {/* <AIAgentChat /> */}
     </CheckLogin>

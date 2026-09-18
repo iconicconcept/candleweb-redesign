@@ -53,6 +53,14 @@ const ACCOUNT_LINKS: { label: string; href: string; Icon: any }[] = [
 export default function TopBar({ crumb, title, subtitle }: Props) {
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
+  /* Portfolio / Subscription / Invite & earn / Notifications have no icon-rail
+     slot (by design — see DashboardShell's RAIL comment), so unlike every
+     other dashboard page they had no "you are here" marker anywhere at all.
+     The mockups mark the current row in this popover with `.fx-an.on` +
+     aria-current; match that here off the route instead of threading a prop
+     through every page, since only this component needs to know it. */
+  const isAccountLinkActive = (href: string) =>
+    href === "/dashboard" ? router.pathname === "/dashboard" : router.pathname.startsWith(href);
   const axiosToken = useAxiosAuth();
   const { user, removeUser } = useUserStore((state) => state);
   const { notification } = useSelector((state: RootState) => state.notification);
@@ -63,6 +71,7 @@ export default function TopBar({ crumb, title, subtitle }: Props) {
 
   const [openPop, setOpenPop] = useState<"notif" | "account" | null>(null);
   const [confirmSignOut, setConfirmSignOut] = useState(false);
+  const [markingAll, setMarkingAll] = useState(false);
   const bellRef = useRef<HTMLButtonElement>(null);
   const meRef = useRef<HTMLButtonElement>(null);
 
@@ -81,9 +90,26 @@ export default function TopBar({ crumb, title, subtitle }: Props) {
     );
   };
 
-  const clearAll = () => {
-    dispatch(notificationService.clearAllNotification(axiosToken));
-    setOpenPop(null);
+  /* Was wired to the delete-everything endpoint under a "Clear all" label —
+     too destructive for a one-click action in a quick-glance dropdown, and
+     not what the design calls for here (that stays a deliberate, opt-in
+     action on the full Notifications page). This loops the same per-id
+     mark-read call that page's own "Mark all read" uses — no bulk endpoint
+     exists yet (see BACKEND_API_REQUESTS.md §2.2). */
+  const markAllRead = async () => {
+    if (!unread.length || markingAll) return;
+    setMarkingAll(true);
+    try {
+      for (const n of unread) {
+        if (n.id == null) continue;
+        await dispatch(notificationService.getMarkNotificationRead({ api: axiosToken, id: n.id })).unwrap();
+      }
+      await dispatch(notificationService.getNotifications({ api: axiosToken }));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setMarkingAll(false);
+    }
   };
 
   const signOut = () => {
@@ -159,11 +185,26 @@ export default function TopBar({ crumb, title, subtitle }: Props) {
         onClose={() => setOpenPop(null)}
         anchorRef={bellRef}
         label="Notifications"
-        title={<b>Notifications</b>}
+        title={
+          <div>
+            <b>Notifications</b>
+            <span
+              style={{
+                display: "block",
+                fontFamily: "var(--mono)",
+                fontSize: "9.5px",
+                color: "var(--fx-t3)",
+                marginTop: 5,
+              }}
+            >
+              {unread.length ? `${unread.length} unread` : "You're up to date"}
+            </span>
+          </div>
+        }
         headerRight={
-          results.length > 0 && (
-            <button className="fx-link" type="button" onClick={clearAll}>
-              Clear all
+          unread.length > 0 && (
+            <button className="fx-link" type="button" disabled={markingAll} onClick={markAllRead}>
+              {markingAll ? "Marking…" : "Mark all read"}
             </button>
           )
         }
@@ -225,17 +266,21 @@ export default function TopBar({ crumb, title, subtitle }: Props) {
         </div>
 
         <nav className="fx-accnav">
-          {ACCOUNT_LINKS.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className="fx-an"
-              onClick={() => setOpenPop(null)}
-            >
-              <link.Icon />
-              <span>{link.label}</span>
-            </Link>
-          ))}
+          {ACCOUNT_LINKS.map((link) => {
+            const active = isAccountLinkActive(link.href);
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`fx-an ${active ? "on" : ""}`}
+                aria-current={active ? "page" : undefined}
+                onClick={() => setOpenPop(null)}
+              >
+                <link.Icon />
+                <span>{link.label}</span>
+              </Link>
+            );
+          })}
           <button
             className="fx-an"
             type="button"

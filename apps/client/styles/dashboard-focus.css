@@ -2393,6 +2393,15 @@ button.fx-me[aria-expanded="true"] {
   color: var(--fx-t3);
   background: var(--w03);
 }
+.fx-mst svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 .fx-mod.done5 .fx-mst {
   background: var(--fx-teal);
   border-color: transparent;

@@ -32,8 +32,9 @@ Base URL: `https://api.candleweb.io/api/` (`apps/client/lib/axiosApi.ts`).
 | ✅ | `POST /task/reward/` | submit verification link for a task |
 | ✅ | `GET /task/reward/claim/{id}/` | claim one reward |
 | ⛔ | **`POST /task/reward/claim-all/`** | "Claim all" currently loops the single-claim endpoint once per reward. |
+| ⛔ | **task type/kind field on `GET /task/all/`** | The design (`candleweb-tasks-focus.html`) has 4 task kinds — watch / read / quiz / project — where only **project** needs a human marker; watch/read (self-reported via a confirm checkbox) and quiz (graded client-side) go straight to "ready to claim" the moment they're submitted. Our `TaskProp` has no field to tell these apart, so every submission goes through the same `POST /task/reward/` + marker-review path regardless of kind. Net effect: nothing ever reaches "ready to claim" instantly — the claim banner only appears once a human/admin flips `is_verified`, which can be hours or days later. **This is why the claim card looked "gone" to the PM** — it's not broken, it's just gated on a marker for every task now, including the kinds the design expects to self-verify. Need either a `type` field (so the FE can fast-track watch/read/quiz client-side like the design) or confirmation that "every task is human-reviewed" is the accepted product behavior (in which case the design's copy for those task types should change too). |
 | ❓ | `/task/leaderboard/` shape | page matches `account_id === user.username`; confirm it returns `account_id`, `point`, `level`. |
-| ❓ | `GET /task/all/` empty response | when there are no tasks it returns `{ "message": "..." }` instead of `[]`. FE now treats that as an empty list (was showing it as an error toast on every visit). Cleaner would be to always return an array. |
+| ❓ | `GET /task/all/` empty response | when there are no tasks it returns `{ "message": "..." }` instead of `[]`. FE now treats that as an empty list (was showing it as an error toast on every visit). Cleaner would be to always return an array. `GET /task/reward/` has the same shape and is now handled the same way. |
 
 ---
 
@@ -47,6 +48,10 @@ Base URL: `https://api.candleweb.io/api/` (`apps/client/lib/axiosApi.ts`).
 | ⛔ | **`GET /notification/` (all statuses, paginated)** | the page has an "All" tab + total count, but only the *unread* feed exists. Read notifications can't be shown. |
 | ⛔ | **`POST /notification/read-all/`** | "Mark all read" loops `GET /notification/{id}` per unread item. |
 | ❓ | category field | the category chips filter client-side on the payload — confirm each notification carries a `type`/`category`. |
+| ⛔ | **`action`/`is_handled` fields per notification** | design's "needs-you" banner + "Needs you" tab + per-row action button ("Claim 40 credits", "Replace the key") — no data marks a notification actionable, so these are omitted rather than faked. See BACKEND_API_REQUESTS.md §1.18. |
+| ⛔ | **`DELETE /notification/{id}/`** (dismiss) and **mark-unread** | design lets you dismiss one row or flip it back to unread; only mark-read and delete-everything exist today. See §1.19. |
+| ⛔ | **`GET/PATCH /notification/preferences/`** | design's per-category mute + quiet-hours panel, and the "Muted" stat — no preferences endpoint exists. See §1.20. |
+| ✅ (2026-09-18) | day-grouping ("Today / Yesterday / Earlier") | added client-side from real `created_at`, matches the design's `.fx-nday` grouping. |
 
 ---
 
@@ -68,6 +73,7 @@ Base URL: `https://api.candleweb.io/api/` (`apps/client/lib/axiosApi.ts`).
 | ✅ | `GET /tutor/courses/{id}/` | course + lessons |
 | ✅ | `GET /certificate/{username}/` | certificate lookup + download |
 | ❓ | per-user completion | confirm `GET /tutor/courses/{id}/` returns lesson/module completion state for the caller (needed for the progress UI). |
+| ⛔ | **credits earned per course** | the stats band's "Credits earned here" tile has no real source — AI credits are only tracked account-wide (`GET /task/stats/`), with no link back to which course earned them. Shows `—` behind a "needs a per-course credits endpoint" chip rather than the account-wide total mislabeled as course-specific. See BACKEND_API_REQUESTS.md §1.17. |
 
 > Known FE bug: this page renders its own `<AIAgentChat>` **and** gets the shell's default one → two chat widgets. Fix on the frontend.
 

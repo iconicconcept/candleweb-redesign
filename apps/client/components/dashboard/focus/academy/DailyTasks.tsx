@@ -1,4 +1,5 @@
 import { useState } from "react";
+import Link from "next/link";
 import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "../../../../redux/store";
 import taskService from "../../../../services/taskService";
@@ -10,6 +11,13 @@ import type { RewardTaskProp, TaskProp } from "../../../../types/task";
 
 type Filter = "open" | "review" | "ready" | "done";
 
+type Props = {
+  /** Shows a footer link to the dedicated Daily tasks page — for previews
+      of this list embedded elsewhere (the Academy page), not the page
+      itself. Defaults off so `pages/dashboard/tasks.tsx` is unaffected. */
+  linkToFullPage?: boolean;
+};
+
 /* No `end_date` means nothing to be late against. */
 function dueState(endDate?: Date | string | null): { cls: string; label: string } {
   if (!endDate) return { cls: "", label: "no deadline" };
@@ -20,13 +28,14 @@ function dueState(endDate?: Date | string | null): { cls: string; label: string 
   return { cls: "", label: `due in ${days} days` };
 }
 
-export default function DailyTasks() {
+export default function DailyTasks({ linkToFullPage }: Props) {
   const dispatch = useDispatch<AppDispatch>();
   const axiosToken = useAxiosAuth();
   const { tasks, completed } = useSelector((state: RootState) => state.task);
 
   const [filter, setFilter] = useState<Filter>("open");
   const [verifyTask, setVerifyTask] = useState<TaskProp | null>(null);
+  const [viewReward, setViewReward] = useState<RewardTaskProp | null>(null);
   const [link, setLink] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -177,6 +186,9 @@ export default function DailyTasks() {
                 <span className="fx-tkr">
                   +{parseInt(reward.ai_unit ?? "0")} credits · {parseInt(reward.point ?? "0")} pts
                 </span>
+                <button className="fx-mini" type="button" onClick={() => setViewReward(reward)}>
+                  View
+                </button>
               </div>
             </div>
           ))}
@@ -218,10 +230,23 @@ export default function DailyTasks() {
               </div>
               <div className="fx-tka">
                 <span className="fx-tkr">+{parseInt(reward.ai_unit ?? "0")} claimed</span>
+                <button className="fx-mini" type="button" disabled>
+                  Done
+                </button>
               </div>
             </div>
           ))}
       </div>
+
+      {linkToFullPage && (
+        <Link
+          href="/dashboard/tasks"
+          className="fx-mini"
+          style={{ display: "block", textAlign: "center", width: "100%", padding: "12px 0", marginTop: 12 }}
+        >
+          Open the full task page →
+        </Link>
+      )}
 
       <Dialog
         open={!!verifyTask}
@@ -256,6 +281,25 @@ export default function DailyTasks() {
           </div>
           <p className="fx-hint">Kindly provide the link to the completed task.</p>
         </div>
+      </Dialog>
+
+      <Dialog
+        open={!!viewReward}
+        onClose={() => setViewReward(null)}
+        icon={<CheckIcon />}
+        title={viewReward?.title}
+        subtitle="With a marker"
+        labelledBy="view-task-title"
+        footer={
+          <button className="fx-cta ghost2" type="button" onClick={() => setViewReward(null)}>
+            Close
+          </button>
+        }
+      >
+        <p className="fx-dwarn">
+          Submitted and waiting on a marker. You&rsquo;ll get feedback either way, usually within a
+          day — nothing more to do here until then.
+        </p>
       </Dialog>
     </>
   );

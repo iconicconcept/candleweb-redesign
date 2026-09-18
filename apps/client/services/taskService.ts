@@ -54,9 +54,15 @@ const getReward = createAsyncThunk(
     try {
       const { data } = await api.get("/task/reward/");
 
-      if (data.length > 0) {
-        thunkApi.dispatch(setRewardTask(data));
+      // Same empty-state shape as /task/all/ — a `{ message: "..." }` object
+      // instead of a list. Always sync the store either way, or a stale
+      // `completed` list (e.g. after the last reward is claimed) never clears.
+      if (data?.message != null) {
+        thunkApi.dispatch(setRewardTask([]));
+        return [];
       }
+
+      thunkApi.dispatch(setRewardTask(Array.isArray(data) ? data : []));
 
       return data;
     } catch (err: any) {

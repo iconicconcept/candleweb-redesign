@@ -1,5 +1,5 @@
 import Head from "next/head";
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { getTimeAgo } from "ui";
 import { AppDispatch, RootState } from "../../redux/store";
@@ -12,6 +12,20 @@ import TopBar from "../../components/dashboard/focus/TopBar";
 import { BellIcon, CheckIcon, SearchIcon } from "../../components/dashboard/focus/icons";
 
 const PAGE_SIZE = 10;
+
+/* Matches the design's "Today / Yesterday / Earlier" row grouping (`.fx-nday`)
+   — computed from the real `created_at` on each notification, not the mock
+   data's hand-picked buckets. */
+const dayBucket = (date?: Date | string) => {
+  if (!date) return "Earlier";
+  const d = new Date(date);
+  const now = new Date();
+  const startOf = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diffDays = Math.round((startOf(now) - startOf(d)) / 86400000);
+  if (diffDays <= 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  return "Earlier";
+};
 
 export default function NotificationsDashboard() {
   const dispatch = useDispatch<AppDispatch>();
@@ -198,33 +212,36 @@ export default function NotificationsDashboard() {
                 </p>
               </div>
             ) : (
-              visible.map((n) => (
-                <div className={`fx-nrow ${!n.is_read ? "unread9" : ""}`} key={n.id}>
-                  <span className="fx-ni">
-                    <BellIcon />
-                  </span>
-                  <div className="fx-nmain">
-                    <div className="fx-nhead">
-                      {!n.is_read && <i className="fx-nudot" />}
-                      <b>{n.notification_type || "Notification"}</b>
-                      {n.notification_type && <span className="fx-ncat">{n.notification_type}</span>}
+              visible.map((n, i) => {
+                const bucket = dayBucket(n.created_at);
+                const showHeader = i === 0 || dayBucket(visible[i - 1].created_at) !== bucket;
+                return (
+                  <React.Fragment key={n.id}>
+                    {showHeader && <div className="fx-nday">{bucket}</div>}
+                    <div className={`fx-nrow ${!n.is_read ? "unread9" : ""}`}>
+                      <span className="fx-ni">
+                        <BellIcon />
+                      </span>
+                      <div className="fx-nmain">
+                        <div className="fx-nhead">
+                          {!n.is_read && <i className="fx-nudot" />}
+                          <b>{n.notification_type || "Notification"}</b>
+                          {n.notification_type && <span className="fx-ncat">{n.notification_type}</span>}
+                        </div>
+                        <p>{n.message}</p>
+                        <div className="fx-nfoot">
+                          {n.created_at && <time>{getTimeAgo(n.created_at)}</time>}
+                          {!n.is_read && (
+                            <button className="fx-mini" type="button" onClick={() => markRead(n.id)}>
+                              Mark read
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    <p>{n.message}</p>
-                    <div className="fx-nfoot">
-                      {n.created_at && <time>{getTimeAgo(n.created_at)}</time>}
-                      {!n.is_read && (
-                        <button
-                          className="fx-mini"
-                          type="button"
-                          onClick={() => markRead(n.id)}
-                        >
-                          Mark read
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))
+                  </React.Fragment>
+                );
+              })
             )}
           </div>
 

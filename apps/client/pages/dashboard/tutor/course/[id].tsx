@@ -1,16 +1,19 @@
 import Head from "next/head";
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
-import { useDispatch } from "react-redux";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import { useRouter } from "next/router";
 import toast from "react-hot-toast";
-import { AppDispatch } from "../../../../redux/store";
+import { AppDispatch, RootState } from "../../../../redux/store";
 import { setChatOpen } from "../../../../redux/slices/agentSlice";
 import courseService from "../../../../services/courseService";
+import taskService from "../../../../services/taskService";
 import certificateService, {
   CertificateInfo,
 } from "../../../../services/certificateService";
 import useUserStore from "../../../../lib/hooks/useUserStore";
+import useAxiosAuth from "../../../../lib/hooks/useAxiosAuth";
+import { isAuthorizationHeaderSet } from "../../../../utils/check_auth";
 import { imageUri } from "../../../../utils/constants";
 import DashboardShell from "../../../../components/dashboard/focus/DashboardShell";
 import TopBar from "../../../../components/dashboard/focus/TopBar";
@@ -41,6 +44,7 @@ const formatModuleDateTime = (datetime?: string, duration?: number) => {
 export default function CourseFocus() {
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
+  const axiosToken = useAxiosAuth();
   const { id } = router.query;
 
   const [course, setCourse] = useState<any>(null);
@@ -48,10 +52,23 @@ export default function CourseFocus() {
   const [error, setError] = useState<string | null>(null);
   const [selectedModuleId, setSelectedModuleId] = useState<number | null>(null);
   const [showAllModules, setShowAllModules] = useState(false);
+  const [moduleFilter, setModuleFilter] = useState<"all" | "todo" | "done">("all");
   const [openModuleId, setOpenModuleId] = useState<number | null>(null);
 
   const { user } = useUserStore();
   const username = user?.username;
+
+  // Real study-streak number (same source the Academy/Tasks pages use) for
+  // the course stats band — not fetched anywhere else on this page.
+  const { streak } = useSelector((state: RootState) => state.task);
+  const fetchedStreakTokenRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isAuthorizationHeaderSet(axiosToken)) return;
+    const token = useUserStore.getState().user?.access_token;
+    if (fetchedStreakTokenRef.current === token) return;
+    fetchedStreakTokenRef.current = token || null;
+    dispatch(taskService.getTaskStreak(axiosToken));
+  }, [axiosToken, dispatch]);
 
   const [certificate, setCertificate] = useState<CertificateInfo | null>(null);
   const [certLoading, setCertLoading] = useState(false);
@@ -75,6 +92,10 @@ export default function CourseFocus() {
       isActuallyCompleted,
       inferredStatus: isActuallyCompleted ? "COMPLETED" : isLive ? "CURRENT" : "LOCKED",
       topic: m.topic || m.title || m.course_title || `Module ${idx + 1}`,
+      // Its real position in the syllabus — carried through filtering, since
+      // the "To do"/"Complete" tabs mean a row's position in the *rendered*
+      // list is no longer its module number.
+      moduleNumber: idx + 1,
     };
   });
 
@@ -101,7 +122,18 @@ export default function CourseFocus() {
   const progressPercent = totalModules > 0 ? Math.round((completedCount / totalModules) * 100) : 0;
   const selectedModule = modules.find((m: any) => m.id === selectedModuleId) || modules[0] || null;
   const openModule = modules.find((m: any) => m.id === openModuleId) || null;
-  const displayModules = showAllModules ? enhancedModules : enhancedModules.slice(0, 10);
+
+  const filteredModules = enhancedModules.filter((m: any) =>
+    moduleFilter === "done" ? m.isActuallyCompleted : moduleFilter === "todo" ? !m.isActuallyCompleted : true,
+  );
+  const displayModules =
+    showAllModules || moduleFilter !== "all" ? filteredModules : filteredModules.slice(0, 10);
+
+  // Course stats band — module count + progress % are already computed above;
+  // next class and streak are real too (schedule live/upcoming flags, and the
+  // same task-streak endpoint the Academy/Tasks pages use).
+  const liveModule = modules.find((m: any) => m.isLive);
+  const upcomingModule = modules.find((m: any) => m.isUpcoming);
 
   useEffect(() => {
     if (!router.isReady) return;
@@ -190,7 +222,9 @@ export default function CourseFocus() {
 
   const defaultBenefits = [
     { label: "Certified NFT Diploma", icon: "🎓" },
-    { label: "500 LMN Credits", icon: "⭐" },
+    // "AI credits" is the name used everywhere else in the app — this used
+    // to read "500 LMN Credits", a leftover from an earlier naming scheme.
+    { label: "500 AI credits", icon: "⭐" },
   ];
   const displayBenefits =
     course?.benefits && course.benefits.length > 0
@@ -236,6 +270,16 @@ export default function CourseFocus() {
     }
     return [{ key: "locked", label: "Locked", body: "Opens closer to the date", Icon: LockIcon, disabled: true }];
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openModule]);
+
+  // Status pill shown at the top of the module dialog — mirrors the design's
+  // `.fx-mlive` chip. No per-module quiz-score field exists on class_schedules,
+  // so completed modules just say "Completed" rather than a fabricated score.
+  const moduleStatusPill = useMemo(() => {
+    if (!openModule) return null;
+    if (openModule.isActuallyCompleted) return { tone: "ok6", label: "Completed" };
+    if (openModule.isLive) return { tone: "", label: "Class in session now" };
+    return { tone: "mut6", label: `Starts ${formatModuleDateTime(openModule.scheduled_datetime)}` };
   }, [openModule]);
 
   if (loading) {
@@ -307,32 +351,97 @@ export default function CourseFocus() {
           </div>
         </div>
 
-        <section className="fx-sec rv d2">
+        <div className="fx-cap2 rv d2">
+          <div className="fx-cp">
+            <span>Modules completed</span>
+            <b>{completedCount} / {totalModules}</b>
+            <i>{totalModules - completedCount} still to go</i>
+          </div>
+          <div className="fx-cp">
+            <span>Next class</span>
+            <b className="am6" style={{ fontSize: 20 }}>
+              {liveModule ? "Live now" : upcomingModule ? formatModuleDateTime(upcomingModule.scheduled_datetime) : "—"}
+            </b>
+            <i>
+              {liveModule
+                ? `Module ${liveModule.moduleNumber} · ${liveModule.topic}`
+                : upcomingModule
+                  ? `Module ${upcomingModule.moduleNumber} · ${upcomingModule.topic}`
+                  : "the cohort has finished"}
+            </i>
+          </div>
+          <div className="fx-cp">
+            <span>Credits earned here</span>
+            <b>—</b>
+            {/* a plain `<span>`, not the usual `<i>` caption slot — `.fx-cp i`
+                is more specific than `.fx-preview` and would otherwise force
+                its own block display/size onto this chip */}
+            <span className="fx-preview" style={{ marginTop: 6 }}>
+              needs a per-course credits endpoint
+            </span>
+          </div>
+          <div className="fx-cp">
+            <span>Study streak</span>
+            <b>{streak?.user_streak ?? 0}</b>
+            <i>{streak?.total_task ? `${streak.total_task} tasks logged` : "days running"}</i>
+          </div>
+        </div>
+
+        <section className="fx-sec rv d3">
           <div className="fx-cols">
             <div>
               <div className="fx-sh">
                 <h2>
                   Course syllabus <span className="sub2">{completedCount} / {totalModules} complete</span>
                 </h2>
-                {modules.length > 10 && (
-                  <button className="fx-link" type="button" onClick={() => setShowAllModules((v) => !v)}>
-                    {showAllModules ? "Show less" : `Show all ${modules.length} modules`}
+                <div style={{ display: "flex", gap: 7 }}>
+                  <button
+                    className={`fx-mini ${moduleFilter === "all" ? "go" : ""}`}
+                    type="button"
+                    onClick={() => setModuleFilter("all")}
+                  >
+                    All
                   </button>
-                )}
+                  <button
+                    className={`fx-mini ${moduleFilter === "todo" ? "go" : ""}`}
+                    type="button"
+                    onClick={() => setModuleFilter("todo")}
+                  >
+                    To do
+                  </button>
+                  <button
+                    className={`fx-mini ${moduleFilter === "done" ? "go" : ""}`}
+                    type="button"
+                    onClick={() => setModuleFilter("done")}
+                  >
+                    Complete
+                  </button>
+                </div>
               </div>
               <div>
                 {modules.length === 0 && <p className="fx-nempty">No modules available yet.</p>}
+                {displayModules.length === 0 && modules.length > 0 && (
+                  <p className="fx-nempty">
+                    <b>{moduleFilter === "done" ? "Nothing completed yet." : "Nothing left to do."}</b>
+                  </p>
+                )}
                 {displayModules.map((m: any, idx: number) => {
                   const cls =
                     m.inferredStatus === "COMPLETED" ? "done5" : m.inferredStatus === "CURRENT" ? "live5" : "lock5";
-                  const mark =
-                    m.inferredStatus === "COMPLETED" ? (
-                      <CheckIcon />
-                    ) : m.inferredStatus === "CURRENT" ? (
-                      <PlayIcon />
-                    ) : (
-                      <LockIcon />
-                    );
+                  // Design uses 4 distinct marks, not 3: done=check, live=dot,
+                  // the *next* incomplete module shows its own number, and
+                  // anything further out shows a dash — matching `m.isNext`
+                  // (already computed for the "Up next" label) instead of
+                  // collapsing next/locked into the same lock icon.
+                  const mark = m.isActuallyCompleted ? (
+                    <CheckIcon />
+                  ) : m.isLive ? (
+                    "●"
+                  ) : m.isNext ? (
+                    String(m.moduleNumber)
+                  ) : (
+                    "–"
+                  );
                   return (
                     <button
                       key={m.id ?? idx}
@@ -345,7 +454,7 @@ export default function CourseFocus() {
                     >
                       <span className="fx-mst">{mark}</span>
                       <span className="fx-mtx">
-                        <span className="fx-mno">Module {String(idx + 1).padStart(2, "0")}</span>
+                        <span className="fx-mno">Module {String(m.moduleNumber).padStart(2, "0")}</span>
                         <b>{m.topic}</b>
                         <span>{formatModuleDateTime(m.scheduled_datetime, m.duration_minutes)}</span>
                       </span>
@@ -355,6 +464,16 @@ export default function CourseFocus() {
                     </button>
                   );
                 })}
+                {moduleFilter === "all" && filteredModules.length > 10 && (
+                  <button
+                    className="fx-mini"
+                    type="button"
+                    style={{ width: "100%", padding: "13px 0", marginTop: 12 }}
+                    onClick={() => setShowAllModules((v) => !v)}
+                  >
+                    {showAllModules ? "Show fewer modules" : `Show all ${filteredModules.length} modules`}
+                  </button>
+                )}
               </div>
             </div>
 
@@ -436,7 +555,15 @@ export default function CourseFocus() {
         <Dialog
           open={!!openModule}
           onClose={() => setOpenModuleId(null)}
-          icon={<CheckIcon />}
+          icon={
+            openModule?.isActuallyCompleted ? (
+              <CheckIcon />
+            ) : openModule?.isLive ? (
+              <PlayIcon />
+            ) : (
+              <LockIcon />
+            )
+          }
           title={openModule?.topic}
           subtitle={
             openModule
@@ -446,7 +573,18 @@ export default function CourseFocus() {
               : ""
           }
           labelledBy="module-dialog-title"
+          footer={
+            <button className="fx-cta ghost2" type="button" onClick={() => setOpenModuleId(null)}>
+              Close
+            </button>
+          }
         >
+          {moduleStatusPill && (
+            <div className={`fx-mlive ${moduleStatusPill.tone}`}>
+              <i />
+              {moduleStatusPill.label}
+            </div>
+          )}
           <div className="fx-opts">
             {moduleOptions.map((opt) => (
               <button

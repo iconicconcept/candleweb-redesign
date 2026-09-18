@@ -257,6 +257,69 @@ Priority:
 - **Proposed:** `GET /exchange/record/{id}/balance/` (same shape as 1.3).
 - **Used by:** `pages/dashboard/exchanges.tsx`
 
+### 1.16 Task type/kind field (flagged by PM — the "missing claim card")
+- **Why:** the design has 4 task kinds — watch / read / quiz / project — and
+  only **project** needs a human marker. Watch and read are self-reported
+  (a confirm checkbox), quiz is graded client-side, so both go straight to
+  "ready to claim" the moment they're submitted. `GET /task/all/` returns no
+  field to tell these apart, so every submission goes through the same
+  `POST /task/reward/` + marker-review path — nothing ever reaches "ready to
+  claim" until a human flips `is_verified`, even for a task the design expects
+  to self-verify instantly. **This is the bug the PM reported as "the claim
+  card is no longer there"** — it's not broken, it's gated on a marker for
+  every task now, including the kinds that shouldn't need one.
+- **Proposed:** add a `type` field to each task — `"watch" | "read" | "quiz" |
+  "project"` — on `GET /task/all/`, and auto-set `is_verified: true` on
+  `POST /task/reward/` for every type except `"project"`. Alternatively, tell
+  us if "every submission is human-reviewed" is the intended product
+  behaviour — if so we'll adjust the design's copy for watch/read/quiz instead
+  of expecting an instant reward.
+- **Used by:** `pages/dashboard/tasks.tsx`, `components/dashboard/focus/academy/DailyTasks.tsx`
+
+### 1.17 Credits earned per course (QA "Issue 34" — course detail stats band)
+- **Why:** the course detail page's stats band has a "Credits earned here" tile. AI credits are
+  only tracked account-wide (`GET /task/stats/` → `earned_units`), with no link back to which
+  course a credit was earned from — so we can't show a real number scoped to just this course.
+- **Proposed:** either `GET /tutor/courses/{id}/credits-earned/` → `{ "credits": 240 }`, or add a
+  `course_id` to whatever awards AI credits for finishing a module/quiz so we can sum it client-side.
+- **Used by:** `pages/dashboard/tutor/course/[id].tsx` (currently shows `—` under a "needs a
+  per-course credits endpoint" chip rather than the account-wide total mislabeled as course-specific).
+
+### 1.18 Actionable notifications (the design's "needs-you" banner + tab + per-row action button)
+- **Why:** the notifications design has a hero banner ("3 things waiting on you"), a "Needs you"
+  tab, and per-row CTA buttons ("Claim 40 credits", "Replace the key") with a handled/unhandled
+  state. `GET /notification/unread/` only returns `id`, `notification_type`, `message`, `is_read`,
+  `is_active`, `created_at` — nothing marks a notification as actionable or tracks whether its
+  action was taken, so none of this can be built without fabricating which notifications "need"
+  something.
+- **Proposed:** add optional `action: { "label": string, "type": string, "target"?: string } | null`
+  and `is_handled?: boolean` fields to each notification row. `type` lets the frontend pick the
+  right client-side behaviour (e.g. `"claim_reward"`, `"open_url"`, `"navigate"`); `target` carries
+  the id/URL it needs.
+- **Used by:** `pages/dashboard/notifications.tsx` (banner, "Needs you" tab, and row actions all
+  omitted for now rather than shown against fake data).
+
+### 1.19 Dismiss / mark-unread a single notification
+- **Why:** the design lets a user dismiss one notification (remove it from the list) or toggle it
+  back to unread. Only `GET /notification/{id}` (marks read) and `GET /notification/clear/` (deletes
+  **everything**) exist — no single-notification delete, no un-read.
+- **Proposed:** `DELETE /notification/{id}/` for dismiss, and either a `PATCH /notification/{id}/`
+  accepting `{ "is_read": false }` or a dedicated `GET /notification/{id}/unread/` to mirror the
+  existing mark-read call.
+- **Used by:** `pages/dashboard/notifications.tsx`
+
+### 1.20 Notification delivery preferences (per-category mute + quiet hours)
+- **Why:** the design's sidebar panel lets a user mute a category (Trades/Exchange/Academy/...) or
+  set quiet hours, and the stat band shows a "Muted" count. There is no preferences endpoint, so
+  nothing here is real yet.
+- **Proposed:** `GET/PATCH /notification/preferences/` →
+  ```json
+  { "categories": { "Trades": true, "Exchange": true, "Academy": false }, "quiet_hours": null }
+  ```
+  (`quiet_hours: { "start": "22:00", "end": "07:00" }` when set). Security-type notices should stay
+  non-mutable server-side, same as the design's disabled toggle.
+- **Used by:** `pages/dashboard/notifications.tsx`
+
 ---
 
 ## P2 — Bulk endpoints (works now, but the frontend loops single calls)
