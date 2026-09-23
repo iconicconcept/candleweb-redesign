@@ -33,6 +33,25 @@ Decide one of: buy, sell, hold.
 
 Return JSON only: { "action", "size_pct", "rationale" }`;
 
+/* The exact request/reply shape a bot integrates against — documentation of
+   the API contract, not a stand-in for real trade data, so it's safe to show
+   before a test has actually run (matches the design's static preview). */
+const SAMPLE_REQUEST = `{
+  "trade_id": "tr_9f2c",
+  "pair": "BTC/USDT",
+  "timeframe": "15m",
+  "indicators": {
+    "rsi_14": 61.4,
+    "macd_12_26_9": 18.7,
+    "ema_50": 63980.1
+  }
+}`;
+const SAMPLE_REPLY = `{
+  "action": "buy",
+  "size_pct": 10,
+  "rationale": "RSI off 45, MACD positive, above EMA-50."
+}`;
+
 type FormState = {
   name: string;
   note: string;
@@ -87,6 +106,20 @@ const AddBotPage = () => {
     if (needsWebhook && !/^https?:\/\//i.test(form.webhook_url.trim())) m.push("add a valid webhook URL");
     return m;
   }, [form.name, form.webhook_url, needsWebhook]);
+
+  /* Real completion, one flag per section below (05 has working defaults, so
+     nothing there is required) plus a final "ready to save" flag — not the
+     design's illustrative "3 of 6 · about 1 min left", since we can't know
+     how long this takes any given person. */
+  const stepsDone = [
+    !!form.name.trim(),
+    needsWebhook ? /^https?:\/\//i.test(form.webhook_url.trim()) : true,
+    !!form.prompt.trim(),
+    !!testResult?.ok,
+    true,
+    missing.length === 0,
+  ];
+  const doneCount = stepsDone.filter(Boolean).length;
 
   const runTest = async () => {
     if (!/^https?:\/\//i.test(form.webhook_url.trim())) {
@@ -159,6 +192,21 @@ const AddBotPage = () => {
           title="Add a bot"
           subtitle="Tell us what it runs on and how to reach it. About two minutes."
         />
+
+        <div className="fx-prog">
+          <div className="fx-ph">
+            <b>Setup progress</b>
+            <span>
+              {doneCount} of {stepsDone.length} done
+            </span>
+          </div>
+          <div className="fx-psteps">
+            {stepsDone.map((done, i) => {
+              const isCurrent = !done && stepsDone.slice(0, i).every(Boolean);
+              return <i key={i} className={done ? "done3" : isCurrent ? "cur3" : ""} />;
+            })}
+          </div>
+        </div>
 
         <div className="fx-formwrap">
           <form onSubmit={(e) => e.preventDefault()}>
@@ -350,6 +398,7 @@ const AddBotPage = () => {
               <div className="fx-fh">
                 <span className="fx-fn">03</span>
                 <h3>The prompt or logic it runs on</h3>
+                {form.prompt.trim() && <span className="fx-tick2">✓</span>}
               </div>
               <p className="fx-fsub">
                 Paste the prompt your agent uses, or describe the rules if it isn&rsquo;t an LLM.
@@ -438,7 +487,7 @@ const AddBotPage = () => {
               </p>
               <div className="fx-test">
                 <div className="fx-th2">
-                  <b>Sample candle → {form.webhook_url || "your webhook"}</b>
+                  <b>Sample exchange</b>
                   <button
                     className="fx-mini go"
                     type="button"
@@ -448,26 +497,24 @@ const AddBotPage = () => {
                     {testing ? "Sending…" : "Send test candle"}
                   </button>
                 </div>
-                {testResult && (
-                  <div className="fx-tsplit">
-                    <div>
-                      <span>Outcome</span>
-                      <pre className={`fx-pre ${testResult.ok ? "ok9" : "bad9"}`}>
-                        {testResult.ok
-                          ? `OK · HTTP ${testResult.status_code ?? 200}`
-                          : `Failed${testResult.status_code ? ` · HTTP ${testResult.status_code}` : ""}${testResult.error ? `\n${testResult.error}` : ""}`}
-                      </pre>
-                    </div>
-                    <div>
-                      <span>Your bot replied</span>
-                      <pre className="fx-pre">
-                        {testResult.body != null
-                          ? JSON.stringify(testResult.body, null, 2)
-                          : "— no body —"}
-                      </pre>
-                    </div>
+                <div className="fx-tsplit">
+                  <div>
+                    <span>We send</span>
+                    <pre className="fx-pre">{SAMPLE_REQUEST}</pre>
                   </div>
-                )}
+                  <div>
+                    <span>{testResult ? "Your bot replied" : "Your bot should reply"}</span>
+                    <pre className={`fx-pre ${testResult ? (testResult.ok ? "ok9" : "bad9") : ""}`}>
+                      {testResult
+                        ? testResult.ok
+                          ? testResult.body != null
+                            ? JSON.stringify(testResult.body, null, 2)
+                            : `OK · HTTP ${testResult.status_code ?? 200}`
+                          : `Failed${testResult.status_code ? ` · HTTP ${testResult.status_code}` : ""}${testResult.error ? `\n${testResult.error}` : ""}`
+                        : SAMPLE_REPLY}
+                    </pre>
+                  </div>
+                </div>
               </div>
             </section>
 
@@ -507,24 +554,20 @@ const AddBotPage = () => {
                   onClick={() => set("alert_push_on_fail", !form.alert_push_on_fail)}
                 />
               </div>
-              <div className="fx-fr" style={{ marginTop: "8px" }}>
-                <div>
-                  <label className="fx-fl" htmlFor="ap">
-                    Pause the bot after this many failures in a row
-                  </label>
-                  <div className="fx-inp" style={{ maxWidth: "160px" }}>
-                    <input
-                      id="ap"
-                      type="number"
-                      min={0}
-                      value={form.auto_pause_after_n_fails}
-                      onChange={(e) =>
-                        set("auto_pause_after_n_fails", Math.max(0, parseInt(e.target.value, 10) || 0))
-                      }
-                    />
-                  </div>
-                  <p className="fx-hint">Stops us hammering a dead endpoint. 0 disables it.</p>
+              <div className="fx-sw">
+                <div className="tx">
+                  <b>Pause the bot after 10 failures in a row</b>
+                  <span>Stops us hammering a dead endpoint. You can resume it any time.</span>
                 </div>
+                <button
+                  type="button"
+                  className={`fx-tg ${form.auto_pause_after_n_fails > 0 ? "" : "off4"}`}
+                  aria-pressed={form.auto_pause_after_n_fails > 0}
+                  aria-label="Pause after repeated failures"
+                  onClick={() =>
+                    set("auto_pause_after_n_fails", form.auto_pause_after_n_fails > 0 ? 0 : 10)
+                  }
+                />
               </div>
             </section>
 

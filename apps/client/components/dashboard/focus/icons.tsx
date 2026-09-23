@@ -260,6 +260,13 @@ export const LedgerIcon = (p: SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
+export const ClockIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}>
+    <circle cx="12" cy="12" r="8.6" />
+    <path d="M12 7.4V12l3 1.8" />
+  </svg>
+);
+
 export const MoreIcon = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}>
     <circle cx="5" cy="12" r="1.5" />

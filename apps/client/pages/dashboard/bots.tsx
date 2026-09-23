@@ -11,17 +11,14 @@ import TopBar from "../../components/dashboard/focus/TopBar";
 import Dialog from "../../components/dashboard/focus/Dialog";
 import { TrashIcon } from "../../components/dashboard/focus/icons";
 import { BotV2 } from "../../types/tradingV2";
-import {
-  STATUS_META,
-  platformLabel,
-  decisionStyleLabel,
-  onNoReplyLabel,
-} from "../../lib/botV2Labels";
+import { STATUS_META, platformLabel } from "../../lib/botV2Labels";
 
 const BotsPage = () => {
   const dispatch = useDispatch<AppDispatch>();
   const axiosToken = useAxiosAuth();
-  const { bots, botsLoading, botsLoaded } = useSelector((state: RootState) => state.tradingV2);
+  const { bots, botsLoading, botsLoaded, trades } = useSelector(
+    (state: RootState) => state.tradingV2,
+  );
 
   const [busyId, setBusyId] = useState<number | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<BotV2 | null>(null);
@@ -31,9 +28,22 @@ const BotsPage = () => {
     if (!isAuthorizationHeaderSet(axiosToken) || fetchedRef.current) return;
     fetchedRef.current = true;
     dispatch(tradingV2Service.listBots(axiosToken));
+    dispatch(tradingV2Service.listTrades(axiosToken));
   }, [axiosToken, dispatch]);
 
+  // The design's chips under each bot show the real pair/timeframe of every
+  // trade currently pointed at it — not the bot's own config (decision style,
+  // on-no-reply), which was shown here before real trade data was wired up.
+  const tradesForBot = (botId: number) => trades.filter((t) => t.bot === botId);
+
   const runningCount = bots.filter((b) => b.status === "ACTIVE").length;
+  // "Fleet health" from the design wants a 7-day trend, streaks and a
+  // "reviews waiting" milestone panel — none of that exists yet (needs bot
+  // decision history + a review endpoint, see BACKEND_API_REQUESTS.md §1.5/
+  // §1.7). What IS real right now: each bot's current status, so the meter
+  // below reflects "healthy right now", not a fabricated 7-day history.
+  const healthyCount = bots.filter((b) => !(STATUS_META[b.status] ?? STATUS_META.PAUSED).dead).length;
+  const failingCount = bots.length - healthyCount;
 
   const toggleRun = async (b: BotV2) => {
     setBusyId(b.id);
@@ -93,6 +103,90 @@ const BotsPage = () => {
             </Link>
           </div>
         </section>
+
+        {/* ---- fleet status — real data only, see comment above ---- */}
+        {bots.length > 0 && (
+          <section className="fx-mom rv d2" style={{ marginTop: "clamp(26px,3.4vw,38px)", paddingTop: 24 }}>
+            <div className="fx-sh">
+              <h2>
+                Your bots at a glance{" "}
+                <span className="sub2">
+                  {bots.length} connected · {runningCount} running
+                </span>
+              </h2>
+            </div>
+            <div className="fx-momgrid">
+              <div>
+                <div className="fx-meter">
+                  <div className="fx-mh">
+                    <b>Fleet health — right now</b>
+                    <span>
+                      {healthyCount} of {bots.length} healthy
+                    </span>
+                  </div>
+                  <div className="fx-seg">
+                    {bots.map((b) => (
+                      <i key={b.id} className={(STATUS_META[b.status] ?? STATUS_META.PAUSED).dead ? "" : "f"} />
+                    ))}
+                  </div>
+                  <p className="fx-mnote">
+                    {failingCount > 0
+                      ? `${failingCount} bot${failingCount === 1 ? "" : "s"} not responding right now — see below.`
+                      : "Every connected bot is answering its calls."}{" "}
+                    <span className="fx-preview" style={{ marginLeft: 6 }}>
+                      <i>◔</i> 7-day trend needs decision history
+                    </span>
+                  </p>
+                </div>
+                <div className="fx-streaks2">
+                  <div className="fx-stk2">
+                    <span>Days with no failures</span>
+                    <b className="mut">—</b>
+                    <div className="fx-preview" style={{ marginTop: 8 }}>
+                      <i>◔</i> needs bot decision history
+                    </div>
+                  </div>
+                  <div className="fx-stk2">
+                    <span>Reviews waiting</span>
+                    <b className="mut">—</b>
+                    <div className="fx-preview" style={{ marginTop: 8 }}>
+                      <i>◔</i> needs a bot-review endpoint
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <div className="fx-unlock">
+                  <h4>Next milestone</h4>
+                  <p className="us">Two bots with real trade history unlocks strategy comparison.</p>
+                  <div className="fx-ul">
+                    <i>1</i>
+                    <div>
+                      <b>Two bots with closed-trade history</b>
+                      {/* a <div>, not `.fx-ul span` — that selector would
+                          override `.fx-preview`'s pill styling */}
+                      <div className="fx-preview" style={{ marginTop: 4 }}>
+                        <i>◔</i> needs BACKEND_API_REQUESTS.md §1.5 (bot decision history)
+                      </div>
+                    </div>
+                  </div>
+                  <div className="fx-ul">
+                    <i>2</i>
+                    <div>
+                      <b>Strategy comparison</b>
+                      <span>Put two prompts side by side on the same pair</span>
+                    </div>
+                  </div>
+                  <p className="fx-tip2">
+                    <b style={{ color: "var(--fx-t2)" }}>Worth knowing.</b> Recommendations ready and a review
+                    verdict per bot (§1.7) need the same decision history — until then this stays a locked
+                    preview instead of a guess at whether any bot actually qualifies.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* ---- connected bots ---- */}
         <section className="fx-botlist">
@@ -157,6 +251,16 @@ const BotsPage = () => {
                     <span>Auto-pause at</span>
                     <b>{b.auto_pause_after_n_fails || "—"}</b>
                   </div>
+                  <div className="fx-bm">
+                    <span>P&amp;L · 30d</span>
+                    <b className="mut">—</b>
+                    {/* a <div>, not a second `.fx-bm span` — that selector
+                        would force its own uppercase/mono styling onto this
+                        note regardless of the `.fx-preview` class */}
+                    <div className="fx-preview" style={{ marginTop: 4 }}>
+                      needs a per-bot performance endpoint
+                    </div>
+                  </div>
                 </div>
 
                 {b.note && (
@@ -174,11 +278,19 @@ const BotsPage = () => {
                 )}
 
                 <div className="fx-bl3">
-                  <span className="fx-tr2">
-                    <i />
-                    {decisionStyleLabel(b.decision_style)}
-                  </span>
-                  <span className="fx-tr2 none2">{onNoReplyLabel(b.on_no_reply)}</span>
+                  {(() => {
+                    const botTrades = tradesForBot(b.id);
+                    return botTrades.length === 0 ? (
+                      <span className="fx-tr2 none2">No trades assigned</span>
+                    ) : (
+                      botTrades.map((t) => (
+                        <span className="fx-tr2" key={t.id}>
+                          <i />
+                          {(t.pair_name || `Pair #${t.pair}`).toUpperCase()} · {t.timeframe}
+                        </span>
+                      ))
+                    );
+                  })()}
                 </div>
 
                 <div className="fx-bacts">

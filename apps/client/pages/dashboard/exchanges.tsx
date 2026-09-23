@@ -22,13 +22,38 @@ import {
   PlusIcon,
   CheckIcon,
   CopyIcon,
-  RefreshIcon,
+  ShieldIcon,
+  LockIcon,
+  InviteIcon,
+  ClockIcon,
 } from "../../components/dashboard/focus/icons";
 import type { ExchangeProp, ExchangeRecord } from "../../types/exchange";
 import type { BalanceProp } from "../../types/user";
 
 /* Exchange keys must allow these three Candleweb addresses (same set as Settings). */
 const CONFIG_IPS = ["65.21.47.124", "107.155.122.236", "209.182.234.182"];
+
+/* The design's "Key safety" dashboard scores each connected key on withdrawal
+   permission, IP lock, futures/margin access and expiry — none of which our
+   API returns yet (see BACKEND_API_REQUESTS.md §1.14). Rather than hide the
+   section or fabricate a score, it's built to the real layout with every
+   item honestly marked as unscored, so the shape of the data this page needs
+   is visible instead of just described in a doc. */
+const SAFETY_CHECKS = [
+  { t: "No key can move money out", s: "Needs withdrawal-permission data per key" },
+  { t: "Every key locked to our IP", s: "Needs IP-restriction data per key" },
+  { t: "Spot only, no futures or margin", s: "Needs futures/margin-permission data per key" },
+  { t: "No key close to expiring", s: "Needs key-expiry data per key" },
+];
+
+/* "More than one" is the one badge this page can already judge for real —
+   it only needs the connected-account count, not per-key permission data. */
+const SAFETY_BADGES = [
+  { t: "Trade-only keys", s: "No key can move money out", Icon: ShieldIcon, scoreable: false },
+  { t: "Locked down", s: "Every key tied to our IP", Icon: LockIcon, scoreable: false },
+  { t: "More than one", s: "Two or more accounts live", Icon: InviteIcon, scoreable: true },
+  { t: "Nothing stale", s: "No key near expiry", Icon: ClockIcon, scoreable: false },
+];
 
 const DashboardExchangesPage = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -122,6 +147,13 @@ const DashboardExchangesPage = () => {
           crumb="Dashboard / Exchanges"
           title="Exchanges"
           subtitle="Where your money lives. Candleweb places orders inside your own account — it never holds funds, and it never can."
+          actions={
+            !isEmpty && (
+              <button className="fx-mini" type="button" onClick={syncAll} disabled={syncing}>
+                {syncing ? "Syncing…" : "Sync all"}
+              </button>
+            )
+          }
         />
 
         <div className="fx-cap2 rv d1">
@@ -191,14 +223,6 @@ const DashboardExchangesPage = () => {
               <h2>
                 Connected accounts <span className="sub2">orders are placed in your name</span>
               </h2>
-              <button
-                className="fx-mini"
-                type="button"
-                onClick={syncAll}
-                disabled={syncing}
-              >
-                <RefreshIcon /> {syncing ? "Syncing…" : "Sync all"}
-              </button>
             </div>
 
             <div>
@@ -247,21 +271,95 @@ const DashboardExchangesPage = () => {
           </section>
         )}
 
-        {/* Key safety — permission introspection has no endpoint yet */}
-        <section className="fx-sec rv d3">
+        {/* Key safety — full dashboard layout, matching the design; every
+            score/checklist/badge item is honestly marked unscored until a
+            per-key permissions endpoint exists (BACKEND_API_REQUESTS.md §1.14).
+            Only "More than one account" and the IP-allowlist box use real data. */}
+        <section className="fx-mom rv d3">
           <div className="fx-sh">
-            <h2>Key safety</h2>
+            <h2>
+              Key safety{" "}
+              <span className="sub2">
+                {exchangeRecord.length
+                  ? `${exchangeRecord.length} key${exchangeRecord.length === 1 ? "" : "s"} connected`
+                  : "nothing connected"}
+              </span>
+            </h2>
             <span className="fx-preview">
-              <i>◔</i> Per-key scoring needs a permissions endpoint
+              <i>◔</i> Needs a per-key permissions endpoint
             </span>
           </div>
-          <p className="fx-hint" style={{ marginBottom: 16 }}>
-            Candleweb can&rsquo;t yet read back which permissions a key actually carries, so it
-            can&rsquo;t score them here. What it can tell you: it never needs withdrawal permission,
-            and a key locked to the addresses below is worthless to anyone who copies it.
-          </p>
+          <div className="fx-momgrid">
+            <div>
+              <div className="fx-scorehead">
+                <div
+                  className="fx-ring"
+                  style={{ "--v": 0 } as React.CSSProperties}
+                  role="img"
+                  aria-label="Key safety score — not yet available"
+                >
+                  <svg viewBox="0 0 44 44" aria-hidden="true">
+                    <circle className="tr" cx="22" cy="22" r="19" />
+                    <circle className="vl" cx="22" cy="22" r="19" />
+                  </svg>
+                  {/* inline override — neither the "good" teal nor "bad" rose
+                      ring tone applies here, since there's nothing to score */}
+                  <b style={{ color: "var(--fx-t3)" }}>—</b>
+                </div>
+                <div className="vt">
+                  <b>{isEmpty ? "Nothing connected yet" : "Not scored yet"}</b>
+                  <p>
+                    {isEmpty
+                      ? "Connect an exchange and, once per-key permission data exists on the backend, this fills in automatically."
+                      : "Candleweb can't yet read back which permissions a key actually carries — withdrawal, IP-lock, futures access, expiry — so nothing below is a real score yet."}
+                  </p>
+                </div>
+              </div>
 
-          <div className="fx-ipbox">
+              <div style={{ marginTop: 24 }}>
+                {SAFETY_CHECKS.map((item, i) => (
+                  <div className="fx-ul" key={item.t}>
+                    <i>{i + 1}</i>
+                    <div>
+                      <b>{item.t}</b>
+                      <span>{item.s}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <div className="fx-sh" style={{ marginBottom: 12 }}>
+                <h2 style={{ fontSize: 15 }}>Earned</h2>
+              </div>
+              <div className="fx-badges2">
+                {SAFETY_BADGES.map((b) => {
+                  const won = b.scoreable && exchangeRecord.length >= 2;
+                  return (
+                    <div className={`fx-bdg ${won ? "won" : ""}`} key={b.t}>
+                      <span className="lk2">{won ? "Earned" : b.scoreable ? "Locked" : "Needs data"}</span>
+                      <span className="bi">
+                        <b.Icon />
+                      </span>
+                      <b>{b.t}</b>
+                      <span>{b.s}</span>
+                    </div>
+                  );
+                })}
+              </div>
+              <p
+                className="fx-tip2"
+                style={{ borderTop: "1px solid var(--fx-line)", marginTop: 18, paddingTop: 16 }}
+              >
+                <b style={{ color: "var(--fx-t2)" }}>Worth knowing.</b> None of this protects you from a
+                bad strategy. It protects you from losing the account itself — a different risk, and
+                the only one you can remove completely.
+              </p>
+            </div>
+          </div>
+
+          <div className="fx-ipbox" style={{ marginTop: 26 }}>
             <b>Restrict your key to these addresses</b>
             <p>
               For automated trading to work, your exchange key must allow these three Candleweb

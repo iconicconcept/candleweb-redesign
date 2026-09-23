@@ -38,6 +38,14 @@ type Props = {
   crumb?: React.ReactNode;
   title: string;
   subtitle?: React.ReactNode;
+  /* A page-specific control (e.g. Exchanges' "Sync all") that belongs in the
+     header row next to the theme/notifications/account buttons — per the
+     design, not floating inside the page body. Rendered first, before them. */
+  actions?: React.ReactNode;
+  /* Pages with their own hero header (bot detail's avatar+name block) render
+     that heading themselves, matching the design's fx-top — which is just
+     the crumb there, no h1/subtitle. */
+  hideHeading?: boolean;
 };
 
 /* Secondary destinations — not in the icon rail. Notifications has its own
@@ -50,7 +58,7 @@ const ACCOUNT_LINKS: { label: string; href: string; Icon: any }[] = [
   { label: "Settings", href: "/dashboard/settings", Icon: GearIcon },
 ];
 
-export default function TopBar({ crumb, title, subtitle }: Props) {
+export default function TopBar({ crumb, title, subtitle, actions, hideHeading }: Props) {
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
   /* Portfolio / Subscription / Invite & earn / Notifications have no icon-rail
@@ -138,12 +146,17 @@ export default function TopBar({ crumb, title, subtitle }: Props) {
       <div className="fx-top rv">
         <div>
           {crumb && <p className="fx-crumb">{crumb}</p>}
-          <h1 className="fx-title" style={crumb ? undefined : { marginTop: 0 }}>
-            {title}
-          </h1>
-          {subtitle && <p className="fx-sub3">{subtitle}</p>}
+          {!hideHeading && (
+            <>
+              <h1 className="fx-title" style={crumb ? undefined : { marginTop: 0 }}>
+                {title}
+              </h1>
+              {subtitle && <p className="fx-sub3">{subtitle}</p>}
+            </>
+          )}
         </div>
         <div className="fx-tools">
+          {actions}
           <button
             className="fx-btn"
             type="button"

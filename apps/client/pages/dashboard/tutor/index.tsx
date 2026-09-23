@@ -232,8 +232,19 @@ export default function AcademyDashboard() {
           </div>
           <div className="fx-cp">
             <span>Courses completed</span>
-            <b>{completedModules}</b>
-            <i>of {courses.length} enrolled</i>
+            {coursesLoading ? (
+              <>
+                <b>
+                  <span className="fx-spin" />
+                </b>
+                <i>loading…</i>
+              </>
+            ) : (
+              <>
+                <b>{completedModules}</b>
+                <i>of {courses.length} enrolled</i>
+              </>
+            )}
           </div>
           <div className="fx-cp">
             <span>Class rank</span>
@@ -247,7 +258,23 @@ export default function AcademyDashboard() {
           </div>
         </div>
 
-        {standCourse && (
+        {coursesLoading ? (
+          <section
+            className="fx-mom rv d2"
+            style={{
+              marginTop: "clamp(26px,3.4vw,38px)",
+              paddingTop: 24,
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              color: "var(--fx-t3)",
+              fontSize: 13,
+            }}
+          >
+            <span className="fx-spin" /> Loading your progress…
+          </section>
+        ) : (
+          standCourse && (
           <section className="fx-mom rv d2" style={{ marginTop: "clamp(26px,3.4vw,38px)", paddingTop: 24 }}>
             <div className="fx-sh">
               <h2>
@@ -325,9 +352,17 @@ export default function AcademyDashboard() {
               </div>
             </div>
           </section>
+          )
         )}
 
-        {!coursesLoading && courses.length === 0 ? (
+        {coursesLoading ? (
+          <div className="fx-empty rv d2">
+            <div className="eic">
+              <span className="fx-spin" style={{ width: 20, height: 20, borderWidth: 3 }} />
+            </div>
+            <h2>Loading your courses…</h2>
+          </div>
+        ) : courses.length === 0 ? (
           <div className="fx-empty rv d2">
             <div className="eic">
               <AcademyIcon />

@@ -87,7 +87,8 @@ Priority:
     "trades_count_30d": 34
   }
   ```
-- **Used by:** `pages/dashboard/trades.tsx` (+ future trade-detail page)
+- **Used by:** `pages/dashboard/trades.tsx` (+ future trade-detail page). Also the source `bots.tsx`
+  would sum per-bot to fill in each bot row's honest `—`-and-`.fx-preview` "P&L · 30d" tile.
 
 ### 1.5 Bot decision history
 - **Why:** the bot-detail page has a "Recent decisions" table (candle → the bot's
@@ -114,6 +115,11 @@ Priority:
   }
   ```
 - **Used by:** `pages/dashboard/bots/[id]/index.tsx`
+- **Also needed by:** `pages/dashboard/bots.tsx` — the design's fleet-wide "Fleet health — 7 days"
+  trend, failure streaks, and "reviews waiting"/"strategy comparison" milestone panel on the bots
+  list page all need this same per-bot decision history (aggregated across bots), plus 1.6 and 1.7
+  below. Today that section only shows each bot's *current* status (real), with an honest
+  `.fx-preview` note in place of the rest.
 
 ### 1.6 Bot health / uptime
 - **Why:** bot-detail shows "Uptime · 30d", "Median reply time", "Decisions · 30d".
@@ -239,15 +245,34 @@ Priority:
 - **Used by:** `pages/dashboard/index.tsx`
 
 ### 1.14 What an exchange key can actually do
-- **Why:** the new Exchanges page wants to show each connected key a safety
-  score (can it withdraw? is it locked to our IP? does it expire soon?). We
-  have no way to check any of that right now.
+- **Why:** the Exchanges page has a full "Key safety" dashboard built to the design
+  (score ring, a 4-item checklist, a 4-badge "Earned" grid) — but every one of those
+  reads a per-key permission we can't check today, so the whole section currently
+  renders in an honest "not scored yet" state instead of a real score.
 - **Proposed:** either new fields on `GET /exchange/record/` or a
   `GET /exchange/record/{id}/permissions/`:
   ```json
   { "can_withdraw": false, "can_trade": true, "can_read": true,
-    "ip_restricted": true, "expires_at": null }
+    "futures_enabled": false, "ip_restricted": true, "expires_at": null }
   ```
+- **Exactly how the UI would use each field** (so the shape above is enough to light
+  up the whole section, not just part of it):
+  - **Score ring** (0–100, averaged across all connected keys): `+35` if `can_withdraw`
+    is false, `+20` if `ip_restricted`, `+15` if `futures_enabled` is false, `+15` if
+    `can_trade`, `+10` if `can_read`, `+5` if `expires_at` is null or >14 days out.
+  - **Checklist row 1** "No key can move money out" — true only if every key has
+    `can_withdraw: false`.
+  - **Checklist row 2** "Every key locked to our IP" — true only if every key has
+    `ip_restricted: true`.
+  - **Checklist row 3** "Spot only, no futures or margin" — true only if every key has
+    `futures_enabled: false`.
+  - **Checklist row 4** "No key close to expiring" — true only if every key's
+    `expires_at` is null or more than 14 days away.
+  - **Badge "Trade-only keys"** — same criterion as checklist row 1.
+  - **Badge "Locked down"** — same criterion as checklist row 2.
+  - **Badge "Nothing stale"** — same criterion as checklist row 4.
+  - **Badge "More than one"** — already real today (`exchangeRecord.length >= 2`), no
+    new field needed.
 - **Used by:** `pages/dashboard/exchanges.tsx`
 
 ### 1.15 Balance per exchange account
@@ -319,6 +344,16 @@ Priority:
   (`quiet_hours: { "start": "22:00", "end": "07:00" }` when set). Security-type notices should stay
   non-mutable server-side, same as the design's disabled toggle.
 - **Used by:** `pages/dashboard/notifications.tsx`
+
+### 1.21 Open-position state per trade (bot-detail "Open now")
+- **Why:** the bot-detail page's vitals row has an "Open now" stat (e.g. "2 · BTC and ETH") — how many
+  positions this bot currently holds, and on which pairs. `TradeV2Status` (`RUNNING`/`PAUSED`/`ERROR`)
+  only says whether the trade *configuration* is active, not whether a position is currently open —
+  a `RUNNING` trade could easily be flat, waiting for its next signal.
+- **Proposed:** either a `has_open_position: boolean` (+ `position_side`/`position_size`) field on each
+  `GET /trading_v2/trades/` row, or a dedicated `GET /trading_v2/bots/{id}/open-positions/` returning
+  the pairs currently held.
+- **Used by:** `pages/dashboard/bots/[id]/index.tsx`
 
 ---
 
