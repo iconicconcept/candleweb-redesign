@@ -11,6 +11,8 @@ import type { RewardTaskProp, TaskProp } from "../../../../types/task";
 
 type Filter = "open" | "review" | "ready" | "done";
 
+const PAGE_SIZE = 4;
+
 type Props = {
   /** Shows a footer link to the dedicated Daily tasks page — for previews
       of this list embedded elsewhere (the Academy page), not the page
@@ -34,6 +36,12 @@ export default function DailyTasks({ linkToFullPage }: Props) {
   const { tasks, completed } = useSelector((state: RootState) => state.task);
 
   const [filter, setFilter] = useState<Filter>("open");
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
+  const changeFilter = (f: Filter) => {
+    setFilter(f);
+    setVisibleCount(PAGE_SIZE);
+  };
   const [verifyTask, setVerifyTask] = useState<TaskProp | null>(null);
   const [viewReward, setViewReward] = useState<RewardTaskProp | null>(null);
   const [link, setLink] = useState("");
@@ -101,28 +109,28 @@ export default function DailyTasks({ linkToFullPage }: Props) {
           <button
             type="button"
             className={`fx-tab2 ${filter === "open" ? "on" : ""}`}
-            onClick={() => setFilter("open")}
+            onClick={() => changeFilter("open")}
           >
             To do <em>{pending.length}</em>
           </button>
           <button
             type="button"
             className={`fx-tab2 ${filter === "review" ? "on" : ""}`}
-            onClick={() => setFilter("review")}
+            onClick={() => changeFilter("review")}
           >
             With a marker <em>{underReview.length}</em>
           </button>
           <button
             type="button"
             className={`fx-tab2 ${filter === "ready" ? "on" : ""}`}
-            onClick={() => setFilter("ready")}
+            onClick={() => changeFilter("ready")}
           >
             Ready to claim <em>{ready.length}</em>
           </button>
           <button
             type="button"
             className={`fx-tab2 ${filter === "done" ? "on" : ""}`}
-            onClick={() => setFilter("done")}
+            onClick={() => changeFilter("done")}
           >
             Claimed <em>{claimed.length}</em>
           </button>
@@ -145,7 +153,7 @@ export default function DailyTasks({ linkToFullPage }: Props) {
         )}
 
         {filter === "open" &&
-          pending.map((task, idx) => {
+          pending.slice(0, visibleCount).map((task, idx) => {
             const due = dueState(task.end_date);
             return (
               <div className="fx-tk" key={task.id ?? idx}>
@@ -171,7 +179,7 @@ export default function DailyTasks({ linkToFullPage }: Props) {
           })}
 
         {filter === "review" &&
-          underReview.map((reward, idx) => (
+          underReview.slice(0, visibleCount).map((reward, idx) => (
             <div className="fx-tk" key={reward.id ?? idx}>
               <span className="fx-tkico">
                 <TasksIcon />
@@ -194,7 +202,7 @@ export default function DailyTasks({ linkToFullPage }: Props) {
           ))}
 
         {filter === "ready" &&
-          ready.map((reward, idx) => (
+          ready.slice(0, visibleCount).map((reward, idx) => (
             <div className="fx-tk ready7" key={reward.id ?? idx}>
               <span className="fx-tkico">
                 <TasksIcon />
@@ -217,7 +225,7 @@ export default function DailyTasks({ linkToFullPage }: Props) {
           ))}
 
         {filter === "done" &&
-          claimed.map((reward, idx) => (
+          claimed.slice(0, visibleCount).map((reward, idx) => (
             <div className="fx-tk claimed7" key={reward.id ?? idx}>
               <span className="fx-tkico">
                 <TasksIcon />
@@ -237,6 +245,17 @@ export default function DailyTasks({ linkToFullPage }: Props) {
             </div>
           ))}
       </div>
+
+      {visible.length > visibleCount && (
+        <button
+          type="button"
+          className="fx-mini"
+          style={{ display: "block", width: "100%", padding: "12px 0", marginTop: 12, textAlign: "center" }}
+          onClick={() => setVisibleCount((n) => n + PAGE_SIZE)}
+        >
+          Load more tasks
+        </button>
+      )}
 
       {linkToFullPage && (
         <Link

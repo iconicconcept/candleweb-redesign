@@ -1968,6 +1968,19 @@ button.fx-me[aria-expanded="true"] {
   gap: 9px;
   flex: 0 0 auto;
 }
+/* the 3rd grid column (credits + action button) has nowhere to shrink once
+   the title wraps to two lines on a phone-width screen — drop it to its own
+   full-width row under the title instead of squeezing/clipping it. */
+@media (max-width: 720px) {
+  .fx-tk {
+    grid-template-columns: 34px minmax(0, 1fr);
+    row-gap: 10px;
+  }
+  .fx-tka {
+    grid-column: 2 / -1;
+    justify-content: space-between;
+  }
+}
 .fx-tkr {
   font-family: var(--fx-mono);
   font-size: 10.5px;
