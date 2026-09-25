@@ -27,7 +27,6 @@ import {
   TIMEOUT_OPTIONS,
   MODEL_OPTIONS,
   STATUS_META,
-  platformLabel,
 } from "../../../../lib/botV2Labels";
 
 type FormState = {
@@ -74,7 +73,7 @@ const BotSettingsPage = () => {
   const bot = useMemo(() => bots.find((b) => b.id === id) || null, [bots, id]);
 
   const [form, setForm] = useState<FormState | null>(null);
-  const [busy, setBusy] = useState<null | "save" | "run" | "key" | "delete">(null);
+  const [busy, setBusy] = useState<null | "save" | "key" | "delete">(null);
   const [confirmKey, setConfirmKey] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [newKey, setNewKey] = useState<string | null>(null);
@@ -134,20 +133,6 @@ const BotSettingsPage = () => {
     }
   };
 
-  const toggleRun = async () => {
-    if (!bot) return;
-    setBusy("run");
-    try {
-      if (bot.status === "ACTIVE") {
-        await dispatch(tradingV2Service.pauseBot({ api: axiosToken, id: bot.id }));
-      } else {
-        await dispatch(tradingV2Service.resumeBot({ api: axiosToken, id: bot.id }));
-      }
-    } finally {
-      setBusy(null);
-    }
-  };
-
   const regenerate = async () => {
     if (!bot) return;
     setBusy("key");
@@ -183,9 +168,10 @@ const BotSettingsPage = () => {
     }
   };
 
-  const copyKey = () => {
-    if (newKey && navigator.clipboard) navigator.clipboard.writeText(newKey);
+  const copyText = (v: string | null | undefined) => {
+    if (v && navigator.clipboard) navigator.clipboard.writeText(v);
   };
+  const copyKey = () => copyText(newKey);
 
   const meta = bot ? STATUS_META[bot.status] ?? STATUS_META.PAUSED : null;
 
@@ -205,7 +191,7 @@ const BotSettingsPage = () => {
             </>
           }
           title={bot ? `${bot.name} · settings` : "Bot settings"}
-          subtitle="Everything about how this bot connects, decides and warns you."
+          subtitle="Changes take effect from the next candle close. Open positions keep their stops."
         />
 
         {!bot && (
@@ -216,37 +202,6 @@ const BotSettingsPage = () => {
 
         {bot && form && meta && (
           <>
-            {/* header strip */}
-            <div className="fx-bh">
-              <span className="fx-bavatar">{bot.name.slice(0, 2).toUpperCase()}</span>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="fx-bl1" style={{ marginBottom: "6px" }}>
-                  <span className={`fx-st4 ${meta.cls}`}>{meta.label}</span>
-                  <span className="fx-src">
-                    {platformLabel(bot.platform)} · {bot.reach_mode === "PULL" ? "pull" : "push"}
-                  </span>
-                </div>
-                <p className="fx-hint" style={{ margin: 0 }}>
-                  Added {new Date(bot.created_at).toLocaleDateString()} ·{" "}
-                  {bot.consecutive_fail_count} fail
-                  {bot.consecutive_fail_count === 1 ? "" : "s"} in a row
-                </p>
-              </div>
-              <div className="fx-bacts" style={{ marginTop: 0 }}>
-                <Link className="fx-mini" href={`/dashboard/bots/${bot.id}`}>
-                  Overview
-                </Link>
-                <button
-                  type="button"
-                  className={`fx-mini ${bot.status === "ACTIVE" ? "" : "go"}`}
-                  disabled={busy === "run"}
-                  onClick={toggleRun}
-                >
-                  {busy === "run" ? "…" : bot.status === "ACTIVE" ? "Pause" : "Resume"}
-                </button>
-              </div>
-            </div>
-
             {meta.dead && (
               <p className="fx-failmsg">
                 <b>Not responding.</b> {bot.consecutive_fail_count} failed calls in a row — no
@@ -316,6 +271,9 @@ const BotSettingsPage = () => {
                     <span className="fx-fn">02</span>
                     <h3>Connection</h3>
                   </div>
+                  <p className="fx-fsub">
+                    How we reach your bot, and what happens when we can&rsquo;t.
+                  </p>
                   <div className="fx-reach2">
                     {REACH_MODES.map((r) => (
                       <button
@@ -331,6 +289,13 @@ const BotSettingsPage = () => {
                             ? "We POST the closed candle to your URL and wait for a decision."
                             : "Your bot pulls market data on its own schedule, then posts a decision back."}
                         </span>
+                        <em>
+                          {bot.reach_mode === r.value
+                            ? "Currently active"
+                            : r.value === "PUSH"
+                              ? "Recommended"
+                              : "Works behind a firewall"}
+                        </em>
                       </button>
                     ))}
                   </div>
@@ -347,6 +312,45 @@ const BotSettingsPage = () => {
                         onChange={(e) => set("webhook_url", e.target.value)}
                       />
                     </div>
+                    {/* last-call time and reply average need the bot health endpoint
+                        (DASHBOARD_ENDPOINTS §1.6) — shown as — until it exists */}
+                    <p className="fx-hint">
+                      Last successful call — · average reply —
+                      {bot.consecutive_fail_count > 0 &&
+                        ` · ${bot.consecutive_fail_count} failed call${bot.consecutive_fail_count === 1 ? "" : "s"} in a row`}
+                    </p>
+                  </div>
+
+                  {/* developer key */}
+                  <div style={{ marginTop: "18px" }}>
+                    <span className="fx-fl">Developer key</span>
+                    <div className="fx-key">
+                      <code>{bot.dev_key || "•••••••••••••••• — shown only on create / regenerate"}</code>
+                      <button
+                        type="button"
+                        className="fx-mini"
+                        disabled={!bot.dev_key}
+                        title={bot.dev_key ? undefined : "The full key is only shown on create / regenerate"}
+                        onClick={() => copyText(bot.dev_key)}
+                      >
+                        Copy
+                      </button>
+                      <button
+                        type="button"
+                        className="fx-mini"
+                        disabled={busy === "key"}
+                        onClick={() => setConfirmKey(true)}
+                      >
+                        Regenerate
+                      </button>
+                    </div>
+                    <p className="fx-warn2">
+                      <em>!</em>
+                      <span>
+                        Regenerating takes effect immediately. Update your workflow first or this bot
+                        stops being able to trade.
+                      </span>
+                    </p>
                   </div>
 
                   <div className="fx-fr two2" style={{ marginTop: "18px" }}>
@@ -391,29 +395,6 @@ const BotSettingsPage = () => {
                         </select>
                       </div>
                     </div>
-                  </div>
-
-                  {/* developer key */}
-                  <div style={{ marginTop: "18px" }}>
-                    <span className="fx-fl">Developer key</span>
-                    <div className="fx-key">
-                      <code>{bot.dev_key || "•••••••••••••••• — shown only on create / regenerate"}</code>
-                      <button
-                        type="button"
-                        className="fx-mini"
-                        disabled={busy === "key"}
-                        onClick={() => setConfirmKey(true)}
-                      >
-                        <RefreshIcon /> Regenerate
-                      </button>
-                    </div>
-                    <p className="fx-warn2">
-                      <em>!</em>
-                      <span>
-                        Regenerating invalidates the current key immediately. Every workflow using
-                        this bot must be updated with the new one or its calls start failing.
-                      </span>
-                    </p>
                   </div>
                 </section>
 
@@ -573,6 +554,38 @@ const BotSettingsPage = () => {
                   </button>
                 </div>
               </form>
+
+              <aside className="fx-side2">
+                <div className="fx-unlock">
+                  <h4>Before you change the prompt</h4>
+                  <p className="us">Three things worth knowing.</p>
+                  <div className="fx-ul got3">
+                    <i>✓</i>
+                    <div>
+                      <b>History is kept</b>
+                      <span>Past records never change</span>
+                    </div>
+                  </div>
+                  <div className="fx-ul">
+                    <i>2</i>
+                    <div>
+                      <b>Your developer key stays the same</b>
+                      <span>It never changes unless you reset it</span>
+                    </div>
+                  </div>
+                  <div className="fx-ul">
+                    <i>3</i>
+                    <div>
+                      <b>Nothing applies until you save</b>
+                      <span>Then from the next candle close</span>
+                    </div>
+                  </div>
+                  <p className="fx-tip2">
+                    <b>Tip.</b> If you&rsquo;re applying a review suggestion, note it in the version
+                    field — you&rsquo;ll want to know which change caused what.
+                  </p>
+                </div>
+              </aside>
             </div>
           </>
         )}

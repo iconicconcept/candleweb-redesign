@@ -215,6 +215,7 @@ const AddBotPage = () => {
               <div className="fx-fh">
                 <span className="fx-fn">01</span>
                 <h3>What is it</h3>
+                <span className="fx-tick2">✓</span>
               </div>
               <p className="fx-fsub">A name you&rsquo;ll recognise later, and where it runs.</p>
 
@@ -277,6 +278,7 @@ const AddBotPage = () => {
               <div className="fx-fh">
                 <span className="fx-fn">02</span>
                 <h3>How Candleweb reaches it</h3>
+                <span className="fx-tick2">✓</span>
               </div>
               <p className="fx-fsub">
                 Push is the normal choice. Pull suits self-hosted setups that aren&rsquo;t reachable
@@ -321,6 +323,63 @@ const AddBotPage = () => {
                 </p>
               </div>
 
+              {/* developer key — issued by the backend on create, so before save the
+                  field shows where it will appear; the one-time dialog hands it over */}
+              <div style={{ marginTop: "18px" }}>
+                <span className="fx-fl">Developer key</span>
+                <div className="fx-key">
+                  <code className={created?.dev_key ? "" : "pend"}>
+                    {created?.dev_key || "cw_dev_•••••••••••••••• — issued when you save"}
+                  </code>
+                  <button
+                    type="button"
+                    className="fx-mini"
+                    disabled={!created?.dev_key}
+                    title={created?.dev_key ? undefined : "Available once the bot is saved"}
+                    onClick={copyKey}
+                  >
+                    Copy
+                  </button>
+                  <button
+                    type="button"
+                    className="fx-mini"
+                    disabled
+                    title="Regenerate from the bot's settings once it is saved"
+                  >
+                    Regenerate
+                  </button>
+                </div>
+                <div className="fx-kflow">
+                  <div className="fx-kf">
+                    <i>1</i>
+                    <div>
+                      <b>Candleweb → your bot</b>
+                      <span>
+                        We include the key on every call, so your workflow can confirm the candle
+                        really came from us.
+                      </span>
+                    </div>
+                  </div>
+                  <div className="fx-kf">
+                    <i>2</i>
+                    <div>
+                      <b>Your bot → Candleweb</b>
+                      <span>
+                        Your bot sends the same key back in the <code>X-Candleweb-Key</code> header.
+                        That authorises us to place and manage the order.
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <p className="fx-warn2">
+                  <em>!</em>
+                  <span>
+                    Treat this like a password. Regenerating takes effect immediately — update your
+                    workflow first, or your bot stops being able to act.
+                  </span>
+                </p>
+              </div>
+
               <div className="fx-fr two2" style={{ marginTop: "18px" }}>
                 <div>
                   <label className="fx-fl" htmlFor="to">
@@ -362,35 +421,6 @@ const AddBotPage = () => {
                 </div>
               </div>
 
-              <div className="fx-kflow">
-                <div className="fx-kf">
-                  <i>1</i>
-                  <div>
-                    <b>Candleweb → your bot</b>
-                    <span>
-                      We include a developer key on every call, so your workflow can confirm the
-                      candle really came from us.
-                    </span>
-                  </div>
-                </div>
-                <div className="fx-kf">
-                  <i>2</i>
-                  <div>
-                    <b>Your bot → Candleweb</b>
-                    <span>
-                      Your bot sends the same key back in the <code>X-Candleweb-Key</code> header.
-                      That authorises us to place and manage the order.
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <p className="fx-warn2">
-                <em>!</em>
-                <span>
-                  The key is generated on save and shown once — store it somewhere safe, because
-                  this screen never re-issues the original.
-                </span>
-              </p>
             </section>
 
             {/* 03 — prompt */}
@@ -398,7 +428,7 @@ const AddBotPage = () => {
               <div className="fx-fh">
                 <span className="fx-fn">03</span>
                 <h3>The prompt or logic it runs on</h3>
-                {form.prompt.trim() && <span className="fx-tick2">✓</span>}
+                <span className="fx-tick2">✓</span>
               </div>
               <p className="fx-fsub">
                 Paste the prompt your agent uses, or describe the rules if it isn&rsquo;t an LLM.
@@ -481,6 +511,7 @@ const AddBotPage = () => {
               <div className="fx-fh">
                 <span className="fx-fn">04</span>
                 <h3>Test the connection</h3>
+                <span className="fx-tick2">✓</span>
               </div>
               <p className="fx-fsub">
                 We send one sample candle to your webhook with a throwaway key. Nothing is traded.
@@ -523,6 +554,7 @@ const AddBotPage = () => {
               <div className="fx-fh">
                 <span className="fx-fn">05</span>
                 <h3>Tell me when it breaks</h3>
+                <span className="fx-tick2">✓</span>
               </div>
               <p className="fx-fsub">
                 A silent bot looks the same as a bot with no signals. We&rsquo;d rather wake you.

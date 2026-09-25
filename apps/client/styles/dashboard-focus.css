@@ -5126,6 +5126,25 @@ button.fx-me[aria-expanded="true"] {
   background: var(--fx-teal);
   color: #04140f;
   flex: 0 0 auto;
+  animation: fxTickPop 0.4s cubic-bezier(0.34, 1.4, 0.5, 1) both;
+}
+@keyframes fxTickPop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fx-tick2 {
+    animation: none;
+  }
 }
 .fx-fsub {
   margin: 0 0 18px;
@@ -5962,6 +5981,10 @@ button.fx-me[aria-expanded="true"] {
 }
 :root[data-theme="light"] .fx-root .fx-key code {
   background: #f2f5f4;
+}
+/* before save there is no key yet — the placeholder reads as a slot, not a value */
+.fx-key code.pend {
+  color: var(--fx-t3);
 }
 .fx-kflow {
   display: grid;
