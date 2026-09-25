@@ -1,4 +1,5 @@
 import Head from "next/head";
+import { maskString } from "ui";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -366,7 +367,7 @@ const BotDetailPage = () => {
                       <b>Developer key · sent both ways</b>
                     </div>
                     <div className="eb2">
-                      <code>{bot.dev_key || "•••••••••••••••• — shown only on create / regenerate"}</code>
+                      <code>{bot.dev_key ? maskString(bot.dev_key) : "•••••••••••••••• — shown only on create / regenerate"}</code>
                       {bot.dev_key && (
                         <button
                           className="fx-mini"

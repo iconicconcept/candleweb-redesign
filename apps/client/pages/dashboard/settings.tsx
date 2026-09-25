@@ -1,4 +1,5 @@
 import Head from "next/head";
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useRouter } from "next/router";
@@ -37,7 +38,6 @@ import { setBalance } from "../../redux/slices/userSlice";
 import DashboardShell from "../../components/dashboard/focus/DashboardShell";
 import TopBar from "../../components/dashboard/focus/TopBar";
 import Dialog from "../../components/dashboard/focus/Dialog";
-import AddExchangeDialog from "../../components/dashboard/focus/settings/AddExchangeDialog";
 import {
   CheckIcon,
   WarnIcon,
@@ -73,7 +73,6 @@ export default function SettingsDashboard() {
   const [walletBusy, setWalletBusy] = useState(false);
   const [network, setNetwork] = useState(NETWORKS[0]);
   const [manualAddress, setManualAddress] = useState("");
-  const [addOpen, setAddOpen] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<{ id: string; name: string } | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteText, setDeleteText] = useState("");
@@ -449,9 +448,9 @@ export default function SettingsDashboard() {
         <section className="fx-sec">
           <div className="fx-sh">
             <h2>Exchanges</h2>
-            <button className="fx-mini go" type="button" onClick={() => setAddOpen(true)}>
+            <Link className="fx-mini go" href="/dashboard/exchanges/new">
               <PlusIcon /> Add exchange
-            </button>
+            </Link>
           </div>
 
           <div className="fx-ipbox">
@@ -637,11 +636,6 @@ export default function SettingsDashboard() {
           </div>
         </Dialog>
 
-        <AddExchangeDialog
-          open={addOpen}
-          onClose={() => setAddOpen(false)}
-          onAdded={() => dispatch(exchangeServices.getExchangeRecords(axiosToken))}
-        />
       </DashboardShell>
     </>
   );

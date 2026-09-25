@@ -34,7 +34,7 @@ export function maskString(str: string): string {
   // Check if the length of the input string is greater than 5 characters
   if (str.length > 5) {
     // If so, replace characters after the first 5 characters with asterisks
-    return str.substring(0, 5) + '*****';
+    return str.substring(0, 5) + '********';
   } else {
     // If the input string is 5 characters or shorter, return it unchanged
     return str;

@@ -1,11 +1,12 @@
 import Head from "next/head";
-import Link from "next/link";
+import { maskString } from "ui";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "../../../../redux/store";
 import tradingV2Service from "../../../../services/tradingV2Service";
 import useAxiosAuth from "../../../../lib/hooks/useAxiosAuth";
+import useUserStore from "../../../../lib/hooks/useUserStore";
 import { isAuthorizationHeaderSet } from "../../../../utils/check_auth";
 import { error } from "../../../../components/alert/Toast";
 import DashboardShell from "../../../../components/dashboard/focus/DashboardShell";
@@ -65,7 +66,8 @@ const BotSettingsPage = () => {
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
   const axiosToken = useAxiosAuth();
-  const { bots } = useSelector((state: RootState) => state.tradingV2);
+  const { bots, trades } = useSelector((state: RootState) => state.tradingV2);
+  const { user } = useUserStore((state) => state);
 
   const id = typeof router.query.id === "string" ? parseInt(router.query.id, 10) : null;
   const valid = id != null && !Number.isNaN(id);
@@ -73,14 +75,21 @@ const BotSettingsPage = () => {
   const bot = useMemo(() => bots.find((b) => b.id === id) || null, [bots, id]);
 
   const [form, setForm] = useState<FormState | null>(null);
-  const [busy, setBusy] = useState<null | "save" | "key" | "delete">(null);
+  const [busy, setBusy] = useState<null | "save" | "run" | "key" | "delete">(null);
   const [confirmKey, setConfirmKey] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmPause, setConfirmPause] = useState(false);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [newKey, setNewKey] = useState<string | null>(null);
   const loadedRef = useRef<number | null>(null);
+  const tradesRef = useRef(false);
 
   useEffect(() => {
     if (!valid || !isAuthorizationHeaderSet(axiosToken)) return;
+    if (!tradesRef.current) {
+      tradesRef.current = true;
+      dispatch(tradingV2Service.listTrades(axiosToken));
+    }
     if (!bot && loadedRef.current !== id) {
       loadedRef.current = id;
       dispatch(tradingV2Service.getBot({ api: axiosToken, id: id as number }));
@@ -93,6 +102,12 @@ const BotSettingsPage = () => {
 
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) =>
     setForm((f) => (f ? { ...f, [k]: v } : f));
+
+  /* trades this bot decides for — drives the live "currently runs N trades" line */
+  const linkedTrades = useMemo(() => trades.filter((t) => t.bot === id), [trades, id]);
+
+  /* the threshold the pause toggle restores when switched back on */
+  const pauseN = form?.auto_pause_after_n_fails || bot?.auto_pause_after_n_fails || 10;
 
   const dirty = useMemo(() => {
     if (!bot || !form) return false;
@@ -131,6 +146,26 @@ const BotSettingsPage = () => {
     } finally {
       setBusy(null);
     }
+  };
+
+  const toggleRun = async () => {
+    if (!bot) return;
+    setBusy("run");
+    try {
+      if (bot.status === "ACTIVE") {
+        await dispatch(tradingV2Service.pauseBot({ api: axiosToken, id: bot.id }));
+      } else {
+        await dispatch(tradingV2Service.resumeBot({ api: axiosToken, id: bot.id }));
+      }
+      setConfirmPause(false);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const discard = () => {
+    if (bot) setForm(fromBot(bot));
+    setConfirmDiscard(false);
   };
 
   const regenerate = async () => {
@@ -218,6 +253,7 @@ const BotSettingsPage = () => {
                     <span className="fx-fn">01</span>
                     <h3>Identity</h3>
                   </div>
+                  <p className="fx-fsub">What this bot is called, and where it runs.</p>
                   <div className="fx-fr two2">
                     <div>
                       <label className="fx-fl" htmlFor="bn">
@@ -231,6 +267,9 @@ const BotSettingsPage = () => {
                           onChange={(e) => set("name", e.target.value)}
                         />
                       </div>
+                      <p className="fx-hint">
+                        Renaming keeps all history — past records follow the bot, not the name.
+                      </p>
                     </div>
                     <div>
                       <label className="fx-fl" htmlFor="bv">
@@ -244,6 +283,7 @@ const BotSettingsPage = () => {
                           onChange={(e) => set("note", e.target.value)}
                         />
                       </div>
+                      <p className="fx-hint">Shown on the review page so you can tell versions apart.</p>
                     </div>
                   </div>
                   <div style={{ marginTop: "18px" }}>
@@ -312,12 +352,13 @@ const BotSettingsPage = () => {
                         onChange={(e) => set("webhook_url", e.target.value)}
                       />
                     </div>
-                    {/* last-call time and reply average need the bot health endpoint
-                        (DASHBOARD_ENDPOINTS §1.6) — shown as — until it exists */}
+                    {/* last-call time + reply average: BACKEND_API_REQUESTS §1.6 */}
                     <p className="fx-hint">
-                      Last successful call — · average reply —
+                      <span className="fx-preview">
+                        <i>◔</i> Last call &amp; reply time need the bot health endpoint (§1.6)
+                      </span>
                       {bot.consecutive_fail_count > 0 &&
-                        ` · ${bot.consecutive_fail_count} failed call${bot.consecutive_fail_count === 1 ? "" : "s"} in a row`}
+                        ` ${bot.consecutive_fail_count} failed call${bot.consecutive_fail_count === 1 ? "" : "s"} in a row`}
                     </p>
                   </div>
 
@@ -325,7 +366,7 @@ const BotSettingsPage = () => {
                   <div style={{ marginTop: "18px" }}>
                     <span className="fx-fl">Developer key</span>
                     <div className="fx-key">
-                      <code>{bot.dev_key || "•••••••••••••••• — shown only on create / regenerate"}</code>
+                      <code>{bot.dev_key ? maskString(bot.dev_key) : "•••••••••••••••• — shown only on create / regenerate"}</code>
                       <button
                         type="button"
                         className="fx-mini"
@@ -402,12 +443,25 @@ const BotSettingsPage = () => {
                 <section className="fx-fsec">
                   <div className="fx-fh">
                     <span className="fx-fn">03</span>
-                    <h3>Prompt &amp; logic</h3>
+                    <h3>Prompt</h3>
                   </div>
+                  {/* the design's review counter ("Editing this restarts the review
+                      counter…" / "13 of 20 trades collected on the current version") needs
+                      prompt versioning: BACKEND_API_REQUESTS §1.23 */}
+                  <p className="fx-fsub">
+                    Bot review reads this alongside every decision. Results before and after an
+                    edit are only comparable if you know when it changed — note it in the version
+                    field.
+                  </p>
+                  <p className="fx-hint" style={{ margin: "0 0 16px" }}>
+                    <span className="fx-preview">
+                      <i>◔</i> Review counter needs the prompt version endpoint (§1.23)
+                    </span>
+                  </p>
                   <div className="fx-fr two2" style={{ marginBottom: "16px" }}>
                     <div>
                       <label className="fx-fl" htmlFor="md">
-                        Model <em>— optional</em>
+                        Model
                       </label>
                       <div className="fx-inp">
                         <select
@@ -460,6 +514,17 @@ const BotSettingsPage = () => {
                       onChange={(e) => set("prompt", e.target.value)}
                     />
                   </div>
+                  <p className="fx-hint">
+                    Saved{" "}
+                    {new Date(bot.updated_at).toLocaleDateString(undefined, {
+                      day: "numeric",
+                      month: "short",
+                    })}{" "}
+                    · {form.prompt.length.toLocaleString()} characters ·{" "}
+                    <span className="fx-preview">
+                      <i>◔</i> Version history needs the prompt version endpoint (§1.23)
+                    </span>
+                  </p>
                 </section>
 
                 {/* 04 alerts */}
@@ -468,10 +533,13 @@ const BotSettingsPage = () => {
                     <span className="fx-fn">04</span>
                     <h3>Alerts</h3>
                   </div>
+                  <p className="fx-fsub">A silent bot looks the same as a bot with no signals.</p>
                   <div className="fx-sw">
                     <div className="tx">
                       <b>Email me if this bot stops responding</b>
-                      <span>After two consecutive failures.</span>
+                      <span>
+                        After two consecutive failures{user?.email ? `, to ${user.email}` : ""}.
+                      </span>
                     </div>
                     <button
                       type="button"
@@ -494,64 +562,106 @@ const BotSettingsPage = () => {
                       onClick={() => set("alert_push_on_fail", !form.alert_push_on_fail)}
                     />
                   </div>
-                  <div className="fx-fr" style={{ marginTop: "8px" }}>
-                    <div>
-                      <label className="fx-fl" htmlFor="ap">
-                        Pause the bot after this many failures in a row
-                      </label>
-                      <div className="fx-inp" style={{ maxWidth: "160px" }}>
-                        <input
-                          id="ap"
-                          type="number"
-                          min={0}
-                          value={form.auto_pause_after_n_fails}
-                          onChange={(e) =>
-                            set(
-                              "auto_pause_after_n_fails",
-                              Math.max(0, parseInt(e.target.value, 10) || 0),
-                            )
-                          }
-                        />
-                      </div>
-                      <p className="fx-hint">0 disables auto-pause.</p>
+                  <div className="fx-sw">
+                    <div className="tx">
+                      <b>Pause after {pauseN} failures in a row</b>
+                      <span>Stops us hammering a dead endpoint.</span>
                     </div>
+                    <button
+                      type="button"
+                      className={`fx-tg ${form.auto_pause_after_n_fails > 0 ? "" : "off4"}`}
+                      aria-pressed={form.auto_pause_after_n_fails > 0}
+                      aria-label="Pause after repeated failures"
+                      onClick={() =>
+                        set("auto_pause_after_n_fails", form.auto_pause_after_n_fails > 0 ? 0 : pauseN)
+                      }
+                    />
+                  </div>
+                  {/* no field on the bot for this yet: BACKEND_API_REQUESTS §1.22 */}
+                  <div className="fx-sw">
+                    <div className="tx">
+                      <b>Tell me when review has new suggestions</b>
+                      <span>Weekly, once there&rsquo;s enough history to say something useful.</span>
+                    </div>
+                    <span className="fx-preview">
+                      <i>◔</i> Needs a review-alerts field on the bot API (§1.22)
+                    </span>
                   </div>
                 </section>
 
-                <section className="fx-fsec">
+                <div>
                   <div className="fx-actions">
-                    <Link className="fx-cta ghost2" href={`/dashboard/bots/${bot.id}`}>
-                      Back to overview
-                    </Link>
+                    <button
+                      className="fx-cta ghost2"
+                      type="button"
+                      disabled={!dirty || busy === "save"}
+                      onClick={() => setConfirmDiscard(true)}
+                    >
+                      Discard changes
+                    </button>
                     <button
                       className="fx-cta main2"
                       type="button"
                       disabled={busy === "save" || !dirty}
                       onClick={save}
                     >
-                      {busy === "save" ? "Saving…" : dirty ? "Save changes" : "Saved"}
+                      {busy === "save" ? "Saving…" : "Save settings"}
                     </button>
                   </div>
-                </section>
+                </div>
 
-                {/* danger zone */}
+                {/* pause or remove */}
                 <div className="fx-danger">
                   <div className="dtx">
-                    <b>Remove this bot</b>
+                    <b>Pause or remove this bot</b>
                     <p>
-                      The bot and its stored prompt are deleted. Any trade it decides for is left
-                      without a decider and pauses — stops stay in place — until you assign another
-                      bot or CandleAI.
+                      Pausing stops new decisions immediately. Open positions keep the stops already
+                      placed on them and close normally — pausing never leaves a trade unmanaged.
                     </p>
+                    <div className="fx-inuse">
+                      <i>ⓘ</i>
+                      <p>
+                        {linkedTrades.length === 0 ? (
+                          <>
+                            This bot isn&rsquo;t assigned to any trade, so removing it doesn&rsquo;t
+                            affect anything that&rsquo;s running.
+                          </>
+                        ) : (
+                          <>
+                            This bot currently runs{" "}
+                            <b>
+                              {linkedTrades.length} trade{linkedTrades.length === 1 ? "" : "s"}
+                            </b>
+                            . Removing it leaves {linkedTrades.length === 1 ? "it" : "them"} without
+                            a decider; {linkedTrades.length === 1 ? "it" : "they"}&rsquo;ll pause
+                            until you assign another bot or CandleAI.
+                          </>
+                        )}
+                      </p>
+                    </div>
+                    <div className="fx-dacts">
+                      <button
+                        type="button"
+                        className="fx-cta ghost2"
+                        disabled={busy === "run"}
+                        onClick={() => (bot.status === "ACTIVE" ? setConfirmPause(true) : toggleRun())}
+                      >
+                        {busy === "run"
+                          ? "Working…"
+                          : bot.status === "ACTIVE"
+                            ? "Pause bot"
+                            : "Resume bot"}
+                      </button>
+                      <button
+                        type="button"
+                        className="fx-dbtn"
+                        disabled={busy === "delete"}
+                        onClick={() => setConfirmDelete(true)}
+                      >
+                        Remove bot
+                      </button>
+                    </div>
                   </div>
-                  <button
-                    type="button"
-                    className="fx-dbtn"
-                    disabled={busy === "delete"}
-                    onClick={() => setConfirmDelete(true)}
-                  >
-                    <TrashIcon /> Remove bot
-                  </button>
                 </div>
               </form>
 
@@ -576,8 +686,11 @@ const BotSettingsPage = () => {
                   <div className="fx-ul">
                     <i>3</i>
                     <div>
-                      <b>Nothing applies until you save</b>
-                      <span>Then from the next candle close</span>
+                      <b>Old version archived</b>
+                      <span>You can compare them later</span>
+                      <span className="fx-preview">
+                        <i>◔</i> Needs the prompt version endpoint (§1.23)
+                      </span>
                     </div>
                   </div>
                   <p className="fx-tip2">
@@ -646,6 +759,64 @@ const BotSettingsPage = () => {
           <p className="fx-dwarn">
             Update every workflow that calls Candleweb for this bot with this value in the{" "}
             <code>X-Candleweb-Key</code> header.
+          </p>
+        </Dialog>
+
+        {/* pause confirm */}
+        <Dialog
+          open={confirmPause}
+          onClose={() => setConfirmPause(false)}
+          tone="amber"
+          labelledBy="pause-bot-title"
+          icon={<WarnIcon />}
+          title={<span id="pause-bot-title">Pause {bot?.name}?</span>}
+          subtitle="New decisions stop immediately"
+          footer={
+            <>
+              <button className="fx-cta ghost2" type="button" onClick={() => setConfirmPause(false)}>
+                Leave it running
+              </button>
+              <button
+                className="fx-cta main2"
+                type="button"
+                disabled={busy === "run"}
+                onClick={toggleRun}
+              >
+                {busy === "run" ? "Pausing…" : "Pause bot"}
+              </button>
+            </>
+          }
+        >
+          <p className="fx-dwarn">
+            The bot stops answering candles from now on. Open positions keep the stops already placed
+            on them and close normally. You can resume it whenever you like — pausing doesn&rsquo;t
+            close anything.
+          </p>
+        </Dialog>
+
+        {/* discard confirm */}
+        <Dialog
+          open={confirmDiscard}
+          onClose={() => setConfirmDiscard(false)}
+          tone="amber"
+          labelledBy="discard-title"
+          icon={<WarnIcon />}
+          title={<span id="discard-title">Discard your changes?</span>}
+          subtitle="Nothing has been saved yet"
+          footer={
+            <>
+              <button className="fx-cta ghost2" type="button" onClick={() => setConfirmDiscard(false)}>
+                Keep editing
+              </button>
+              <button className="fx-cta main2" type="button" onClick={discard}>
+                Discard
+              </button>
+            </>
+          }
+        >
+          <p className="fx-dwarn">
+            The form goes back to the settings the bot is running on right now. Anything you edited
+            on this page is lost.
           </p>
         </Dialog>
 

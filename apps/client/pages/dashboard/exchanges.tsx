@@ -15,9 +15,8 @@ import { setBalance } from "../../redux/slices/userSlice";
 import DashboardShell from "../../components/dashboard/focus/DashboardShell";
 import TopBar from "../../components/dashboard/focus/TopBar";
 import Dialog from "../../components/dashboard/focus/Dialog";
-import AddExchangeDialog from "../../components/dashboard/focus/settings/AddExchangeDialog";
+import ExchangesEmpty from "../../components/dashboard/focus/exchanges/ExchangesEmpty";
 import {
-  SwapIcon,
   WarnIcon,
   PlusIcon,
   CheckIcon,
@@ -64,15 +63,17 @@ const DashboardExchangesPage = () => {
   const { trades } = useSelector((state: RootState) => state.tradingV2);
   const fetchedRef = useRef(false);
 
-  const [addOpen, setAddOpen] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<{ id: string; name: string } | null>(null);
   const [copiedIp, setCopiedIp] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
+  /* the empty state is only shown once the record list has actually loaded,
+     so a user with accounts never sees it flash up */
+  const [recordsLoaded, setRecordsLoaded] = useState(false);
 
   useEffect(() => {
     if (!isAuthorizationHeaderSet(axiosToken) || fetchedRef.current) return;
     fetchedRef.current = true;
-    dispatch(exchangeServices.getExchangeRecords(axiosToken));
+    dispatch(exchangeServices.getExchangeRecords(axiosToken)).finally(() => setRecordsLoaded(true));
     if (exchanges.length < 1) dispatch(exchangeServices.getExchanges());
     if (!balance || balance.length === 0) dispatch(userService.getBalance(axiosToken));
     dispatch(tradingV2Service.listTrades(axiosToken));
@@ -143,16 +144,30 @@ const DashboardExchangesPage = () => {
       </Head>
 
       <DashboardShell active="exchanges">
+        {isEmpty ? (
+          <>
+            <TopBar
+              title="Exchanges"
+              subtitle="Connect the account your bots will trade on. It stays yours — Candleweb only places orders inside it."
+            />
+            {recordsLoaded ? (
+              <ExchangesEmpty exchanges={exchanges} />
+            ) : (
+              <p className="fx-hint" style={{ padding: "24px 4px" }}>
+                Loading your exchanges…
+              </p>
+            )}
+          </>
+        ) : (
+          <>
         <TopBar
           crumb="Dashboard / Exchanges"
           title="Exchanges"
           subtitle="Where your money lives. Candleweb places orders inside your own account — it never holds funds, and it never can."
           actions={
-            !isEmpty && (
-              <button className="fx-mini" type="button" onClick={syncAll} disabled={syncing}>
-                {syncing ? "Syncing…" : "Sync all"}
-              </button>
-            )
+            <button className="fx-mini" type="button" onClick={syncAll} disabled={syncing}>
+              {syncing ? "Syncing…" : "Sync all"}
+            </button>
           }
         />
 
@@ -185,39 +200,6 @@ const DashboardExchangesPage = () => {
           </div>
         </div>
 
-        {isEmpty ? (
-          <section className="fx-sec rv d2">
-            <div className="fx-empty">
-              <div className="eic">
-                <SwapIcon />
-              </div>
-              <h2>No exchange connected yet</h2>
-              <p>
-                Candleweb places orders on an account you already own. Until one is connected, your
-                bots can think but they can&rsquo;t trade. Add a <b>trade-only</b> API key — read and
-                spot trade, never withdrawal — and you can revoke it from the exchange at any moment
-                without asking us.
-              </p>
-              <div className="eb">
-                <button
-                  className="fx-cta main2"
-                  type="button"
-                  style={{ flex: "0 0 auto", minWidth: 0 }}
-                  onClick={() => setAddOpen(true)}
-                >
-                  <PlusIcon /> Connect an exchange
-                </button>
-                <Link
-                  className="fx-cta ghost2"
-                  href="/buy-crypto"
-                  style={{ flex: "0 0 auto", minWidth: 0 }}
-                >
-                  Need to fund an account?
-                </Link>
-              </div>
-            </div>
-          </section>
-        ) : (
           <section className="fx-sec rv d2">
             <div className="fx-sh">
               <h2>
@@ -269,7 +251,6 @@ const DashboardExchangesPage = () => {
               })}
             </div>
           </section>
-        )}
 
         {/* Key safety — full dashboard layout, matching the design; every
             score/checklist/badge item is honestly marked unscored until a
@@ -307,11 +288,10 @@ const DashboardExchangesPage = () => {
                   <b style={{ color: "var(--fx-t3)" }}>—</b>
                 </div>
                 <div className="vt">
-                  <b>{isEmpty ? "Nothing connected yet" : "Not scored yet"}</b>
+                  <b>Not scored yet</b>
                   <p>
-                    {isEmpty
-                      ? "Connect an exchange and, once per-key permission data exists on the backend, this fills in automatically."
-                      : "Candleweb can't yet read back which permissions a key actually carries — withdrawal, IP-lock, futures access, expiry — so nothing below is a real score yet."}
+                    Candleweb can&rsquo;t yet read back which permissions a key actually carries —
+                    withdrawal, IP-lock, futures access, expiry — so nothing below is a real score yet.
                   </p>
                 </div>
               </div>
@@ -384,18 +364,18 @@ const DashboardExchangesPage = () => {
             </span>
           </div>
           {exchanges.length === 0 ? (
-            <button className="fx-mini go" type="button" onClick={() => setAddOpen(true)}>
+            <Link className="fx-mini go" href="/dashboard/exchanges/new">
               <PlusIcon /> Add exchange
-            </button>
+            </Link>
           ) : (
             <div className="fx-avail">
               {exchanges.map((x: ExchangeProp) => (
                 <div className="fx-av" key={x.id}>
                   <span className="xl2">{getFirstAndLastLetter(x.name)}</span>
                   <b>{x.name}</b>
-                  <button className="fx-mini" type="button" onClick={() => setAddOpen(true)}>
+                  <Link className="fx-mini" href={`/dashboard/exchanges/new?exchange=${x.id}`}>
                     {connectedIds.has(String(x.id)) ? "Add account" : "Connect"}
-                  </button>
+                  </Link>
                 </div>
               ))}
             </div>
@@ -431,6 +411,9 @@ const DashboardExchangesPage = () => {
           </p>
         </div>
 
+          </>
+        )}
+
         <Dialog
           open={!!removeTarget}
           onClose={() => setRemoveTarget(null)}
@@ -460,14 +443,6 @@ const DashboardExchangesPage = () => {
           </p>
         </Dialog>
 
-        <AddExchangeDialog
-          open={addOpen}
-          onClose={() => setAddOpen(false)}
-          onAdded={() => {
-            dispatch(exchangeServices.getExchangeRecords(axiosToken));
-            dispatch(userService.getBalance(axiosToken));
-          }}
-        />
       </DashboardShell>
     </>
   );

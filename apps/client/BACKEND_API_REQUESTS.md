@@ -136,7 +136,9 @@ Priority:
     "last_seen_at": "2026-09-10T14:00:00Z"
   }
   ```
-- **Used by:** `pages/dashboard/bots/[id]/index.tsx`
+- **Used by:** `pages/dashboard/bots/[id]/index.tsx`, `pages/dashboard/bots/[id]/settings.tsx`
+  (the "Last successful call · average reply" line under the webhook URL — needs `last_seen_at`
+  of the last *successful* call + an average/median reply time)
 
 ### 1.7 Bot review / recommendation
 - **Why:** `pages/dashboard/bots/[id]/review.tsx` is built as a **full design-only
@@ -273,7 +275,10 @@ Priority:
   - **Badge "Nothing stale"** — same criterion as checklist row 4.
   - **Badge "More than one"** — already real today (`exchangeRecord.length >= 2`), no
     new field needed.
-- **Used by:** `pages/dashboard/exchanges.tsx`
+- **Used by:** `pages/dashboard/exchanges.tsx`, `pages/dashboard/exchanges/new.tsx` (the Connect
+  page's "we check what you actually granted" line and the design's read-only verification run —
+  reach exchange / read balance / read permissions / confirm withdraw off / check IP lock — both
+  wait on this; ideally `POST /exchange/record/` returns the same permission fields on success)
 
 ### 1.15 Balance per exchange account
 - **Why:** same page also wants Balance / Available / In-open-positions **per
@@ -355,6 +360,35 @@ Priority:
   the pairs currently held.
 - **Used by:** `pages/dashboard/bots/[id]/index.tsx`
 
+### 1.22 Review-suggestion alert setting on a bot
+- **Why:** the Bot settings design has a 4th alert toggle, "Tell me when review has new suggestions"
+  (weekly, once there's enough history). The bot model only has `alert_email_on_fail`,
+  `alert_push_on_fail` and `auto_pause_after_n_fails`, so there is nowhere to save it. The row is
+  shown with a "needs endpoint" tag instead of a toggle.
+- **Proposed:** add `alert_review_suggestions: boolean` to the bot, readable on `GET /trading_v2/bots/{id}/`
+  and writable on `PATCH`. Depends on 1.7 (review) for anything to actually be sent.
+- **Used by:** `pages/dashboard/bots/[id]/settings.tsx`
+
+### 1.23 Prompt versions + per-version review counter
+- **Why:** the Bot settings design says editing the prompt "restarts the review counter" and shows
+  "13 of 20 trades collected on the current version", a "view version history" link, and a sidebar
+  item "Old version archived — you can compare them later". Today `prompt` is a single overwritten
+  string, so none of that exists. All three spots carry a "needs endpoint" tag.
+- **Proposed:**
+  - Archive the previous prompt on every prompt change; `GET /trading_v2/bots/{id}/prompt-versions/` →
+    `[{ "id": 7, "prompt": "...", "note": "added EMA-200 filter", "created_at": "...", "closed_trades": 186 }]`
+  - On the bot: `current_prompt_version: { "id": 8, "closed_trades": 13, "review_threshold": 20 }`
+- **Used by:** `pages/dashboard/bots/[id]/settings.tsx`
+
+### 1.24 Label on an exchange record
+- **Why:** the Connect-an-exchange design has an optional "Label" field ("Main account") so two
+  accounts on the same exchange can be told apart. `POST /exchange/record/` only takes
+  `supported_exchange_id`, `API_KEY`, `API_SECRET`, `API_PASSPHRASE`, so the field is shown with a
+  "needs endpoint" tag instead of an input.
+- **Proposed:** optional `label: string` on `POST /exchange/record/`, returned on `GET /exchange/record/`
+  (same idea as the `label` in 1.2's proposed shape).
+- **Used by:** `pages/dashboard/exchanges/new.tsx`
+
 ---
 
 ## P2 — Bulk endpoints (works now, but the frontend loops single calls)
@@ -417,6 +451,15 @@ Priority:
   `uri` already ends in `/`, producing `//`. We can fix it on the frontend —
   please confirm the server does (or doesn't) tolerate `//` so we know whether
   it's urgent.
+- **`GET /exchange/list/` has test data and is missing BitMart.** It currently returns
+  `binance`, `bybit`, `Kucoin` plus three rows named `<magicmock id='…'>` (leftover test
+  fixtures). The design supports KuCoin, BitMart, Binance and Bybit. The Connect-an-exchange page
+  (`pages/dashboard/exchanges/new.tsx`) now shows the design's four and matches each to this list
+  by name (case-insensitive), so please: delete the magicmock rows, add **BitMart** (its card is
+  disabled with "Not in /exchange/list/ yet" until then), and confirm which exchanges need
+  `API_PASSPHRASE` — we only send it for KuCoin; the design says BitMart needs one too.
+  The Exchanges page's "Add another exchange" row still renders this list as-is, so the magicmock
+  rows show there too until they're removed.
 
 ---
 
