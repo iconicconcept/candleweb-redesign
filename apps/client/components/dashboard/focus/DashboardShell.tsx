@@ -160,7 +160,7 @@ export default function DashboardShell({ active, children }: Props) {
             aria-expanded={moreOpen}
             onClick={() => setMoreOpen((v) => !v)}
           >
-            <MoreIcon />
+            <NavIcon Icon={MoreIcon} active={moreActive} />
             More
           </button>
         </nav>

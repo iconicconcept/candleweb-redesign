@@ -1118,6 +1118,18 @@ button.fx-me[aria-expanded="true"] {
   color: var(--fx-t3);
   line-height: 1.7;
 }
+/* A task's description in the submit dialog — body copy, not a mono tag. */
+.fx-dlg .dsub .desc {
+  display: block;
+  font-family: "Outfit", sans-serif;
+  font-size: 13.5px;
+  letter-spacing: 0;
+  line-height: 1.55;
+  color: var(--fx-t2);
+  white-space: pre-line;
+  max-height: 180px;
+  overflow-y: auto;
+}
 .fx-dclose {
   position: absolute;
   top: 16px;

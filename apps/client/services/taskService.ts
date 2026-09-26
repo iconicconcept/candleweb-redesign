@@ -146,7 +146,7 @@ const claimReward = createAsyncThunk(
   "/claim/reward",
   async (payload: { api: AxiosInstance; id: string }, thunkApi) => {
     try {
-      // GET still works, but backend now prefers POST for claims.
+      // POST only — the legacy GET variant is being disabled on the backend.
       const { data } = await payload.api.post(
         `/task/reward/claim/${payload.id}/`,
       );

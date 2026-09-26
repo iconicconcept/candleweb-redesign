@@ -6,6 +6,7 @@ import { dollarFormat } from "ui";
 import { AppDispatch, RootState } from "../../../redux/store";
 import tradingV2Service, { toId } from "../../../services/tradingV2Service";
 import userService from "../../../services/userService";
+import exchangeServices from "../../../services/exchangeService";
 import useAxiosAuth from "../../../lib/hooks/useAxiosAuth";
 import { isAuthorizationHeaderSet } from "../../../utils/check_auth";
 import { error } from "../../../components/alert/Toast";
@@ -21,19 +22,14 @@ import {
   TradeV2Timeframe,
 } from "../../../types/tradingV2";
 import { BalanceProp } from "../../../types/user";
+import { ExchangeProp, ExchangeRecord } from "../../../types/exchange";
 
 /* ------------------------------------------------------------------ *
- * Reference lists — no backend endpoint exists for pairs / exchange
- * accounts / bots yet. These placeholders keep the form usable; swap
- * each for a fetch once /api/trading_v2/{pairs,bots}/ + an accounts
- * endpoint land. Tracked in DASHBOARD_ENDPOINTS.md.
+ * Reference lists — no backend endpoint exists for pairs yet. This
+ * placeholder keeps the form usable; swap it for a fetch once
+ * /api/trading_v2/pairs/ lands. Tracked in DASHBOARD_ENDPOINTS.md.
+ * Exchange accounts are the user's own records (/exchange/record/).
  * ------------------------------------------------------------------ */
-const PLACEHOLDER_ACCOUNTS = [
-  { id: 1, name: "KuCoin · main" },
-  { id: 2, name: "Binance · main" },
-  { id: 3, name: "Bybit" },
-  { id: 4, name: "BitMart" },
-];
 const PLACEHOLDER_PAIRS = [
   { id: 1, name: "BTC/USDT" },
   { id: 2, name: "ETH/USDT" },
@@ -107,7 +103,8 @@ type FormState = {
 };
 
 const DEFAULTS: FormState = {
-  exchange_account: PLACEHOLDER_ACCOUNTS[0].id,
+  // 0 = none picked yet; the first connected account is filled in on load
+  exchange_account: 0,
   pair: PLACEHOLDER_PAIRS[0].id,
   timeframe: "15m",
   allocated_amount: "",
@@ -127,6 +124,7 @@ const NewTradePage = () => {
   const axiosToken = useAxiosAuth();
   const { trades, bots } = useSelector((state: RootState) => state.tradingV2);
   const { balance } = useSelector((state: RootState) => state.user);
+  const { exchanges, exchangeRecord } = useSelector((state: RootState) => state.exchange);
   const botOptions = bots.length ? bots : FALLBACK_BOTS;
 
   const editId = typeof router.query.id === "string" ? parseInt(router.query.id, 10) : null;
@@ -145,6 +143,8 @@ const NewTradePage = () => {
     dispatch(tradingV2Service.listBots(axiosToken));
     dispatch(tradingV2Service.listTrades(axiosToken));
     if (!balance || balance.length === 0) dispatch(userService.getBalance(axiosToken));
+    dispatch(exchangeServices.getExchangeRecords(axiosToken));
+    if (exchanges.length < 1) dispatch(exchangeServices.getExchanges());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [axiosToken, dispatch]);
 
@@ -179,6 +179,32 @@ const NewTradePage = () => {
     }
   }, [editing, editId, trades, axiosToken, dispatch]);
 
+  /* The user's connected exchange accounts, labelled by exchange name. */
+  const accountOptions = useMemo(
+    () =>
+      exchangeRecord
+        .filter((r: ExchangeRecord) => r.id != null)
+        .map((r: ExchangeRecord) => {
+          const ex = exchanges.find(
+            (x: ExchangeProp) => String(x.id) === String(r.supported_exchange_id),
+          );
+          const name = ex?.name ?? (r.supported_exchange_id ? String(r.supported_exchange_id) : "Exchange");
+          return { id: r.id as number, name: r.is_active === false ? `${name} (inactive)` : name };
+        }),
+    [exchangeRecord, exchanges],
+  );
+
+  // new trade: default to the first connected account once they load
+  useEffect(() => {
+    if (editing || form.exchange_account || accountOptions.length === 0) return;
+    setForm((f) => ({ ...f, exchange_account: accountOptions[0].id }));
+  }, [editing, form.exchange_account, accountOptions]);
+
+  const accountName = (id: number) =>
+    accountOptions.find((a) => a.id === id)?.name ||
+    (existing && existing.exchange_account === id ? existing.exchange_name : "") ||
+    `account #${id}`;
+
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
 
@@ -195,8 +221,8 @@ const NewTradePage = () => {
   const ceilingCash = alloc * (form.max_size_pct / 100);
 
   /* Real balance + what every other trade has already claimed from it —
-     "per-exchange-account" balances aren't possible yet since the exchange
-     accounts above are placeholders, not real connected accounts. */
+     "per-exchange-account" balances aren't possible yet since the balance
+     endpoint only reports totals per exchange, not per account record. */
   const totalBalance = useMemo(
     () =>
       (balance || [])
@@ -248,11 +274,12 @@ const NewTradePage = () => {
 
   const missing = useMemo(() => {
     const m: string[] = [];
+    if (!form.exchange_account) m.push("connect an exchange account");
     if (!(alloc > 0)) m.push("allocate an amount");
     if (form.indicators.length === 0) m.push("send at least one indicator");
     if (form.decider_type === "OWN_BOT" && !form.bot) m.push("pick a bot");
     return m;
-  }, [alloc, form.indicators.length, form.decider_type, form.bot]);
+  }, [form.exchange_account, alloc, form.indicators.length, form.decider_type, form.bot]);
 
   const sectionsDone = [
     !!form.exchange_account && !!form.pair,
@@ -291,6 +318,10 @@ const NewTradePage = () => {
   };
 
   const onSave = async () => {
+    if (!form.exchange_account) {
+      error("Connect an exchange account before saving this trade.");
+      return;
+    }
     setBusy("save");
     try {
       const saved = await persist();
@@ -406,13 +437,18 @@ const NewTradePage = () => {
                       value={form.exchange_account}
                       onChange={(e) => set("exchange_account", parseInt(e.target.value, 10))}
                     >
-                      {PLACEHOLDER_ACCOUNTS.map((a) => (
+                      {!form.exchange_account && (
+                        <option value={0} disabled>
+                          {accountOptions.length ? "Choose an account" : "No exchange connected"}
+                        </option>
+                      )}
+                      {accountOptions.map((a) => (
                         <option key={a.id} value={a.id}>
                           {a.name}
                         </option>
                       ))}
                       {existing &&
-                        !PLACEHOLDER_ACCOUNTS.some((a) => a.id === existing.exchange_account) && (
+                        !accountOptions.some((a) => a.id === existing.exchange_account) && (
                           <option value={existing.exchange_account}>
                             {existing.exchange_name || `Account #${existing.exchange_account}`}
                           </option>
@@ -420,7 +456,14 @@ const NewTradePage = () => {
                     </select>
                   </div>
                   <p className="fx-hint">
-                    Placeholder list — real accounts load once the backend exposes them.
+                    {accountOptions.length ? (
+                      "The exchange accounts you've connected to Candleweb."
+                    ) : (
+                      <>
+                        No exchange connected yet —{" "}
+                        <a href="/dashboard/exchanges">connect one under Exchanges</a>.
+                      </>
+                    )}
                   </p>
                 </div>
                 <div>
@@ -965,7 +1008,7 @@ const NewTradePage = () => {
                 <i>✓</i>
                 <div>
                   <b>{pairName} · {form.timeframe}</b>
-                  <span>on {PLACEHOLDER_ACCOUNTS.find((a) => a.id === form.exchange_account)?.name || `account #${form.exchange_account}`}</span>
+                  <span>on {form.exchange_account ? accountName(form.exchange_account) : "no exchange account yet"}</span>
                 </div>
               </div>
               <div className={`fx-ul ${alloc > 0 ? "got3" : ""}`}>

@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 
 type Props = {
   open: boolean;
@@ -39,7 +40,16 @@ export default function Dialog({
 
   if (!open) return null;
 
-  return (
+  /* Portalled so an ancestor with a transform (the `.rv` reveal animation
+     keeps `transform` applied after it ends) can't become the containing
+     block for the fixed modal and pull it off-centre. Into `.fx-root`, not
+     <body>, because that's where the fx-* theme tokens live. */
+  const host =
+    typeof document !== "undefined"
+      ? (document.querySelector(".fx-root") as HTMLElement | null) ?? document.body
+      : null;
+
+  const node = (
     <>
       <div className="fx-scrim" onClick={onClose} />
       <div className="fx-modal" onClick={(e) => e.target === e.currentTarget && onClose()}>
@@ -72,4 +82,6 @@ export default function Dialog({
       </div>
     </>
   );
+
+  return host ? createPortal(node, host) : node;
 }

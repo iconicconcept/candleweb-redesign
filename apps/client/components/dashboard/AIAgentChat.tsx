@@ -20,10 +20,14 @@ import { RobotIcon } from "../RobotIcon";
 
 interface AIAgentChatProps {
   studentContext?: Record<string, any>;
+  /** Skip the floating bottom-right button — the page opens the chat
+      itself (e.g. the course page's "Launch the tutor"). */
+  hideLauncher?: boolean;
 }
 
 export default function AIAgentChat({
   studentContext: additionalStudentContext,
+  hideLauncher = false,
 }: AIAgentChatProps = {}) {
   const dispatch = useDispatch<AppDispatch>();
   const axiosToken = useAxiosAuth();
@@ -159,7 +163,7 @@ export default function AIAgentChat({
 
   return (
     <>
-      {!isChatOpen && (
+      {!isChatOpen && !hideLauncher && (
         <button
           onClick={() => dispatch(setChatOpen(true))}
           className="fixed bottom-6 right-6 z-40 p-[14px] rounded-2xl bg-primary hover:bg-primary/90 shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:shadow-xl transition-all duration-300 group inline-flex border border-white/10"

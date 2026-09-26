@@ -9,6 +9,18 @@ import { CheckIcon } from "../icons";
 import { submitCopy } from "./taskMeta";
 import type { TaskProp } from "../../../../types/task";
 
+/* Task descriptions come from the admin's rich-text editor as HTML. Show
+   them as plain text (keeping paragraph breaks) rather than injecting it. */
+function htmlToText(html?: string): string {
+  if (!html) return "";
+  const withBreaks = html
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|li|h[1-6])>/gi, "\n");
+  if (typeof DOMParser === "undefined") return withBreaks.replace(/<[^>]*>/g, "").trim();
+  const doc = new DOMParser().parseFromString(withBreaks, "text/html");
+  return (doc.body.textContent ?? "").replace(/\n{3,}/g, "\n\n").trim();
+}
+
 type Props = {
   task: TaskProp | null;
   onClose: () => void;
@@ -59,7 +71,11 @@ export default function SubmitTaskDialog({ task, onClose }: Props) {
       onClose={onClose}
       icon={<CheckIcon />}
       title={copy.title}
-      subtitle={task?.course_title ? `${task.title} · ${task.course_title}` : task?.title}
+      subtitle={
+        task && (
+          <span className="desc">{htmlToText(task.description) || task.title}</span>
+        )
+      }
       labelledBy="verify-task-title"
       footer={
         <>

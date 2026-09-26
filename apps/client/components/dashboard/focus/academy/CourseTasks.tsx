@@ -10,6 +10,9 @@ import type { TaskProp } from "../../../../types/task";
 type Props = {
   /** False until the first GET /task/course/{id}/ round has come back. */
   loaded: boolean;
+  /** Only this course's tasks, without the per-course group header —
+      used on the course page itself. */
+  courseId?: number;
 };
 
 type Group = { course: number; title: string; code?: string; tasks: TaskProp[] };
@@ -24,14 +27,17 @@ const byDeadline = (a: TaskProp, b: TaskProp) => {
    /task/all/, so this is the only place they show. Once submitted they
    follow the same reward path as general tasks — "With a marker", "Ready to
    claim" and "Claimed" in the list above cover both kinds. */
-export default function CourseTasks({ loaded }: Props) {
+export default function CourseTasks({ loaded, courseId }: Props) {
   const { courseTasks, completed } = useSelector((state: RootState) => state.task);
   const [submitTask, setSubmitTask] = useState<TaskProp | null>(null);
 
   // Hide anything already submitted — it lives in the reward tabs now. Not
   // documented whether /task/course/ drops those itself, so check both.
   const submitted = new Set((completed ?? []).map((r) => r.task_id));
-  const open = (courseTasks ?? []).filter((t) => !submitted.has(t.id));
+  const open = (courseTasks ?? []).filter(
+    (t) => !submitted.has(t.id) && (courseId == null || String(t.course) === String(courseId)),
+  );
+  const single = courseId != null;
 
   const groups: Group[] = [];
   for (const t of open) {
@@ -48,8 +54,14 @@ export default function CourseTasks({ loaded }: Props) {
   return (
     <>
       <div className="fx-sh">
-        <h2>Course tasks</h2>
-        <span className="sub2">Only for courses you&rsquo;re enrolled in.</span>
+        <h2>{single ? "Tasks for this course" : "Course tasks"}</h2>
+        {single ? (
+          <Link className="sub2" href="/dashboard/tasks">
+            All tasks →
+          </Link>
+        ) : (
+          <span className="sub2">Only for courses you&rsquo;re enrolled in.</span>
+        )}
       </div>
 
       {!loaded && (
@@ -60,14 +72,19 @@ export default function CourseTasks({ loaded }: Props) {
 
       {loaded && groups.length === 0 && (
         <div className="fx-nempty">
-          <b>Nothing from your courses right now.</b>
-          <p>Tasks your tutors set for a course you&rsquo;re enrolled in show up here.</p>
+          <b>{single ? "No open tasks for this course." : "Nothing from your courses right now."}</b>
+          <p>
+            {single
+              ? "When your tutor sets one, it shows up here and on your Daily tasks page."
+              : "Tasks your tutors set for a course you’re enrolled in show up here."}
+          </p>
         </div>
       )}
 
       {loaded &&
         groups.map((g) => (
           <div className="fx-ctgrp" key={g.course}>
+            {!single && (
             <div className="fx-ctgh">
               {g.code && <span className="fx-due">{g.code}</span>}
               {g.course > 0 ? (
@@ -77,6 +94,7 @@ export default function CourseTasks({ loaded }: Props) {
               )}
               <em>{g.tasks.length} open</em>
             </div>
+            )}
 
             {g.tasks.map((task, idx) => {
               const due = dueState(task.end_date);

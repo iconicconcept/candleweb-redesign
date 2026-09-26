@@ -26,6 +26,7 @@ import {
   CalendarIcon,
 } from "../../../../components/dashboard/focus/icons";
 import AIAgentChat from "../../../../components/dashboard/AIAgentChat";
+import CourseTasks from "../../../../components/dashboard/focus/academy/CourseTasks";
 
 /* Check-in (and so joining) opens this long before a class starts. */
 const CHECK_IN_EARLY_MS = 15 * 60 * 1000;
@@ -65,12 +66,16 @@ export default function CourseFocus() {
   // the course stats band — not fetched anywhere else on this page.
   const { streak } = useSelector((state: RootState) => state.task);
   const fetchedStreakTokenRef = useRef<string | null>(null);
+  const [courseTasksLoaded, setCourseTasksLoaded] = useState(false);
   useEffect(() => {
     if (!isAuthorizationHeaderSet(axiosToken)) return;
     const token = useUserStore.getState().user?.access_token;
     if (fetchedStreakTokenRef.current === token) return;
     fetchedStreakTokenRef.current = token || null;
     dispatch(taskService.getTaskStreak(axiosToken));
+    // this course's tasks (+ rewards, to hide ones already submitted)
+    dispatch(taskService.getCourseTasks(axiosToken)).finally(() => setCourseTasksLoaded(true));
+    dispatch(taskService.getReward(axiosToken));
   }, [axiosToken, dispatch]);
 
   const [certificate, setCertificate] = useState<CertificateInfo | null>(null);
@@ -533,6 +538,10 @@ export default function CourseFocus() {
                   </button>
                 )}
               </div>
+
+              <div style={{ marginTop: 34 }}>
+                <CourseTasks loaded={courseTasksLoaded} courseId={course.id} />
+              </div>
             </div>
 
             <aside>
@@ -665,7 +674,8 @@ export default function CourseFocus() {
         </Dialog>
       </DashboardShell>
 
-      <AIAgentChat studentContext={{ course_details: { course } }} />
+      {/* No floating launcher — "Launch the tutor" below opens it. */}
+      <AIAgentChat hideLauncher studentContext={{ course_details: { course } }} />
     </>
   );
 }

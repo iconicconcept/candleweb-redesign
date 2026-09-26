@@ -12,7 +12,7 @@ import Dialog from "../../../components/dashboard/focus/Dialog";
 import EnrolledCourses, {
   EnrolledCourse,
 } from "../../../components/dashboard/focus/academy/EnrolledCourses";
-import DailyTasks from "../../../components/dashboard/focus/academy/DailyTasks";
+import CourseTasks from "../../../components/dashboard/focus/academy/CourseTasks";
 import Leaderboard from "../../../components/dashboard/focus/academy/Leaderboard";
 import CourseShop from "../../../components/dashboard/focus/academy/CourseShop";
 import { AcademyIcon, CheckIcon } from "../../../components/dashboard/focus/icons";
@@ -30,6 +30,7 @@ export default function AcademyDashboard() {
 
   const [courses, setCourses] = useState<EnrolledCourse[]>([]);
   const [coursesLoading, setCoursesLoading] = useState(true);
+  const [courseTasksLoaded, setCourseTasksLoaded] = useState(false);
   const [usdRate, setUsdRate] = useState<number | null>(null);
   const [showPointsInfo, setShowPointsInfo] = useState(false);
   const fetchedTokenRef = useRef<string | null>(null);
@@ -50,6 +51,7 @@ export default function AcademyDashboard() {
     fetchedTokenRef.current = currentToken || null;
 
     dispatch(taskService.getTasks(axiosToken));
+    dispatch(taskService.getCourseTasks(axiosToken)).finally(() => setCourseTasksLoaded(true));
     dispatch(taskService.getReward(axiosToken));
     dispatch(taskService.getTaskStats(axiosToken));
     dispatch(taskService.getTaskStreak(axiosToken));
@@ -206,7 +208,7 @@ export default function AcademyDashboard() {
         <title>Academy | Candleweb</title>
         <meta
           name="description"
-          content="Your Candleweb Academy dashboard — courses, daily tasks and your cohort standing."
+          content="Your Candleweb Academy dashboard — courses, course tasks and your cohort standing."
         />
       </Head>
 
@@ -388,7 +390,8 @@ export default function AcademyDashboard() {
         <section className="fx-sec">
           <div className="fx-cols">
             <div>
-              <DailyTasks linkToFullPage />
+              {/* Academy = course work only; general tasks live on /dashboard/tasks */}
+              <CourseTasks loaded={courseTasksLoaded} />
             </div>
             <div>
               <div className="fx-sh">

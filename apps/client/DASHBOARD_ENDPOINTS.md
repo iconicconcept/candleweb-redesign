@@ -30,7 +30,7 @@ Base URL: `https://api.candleweb.io/api/` (`apps/client/lib/axiosApi.ts`).
 | ✅ | `GET /task/all/`, `/task/stats/`, `/task/streak/`, `/task/leaderboard/` | |
 | ✅ | `GET /task/reward/` | earned/claimable rewards |
 | ✅ | `POST /task/reward/` | submit verification link for a task |
-| ✅ | `POST /task/reward/claim/{id}/` | claim one reward (switched from GET — backend prefers POST; GET still works) |
+| ✅ | `POST /task/reward/claim/{id}/` | claim one reward (POST only — the legacy GET is being disabled) |
 | ✅ | `GET /task/course/{course_id}/` | **course tasks** (2026-09-26). Not in `/task/all/` any more. Looped over the ids from `GET /tutor/courses/`; 403 (not enrolled) / 400 (no course) skipped quietly. Shown in the "Course tasks" section, grouped by course. |
 | ✅ | `task_type` / `category` on task lists | `standard \| quiz \| builder` → row tag (quiz / project) + per-type submit-dialog copy. Every type still submits a link via `POST /task/reward/` — no quiz-questions or project-upload endpoint yet. |
 | ✅ | `/task/streak/` new meaning | `user_streak` = consecutive **weeks** with activity (task or class). Labels changed from "days running"/"tasks logged" to "weeks running"; `longest_streak` shown as "best N"; `last_activity` drives the "This week" card (assumes Monday week start). `streak_sources` not rendered — shape undocumented. Academy + course-detail labels updated too. |

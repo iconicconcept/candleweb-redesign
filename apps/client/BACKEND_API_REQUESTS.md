@@ -394,7 +394,7 @@ Priority:
 ## P2 — Bulk endpoints (works now, but the frontend loops single calls)
 
 ### 2.1 Claim all task rewards
-- **Now:** "Claim all" fires `GET /task/reward/claim/{id}/` once per reward in a loop.
+- **Now:** "Claim all" fires `POST /task/reward/claim/{id}/` once per reward in a loop.
 - **Proposed:** `POST /task/reward/claim-all/` → claims every claimable reward,
   returns the list of claimed ids + new balance.
 - **Used by:** `pages/dashboard/tasks.tsx`
@@ -468,7 +468,7 @@ Priority:
 - **Subscription:** `GET /subscription/retrieve/all/`, `/user/history/`,
   `/payment/methods/all/`, `POST /subscription/user/`, `GET /subscription/cancel/{id}`
 - **Tasks:** `GET /task/all/ /stats/ /streak/ /leaderboard/ /reward/`,
-  `POST /task/reward/`, `GET /task/reward/claim/{id}/`
+  `POST /task/reward/`, `POST /task/reward/claim/{id}/`
 - **Notifications:** `GET /notification/unread/?page=N`, `GET /notification/{id}`,
   `GET /notification/clear/`
 - **Academy:** `GET /tutor/courses/featured/`, `GET /tutor/courses/{id}/`,
