@@ -61,9 +61,7 @@ const Layout = ({ children }: Props) => {
       </Head>
       <GoogleAnalytics gaId="G-Z3EMQKEN56" />
       <div
-        className={`main__body relative overflow-hidden min-h-screen !max-w-[100vw] ${
-          isDashboard ? "" : "pb-10"
-        }`}
+        className="main__body relative overflow-hidden min-h-screen !max-w-[100vw]"
         data-chrome={isPublicChrome ? "public" : isDashboard ? "dashboard" : undefined}
       >
         {/* {(!path.includes("dashboard") && !path.includes("register") && !path.includes("tutor")) && ( */}
@@ -91,9 +89,6 @@ const Layout = ({ children }: Props) => {
             />
           )}
         {children}
-        {!isDashboard && (
-          <div className="bottom__border absolute bottom-0 left-0 right-0 bg-bottom-border w-full h-[31px]"></div>
-        )}
       </div>
       {/* {isFooter && <Footer />} */}
     </>

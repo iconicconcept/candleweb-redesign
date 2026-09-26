@@ -66,7 +66,6 @@ module.exports = {
       "card-gradient":
         "linear-gradient(180deg, rgba(255, 255, 255, 0.2166) -8.27%, rgba(5, 119, 171, 0.0342) 106.43%)",
       "bottom-stack": "linear-gradient(180deg, #72FFBB 0%, #3CFE38 100%)",
-      "bottom-border": "linear-gradient(90.02deg, #27ecb0 0%, #28d9e5 71.05%)",
       // wave: "url('/public/wave.svg')",
     },
   },
