@@ -6,7 +6,7 @@ import { useRouter } from "next/router";
 import toast from "react-hot-toast";
 import { AppDispatch, RootState } from "../../../../redux/store";
 import { setChatOpen } from "../../../../redux/slices/agentSlice";
-import courseService from "../../../../services/courseService";
+import courseService, { CourseAiUnits } from "../../../../services/courseService";
 import taskService from "../../../../services/taskService";
 import certificateService, {
   CertificateInfo,
@@ -26,6 +26,9 @@ import {
   CalendarIcon,
 } from "../../../../components/dashboard/focus/icons";
 import AIAgentChat from "../../../../components/dashboard/AIAgentChat";
+
+/* Check-in (and so joining) opens this long before a class starts. */
+const CHECK_IN_EARLY_MS = 15 * 60 * 1000;
 
 const normalizeRouteId = (id: string | string[] | undefined) =>
   Array.isArray(id) ? id[0] : id;
@@ -83,6 +86,8 @@ export default function CourseFocus() {
     const isLive = now >= scheduledTime && now <= endTime;
     const isUpcoming = now < scheduledTime;
     const isActuallyCompleted = m.is_completed || now > endTime;
+    const canJoin =
+      now.getTime() >= scheduledTime.getTime() - CHECK_IN_EARLY_MS && now <= endTime;
     return {
       ...m,
       scheduledTime,
@@ -90,6 +95,7 @@ export default function CourseFocus() {
       isLive,
       isUpcoming,
       isActuallyCompleted,
+      canJoin,
       inferredStatus: isActuallyCompleted ? "COMPLETED" : isLive ? "CURRENT" : "LOCKED",
       topic: m.topic || m.title || m.course_title || `Module ${idx + 1}`,
       // Its real position in the syllabus — carried through filtering, since
@@ -155,6 +161,31 @@ export default function CourseFocus() {
 
   const courseCode = course?.course_code;
 
+  // AI units earned from THIS course's tasks (claimed rewards only).
+  const [aiUnits, setAiUnits] = useState<CourseAiUnits | null>(null);
+  const [aiUnitsError, setAiUnitsError] = useState<string | null>(null);
+  useEffect(() => {
+    if (!router.isReady || !isAuthorizationHeaderSet(axiosToken)) return;
+    const courseId = normalizeRouteId(id);
+    if (!courseId) return;
+    let cancelled = false;
+    courseService
+      .getCourseAiUnits(axiosToken, courseId)
+      .then((d) => {
+        if (cancelled) return;
+        setAiUnits(d);
+        setAiUnitsError(null);
+      })
+      .catch((err: Error) => {
+        if (cancelled) return;
+        setAiUnits(null);
+        setAiUnitsError(err.message);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id, router.isReady, axiosToken]);
+
   useEffect(() => {
     if (!username || !courseCode) {
       setCertificate(null);
@@ -213,11 +244,32 @@ export default function CourseFocus() {
     modules[modules.length - 1] ||
     null;
 
-  const onJoinCourse = (target = nextSession) => {
+  const [joining, setJoining] = useState(false);
+
+  /* Joining goes through check-in: it records attendance (which counts toward
+     the streak) and hands back the link to open. The schedule's own
+     class_link is deliberately not used. */
+  const onJoinCourse = async (target = nextSession) => {
     if (!target) return toast.error("No active class available");
-    if (!target.class_link) return toast.error("No class link available yet");
-    if (!target.isLive && !target.is_completed) return toast.error("This class is not live yet");
-    window.open(target.class_link, "_blank");
+    if (target.isActuallyCompleted) return toast.error("This class has finished");
+    if (!target.canJoin)
+      return toast.error("You can join from 15 minutes before the class starts");
+    if (joining) return;
+
+    // Open the tab now, while we're still inside the click — a window opened
+    // after the request returns gets caught by popup blockers.
+    const tab = window.open("", "_blank");
+    setJoining(true);
+    try {
+      const link = await courseService.checkInToClass(axiosToken, target.id);
+      if (tab) tab.location.href = link;
+      else window.location.href = link;
+    } catch (err: any) {
+      tab?.close();
+      toast.error(err?.message || "Couldn't check you in to this class");
+    } finally {
+      setJoining(false);
+    }
   };
 
   const defaultBenefits = [
@@ -256,9 +308,9 @@ export default function CourseFocus() {
         { key: "presentation", label: "Download slides", body: "Presentation", Icon: DocIcon, action: () => openResource(openModule.presentation_link, "presentation") },
       ];
     }
-    if (openModule.inferredStatus === "CURRENT") {
+    if (openModule.inferredStatus === "CURRENT" || openModule.canJoin) {
       return [
-        { key: "join", label: "Join the class now", body: openModule.class_link ? "Live now" : "Link not ready yet", Icon: PlayIcon, tone: "main6", action: () => onJoinCourse(openModule) },
+        { key: "join", label: "Join the class now", body: openModule.isLive ? "Live now" : "Starting soon — you can join now", Icon: PlayIcon, tone: "main6", action: () => onJoinCourse(openModule) },
         { key: "presentation", label: "Download slides", body: "Presentation", Icon: DocIcon, action: () => openResource(openModule.presentation_link, "presentation") },
       ];
     }
@@ -344,8 +396,8 @@ export default function CourseFocus() {
                 </svg>
                 <b>{progressPercent}</b>
               </div>
-              <button className="fx-cta live6" type="button" onClick={() => onJoinCourse()}>
-                Continue learning →
+              <button className="fx-cta live6" type="button" disabled={joining} onClick={() => onJoinCourse()}>
+                {joining ? "Checking you in…" : "Continue learning →"}
               </button>
             </div>
           </div>
@@ -372,18 +424,24 @@ export default function CourseFocus() {
           </div>
           <div className="fx-cp">
             <span>Credits earned here</span>
-            <b>—</b>
-            {/* a plain `<span>`, not the usual `<i>` caption slot — `.fx-cp i`
-                is more specific than `.fx-preview` and would otherwise force
-                its own block display/size onto this chip */}
-            <span className="fx-preview" style={{ marginTop: 6 }}>
-              needs a per-course credits endpoint
-            </span>
+            <b className="up6">
+              {aiUnits ? parseInt(aiUnits.earned_units ?? "0").toLocaleString() : "—"}
+            </b>
+            <i>
+              {aiUnits
+                ? `from ${aiUnits.tasks_completed} claimed task${aiUnits.tasks_completed === 1 ? "" : "s"}`
+                : aiUnitsError ?? "loading…"}
+            </i>
           </div>
           <div className="fx-cp">
             <span>Study streak</span>
             <b>{streak?.user_streak ?? 0}</b>
-            <i>{streak?.total_task ? `${streak.total_task} tasks logged` : "days running"}</i>
+            <i>
+              {streak?.user_streak === 1 ? "week" : "weeks"} running
+              {(streak?.longest_streak ?? 0) > (streak?.user_streak ?? 0)
+                ? ` · best ${streak?.longest_streak}`
+                : ""}
+            </i>
           </div>
         </div>
 

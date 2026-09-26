@@ -254,7 +254,12 @@ export default function AcademyDashboard() {
           <div className="fx-cp">
             <span>Study streak</span>
             <b>{streak?.user_streak ?? 0}</b>
-            <i>{streak?.total_task ? `${streak.total_task} tasks logged` : "days running"}</i>
+            <i>
+              {streak?.user_streak === 1 ? "week" : "weeks"} running
+              {(streak?.longest_streak ?? 0) > (streak?.user_streak ?? 0)
+                ? ` · best ${streak?.longest_streak}`
+                : ""}
+            </i>
           </div>
         </div>
 

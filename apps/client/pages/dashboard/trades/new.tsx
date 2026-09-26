@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { dollarFormat } from "ui";
 import { AppDispatch, RootState } from "../../../redux/store";
-import tradingV2Service from "../../../services/tradingV2Service";
+import tradingV2Service, { toId } from "../../../services/tradingV2Service";
 import userService from "../../../services/userService";
 import useAxiosAuth from "../../../lib/hooks/useAxiosAuth";
 import { isAuthorizationHeaderSet } from "../../../utils/check_auth";
@@ -156,14 +156,15 @@ const NewTradePage = () => {
       loadedRef.current = editId;
       setExisting(t);
       setForm({
-        exchange_account: t.exchange_account,
-        pair: t.pair,
+        // bare ids even if the API nested them — see toId in tradingV2Service
+        exchange_account: toId(t.exchange_account) ?? DEFAULTS.exchange_account,
+        pair: toId(t.pair) ?? DEFAULTS.pair,
         timeframe: t.timeframe,
         allocated_amount: String(parseFloat(t.allocated_amount) || ""),
         indicators: indicatorChips(t.indicators),
         candle_history_len: t.candle_history_len,
         decider_type: t.decider_type,
-        bot: t.bot,
+        bot: toId(t.bot),
         risk_pct: parseFloat(t.risk_pct) || 2,
         max_size_pct: t.max_size_pct,
         direction: t.direction,

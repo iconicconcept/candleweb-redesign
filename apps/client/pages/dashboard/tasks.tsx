@@ -10,6 +10,7 @@ import { loading, dismissLoader } from "../../components/alert/Toast";
 import DashboardShell from "../../components/dashboard/focus/DashboardShell";
 import TopBar from "../../components/dashboard/focus/TopBar";
 import DailyTasks from "../../components/dashboard/focus/academy/DailyTasks";
+import CourseTasks from "../../components/dashboard/focus/academy/CourseTasks";
 import Leaderboard from "../../components/dashboard/focus/academy/Leaderboard";
 
 const BADGES: { key: "first" | "quiz" | "builder" | "clear"; title: string; sub: string; icon: JSX.Element }[] = [
@@ -26,7 +27,7 @@ const BADGES: { key: "first" | "quiz" | "builder" | "clear"; title: string; sub:
   {
     key: "quiz",
     title: "Quiz clean",
-    sub: "A quiz passed first time",
+    sub: "A quiz marked and claimed",
     icon: (
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <circle cx="12" cy="12" r="8.6" />
@@ -58,15 +59,42 @@ const BADGES: { key: "first" | "quiz" | "builder" | "clear"; title: string; sub:
   },
 ];
 
+/* The streak counts consecutive weeks with activity. Assumes the backend's
+   week starts on Monday (ISO week) — the doc doesn't say. */
+function inThisWeek(iso?: string | null): boolean {
+  if (!iso) return false;
+  const t = new Date(iso);
+  if (isNaN(t.getTime())) return false;
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+  return t.getTime() >= start.getTime();
+}
+
+const weeks = (n: number) => `${n} week${n === 1 ? "" : "s"}`;
+
+/* The design's 7-square row under each streak number: one filled square per
+   unit, capped at 7. For the study streak a square is a week, not a day. */
+function Dots({ n }: { n: number }) {
+  return (
+    <div className="fx-dots2" aria-hidden="true">
+      {Array.from({ length: 7 }, (_, i) => (
+        <em key={i} className={i < n ? "on4" : ""} />
+      ))}
+    </div>
+  );
+}
+
 export default function TasksDashboard() {
   const dispatch = useDispatch<AppDispatch>();
   const axiosToken = useAxiosAuth();
   const { user } = useUserStore((state) => state);
-  const { tasks, stats, streak, completed, leaderboards } = useSelector(
+  const { tasks, courseTasks, stats, streak, completed, leaderboards } = useSelector(
     (state: RootState) => state.task,
   );
 
   const [claimingAll, setClaimingAll] = useState(false);
+  const [courseTasksLoaded, setCourseTasksLoaded] = useState(false);
   const fetchedTokenRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -76,6 +104,7 @@ export default function TasksDashboard() {
     fetchedTokenRef.current = token || null;
 
     dispatch(taskService.getTasks(axiosToken));
+    dispatch(taskService.getCourseTasks(axiosToken)).finally(() => setCourseTasksLoaded(true));
     dispatch(taskService.getTaskStats(axiosToken));
     dispatch(taskService.getReward(axiosToken));
     dispatch(taskService.getTaskStreak(axiosToken));
@@ -90,7 +119,24 @@ export default function TasksDashboard() {
   const claimed = (completed ?? []).filter((r) => r.is_reward_claimed);
   const readyCredits = ready.reduce((sum, r) => sum + parseInt(r.ai_unit ?? "0"), 0);
   const readyPoints = ready.reduce((sum, r) => sum + parseInt(r.point ?? "0"), 0);
-  const inboxZero = (tasks ?? []).length === 0 && ready.length === 0 && underReview.length === 0;
+  const submittedIds = new Set((completed ?? []).map((r) => r.task_id));
+  const openCourseTasks = (courseTasks ?? []).filter((t) => !submittedIds.has(t.id));
+  const inboxZero =
+    (tasks ?? []).length === 0 &&
+    openCourseTasks.length === 0 &&
+    ready.length === 0 &&
+    underReview.length === 0;
+
+  /* Quiz / Builder badges need task_type on the reward rows. It's documented
+     on the task lists, not on /task/reward/ — so only judge them if the
+     rows actually carry it. */
+  const rewardsHaveType = (completed ?? []).some((r) => r.task_type != null);
+  const claimedQuiz = claimed.some((r) => r.task_type === "quiz");
+  const claimedBuild = claimed.some((r) => r.task_type === "builder");
+
+  const streakWeeks = streak?.user_streak ?? 0;
+  const bestWeeks = streak?.longest_streak ?? 0;
+  const activeThisWeek = inThisWeek(streak?.last_activity);
 
   const rank = [...(leaderboards ?? [])]
     .sort((a, b) => parseFloat(b.point ?? "0") - parseFloat(a.point ?? "0"))
@@ -169,8 +215,11 @@ export default function TasksDashboard() {
           </div>
           <div className="fx-cp">
             <span>Study streak</span>
-            <b>{streak?.user_streak ?? 0}</b>
-            <i>{streak?.total_task ? `${streak.total_task} tasks logged` : "days running"}</i>
+            <b>{streakWeeks}</b>
+            <i>
+              {streakWeeks === 1 ? "week" : "weeks"} running
+              {bestWeeks > streakWeeks ? ` · best ${bestWeeks}` : ""}
+            </i>
           </div>
         </div>
 
@@ -178,38 +227,52 @@ export default function TasksDashboard() {
           <DailyTasks />
         </section>
 
+        <section className="fx-sec">
+          <CourseTasks loaded={courseTasksLoaded} />
+        </section>
+
         <section className="fx-mom">
           <div className="fx-sh">
             <h2>This week</h2>
-            <span className="fx-preview">
-              <i>◔</i> Weekly goal needs an endpoint
-            </span>
           </div>
           <div className="fx-momgrid">
             <div>
-              <div className="fx-scorehead">
-                <div className="fx-ring" style={{ "--v": 0 } as React.CSSProperties} role="img" aria-label="Weekly goal">
+              <div className="fx-scorehead stack5">
+                <div
+                  className="fx-ring"
+                  style={{ "--v": activeThisWeek ? 100 : 0 } as React.CSSProperties}
+                  role="img"
+                  aria-label={activeThisWeek ? "Active this week" : "No activity this week yet"}
+                >
                   <svg viewBox="0 0 44 44" aria-hidden="true">
                     <circle className="tr" cx="22" cy="22" r="19" />
                     <circle className="vl" cx="22" cy="22" r="19" />
                   </svg>
-                  <b>—</b>
+                  <b>{activeThisWeek ? "✓" : "—"}</b>
                 </div>
                 <div className="vt">
-                  <b>No weekly goal yet</b>
-                  <p>This card tracks against a weekly target once the backend defines one.</p>
+                  <b>{activeThisWeek ? "This week counts" : "Nothing logged this week yet"}</b>
+                  <p>
+                    {activeThisWeek
+                      ? `Your ${weeks(streakWeeks)} streak is safe until Sunday.`
+                      : streakWeeks > 0
+                        ? `Submit a task or attend a class before Sunday to keep your ${weeks(streakWeeks)} streak.`
+                        : "Submit a task or attend a class this week to start a streak."}
+                  </p>
                 </div>
               </div>
               <div className="fx-streaks2">
                 <div className="fx-stk2">
                   <span>Study streak</span>
-                  <b>{streak?.user_streak ?? 0}</b>
-                  <i>days running</i>
+                  <b>{streakWeeks}</b>
+                  <i>{streakWeeks === 1 ? "week" : "weeks"} running</i>
+                  <Dots n={streakWeeks} />
                 </div>
                 <div className="fx-stk2">
                   <span>Claimed without slipping</span>
                   <b className="amb3">{claimed.length}</b>
                   <i>rewards taken</i>
+                  <Dots n={claimed.length} />
                 </div>
               </div>
             </div>
@@ -219,8 +282,15 @@ export default function TasksDashboard() {
               </div>
               <div className="fx-badges2">
                 {BADGES.map((b) => {
-                  const won = b.key === "first" ? claimed.length > 0 : b.key === "clear" ? inboxZero : false;
-                  const untracked = b.key === "quiz" || b.key === "builder";
+                  const won =
+                    b.key === "first"
+                      ? claimed.length > 0
+                      : b.key === "clear"
+                        ? inboxZero
+                        : b.key === "quiz"
+                          ? claimedQuiz
+                          : claimedBuild;
+                  const untracked = (b.key === "quiz" || b.key === "builder") && !rewardsHaveType;
                   return (
                     <div className={`fx-bdg ${won ? "won" : ""}`} key={b.key}>
                       <span className="lk2">{won ? "Earned" : "Locked"}</span>

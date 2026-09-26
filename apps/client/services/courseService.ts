@@ -1,6 +1,6 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import { Course } from "../types/course";
-import axios from "axios";
+import axios, { AxiosInstance } from "axios";
 import { axiosApi } from "../lib/axiosApi";
 
 // Async thunk to fetch courses
@@ -105,9 +105,56 @@ const getCourseById = async (id: string | number) => {
   }
 };
 
+const apiMessage = (err: any, fallback: string) =>
+  err?.response?.data?.message || err?.message || fallback;
+
+/* Records attendance and returns the link to open. The class link must come
+   from THIS response, not from the schedule list — skipping this call means
+   attendance is never recorded and the class doesn't count toward the
+   streak. Open from 15 min before start until the class ends; calling twice
+   is harmless. 403 not enrolled, 400 too early / finished, 404 no class. */
+const checkInToClass = async (
+  api: AxiosInstance,
+  scheduleId: string | number,
+): Promise<string> => {
+  try {
+    const { data } = await api.post(`/tutor/schedules/${scheduleId}/check-in/`);
+    if (data?.status === "error") throw new Error(data.message);
+    const link = data?.data?.class_link;
+    if (!link) throw new Error("No class link available yet");
+    return link;
+  } catch (err: any) {
+    throw new Error(apiMessage(err, "Couldn't check you in to this class"));
+  }
+};
+
+export type CourseAiUnits = {
+  course: number;
+  course_title: string;
+  earned_units: string;
+  tasks_completed: number;
+};
+
+/* AI units earned from this course's tasks — claimed rewards only.
+   403 not enrolled, 404 no such course. */
+const getCourseAiUnits = async (
+  api: AxiosInstance,
+  courseId: string | number,
+): Promise<CourseAiUnits> => {
+  try {
+    const { data } = await api.get(`/tutor/courses/${courseId}/ai-units/`);
+    if (data?.status === "error" || !data?.data) throw new Error(data?.message);
+    return data.data;
+  } catch (err: any) {
+    throw new Error(apiMessage(err, "Couldn't load credits for this course"));
+  }
+};
+
 const courseService = {
   getCourses,
   getCourseById,
+  checkInToClass,
+  getCourseAiUnits,
 };
 
 export default courseService;

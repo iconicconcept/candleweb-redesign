@@ -4,9 +4,11 @@ import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "../../../../redux/store";
 import taskService from "../../../../services/taskService";
 import useAxiosAuth from "../../../../lib/hooks/useAxiosAuth";
-import { dismissLoader, loading, success } from "../../../alert/Toast";
+import { dismissLoader, loading } from "../../../alert/Toast";
 import Dialog from "../Dialog";
 import { CheckIcon, TasksIcon } from "../icons";
+import SubmitTaskDialog from "./SubmitTaskDialog";
+import { dueState, typeTag } from "./taskMeta";
 import type { RewardTaskProp, TaskProp } from "../../../../types/task";
 
 type Filter = "open" | "review" | "ready" | "done";
@@ -19,16 +21,6 @@ type Props = {
       itself. Defaults off so `pages/dashboard/tasks.tsx` is unaffected. */
   linkToFullPage?: boolean;
 };
-
-/* No `end_date` means nothing to be late against. */
-function dueState(endDate?: Date | string | null): { cls: string; label: string } {
-  if (!endDate) return { cls: "", label: "no deadline" };
-  const days = Math.ceil((new Date(endDate).getTime() - Date.now()) / 86400000);
-  if (days < 0) return { cls: "late8", label: `${Math.abs(days)} day${Math.abs(days) === 1 ? "" : "s"} overdue` };
-  if (days === 0) return { cls: "soon8", label: "due today" };
-  if (days === 1) return { cls: "soon8", label: "due tomorrow" };
-  return { cls: "", label: `due in ${days} days` };
-}
 
 export default function DailyTasks({ linkToFullPage }: Props) {
   const dispatch = useDispatch<AppDispatch>();
@@ -44,8 +36,6 @@ export default function DailyTasks({ linkToFullPage }: Props) {
   };
   const [verifyTask, setVerifyTask] = useState<TaskProp | null>(null);
   const [viewReward, setViewReward] = useState<RewardTaskProp | null>(null);
-  const [link, setLink] = useState("");
-  const [busy, setBusy] = useState(false);
 
   const pending = tasks ?? [];
   /* A submitted task sits in `completed` same as a verified one — the only
@@ -59,28 +49,6 @@ export default function DailyTasks({ linkToFullPage }: Props) {
     dispatch(taskService.getReward(axiosToken));
     dispatch(taskService.getTaskStats(axiosToken));
     dispatch(taskService.getTaskStreak(axiosToken));
-  };
-
-  const submitVerify = async () => {
-    if (!verifyTask?.id) return;
-    setBusy(true);
-    loading("Verifying...");
-    try {
-      const res = await dispatch(
-        taskService.verifyReward({ api: axiosToken, data: { task_id: verifyTask.id, link } }),
-      ).unwrap();
-      if (res?.status === "success") {
-        refresh();
-        success(res.message);
-      }
-      setVerifyTask(null);
-      setLink("");
-    } catch (err) {
-      console.error("Verification failed:", err);
-    } finally {
-      dismissLoader("");
-      setBusy(false);
-    }
   };
 
   const claim = async (reward: RewardTaskProp) => {
@@ -155,6 +123,7 @@ export default function DailyTasks({ linkToFullPage }: Props) {
         {filter === "open" &&
           pending.slice(0, visibleCount).map((task, idx) => {
             const due = dueState(task.end_date);
+            const tag = typeTag(task.task_type);
             return (
               <div className="fx-tk" key={task.id ?? idx}>
                 <span className="fx-tkico">
@@ -163,6 +132,7 @@ export default function DailyTasks({ linkToFullPage }: Props) {
                 <div className="fx-tkb">
                   <b>{task.title}</b>
                   <div className="fx-tkm">
+                    {tag && <span className="fx-due">{tag}</span>}
                     <span className={`fx-due ${due.cls}`}>{due.label}</span>
                   </div>
                 </div>
@@ -267,40 +237,7 @@ export default function DailyTasks({ linkToFullPage }: Props) {
         </Link>
       )}
 
-      <Dialog
-        open={!!verifyTask}
-        onClose={() => setVerifyTask(null)}
-        icon={<CheckIcon />}
-        title="Submit this task"
-        subtitle={verifyTask?.title}
-        labelledBy="verify-task-title"
-        footer={
-          <>
-            <button className="fx-cta ghost2" type="button" onClick={() => setVerifyTask(null)}>
-              Cancel
-            </button>
-            <button className="fx-cta main2" type="button" disabled={busy} onClick={submitVerify}>
-              Submit for review
-            </button>
-          </>
-        }
-      >
-        <div className="fx-fld">
-          <label className="fx-fl" htmlFor="verify-link">
-            Verification link
-          </label>
-          <div className="fx-inp">
-            <input
-              id="verify-link"
-              type="text"
-              placeholder="Paste your interaction link here"
-              value={link}
-              onChange={(e) => setLink(e.target.value)}
-            />
-          </div>
-          <p className="fx-hint">Kindly provide the link to the completed task.</p>
-        </div>
-      </Dialog>
+      <SubmitTaskDialog task={verifyTask} onClose={() => setVerifyTask(null)} />
 
       <Dialog
         open={!!viewReward}

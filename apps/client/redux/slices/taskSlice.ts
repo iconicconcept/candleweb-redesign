@@ -10,6 +10,8 @@ import {
 
 interface TaskState {
   tasks: TaskProp[];
+  /** Open tasks from every enrolled course, flattened. */
+  courseTasks: TaskProp[];
   stats: TaskStatsProp;
   streak: TaskStreakProp;
   isLoading: boolean;
@@ -19,6 +21,7 @@ interface TaskState {
 
 const initialState: TaskState = {
   tasks: [],
+  courseTasks: [],
   stats: {},
   streak: {},
   isLoading: false,
@@ -32,6 +35,9 @@ export const taskSlice = createSlice({
   reducers: {
     setTask: (state, action: PayloadAction<TaskProp[]>) => {
       state.tasks = action.payload;
+    },
+    setCourseTasks: (state, action: PayloadAction<TaskProp[]>) => {
+      state.courseTasks = action.payload;
     },
     setStats: (state, action: PayloadAction<TaskStatsProp>) => {
       state.stats = action.payload;
@@ -49,6 +55,12 @@ export const taskSlice = createSlice({
   extraReducers(builder) {},
 });
 
-export const { setTask, setStats, setStreak, setRewardTask, setLeaderboard } =
-  taskSlice.actions;
+export const {
+  setTask,
+  setCourseTasks,
+  setStats,
+  setStreak,
+  setRewardTask,
+  setLeaderboard,
+} = taskSlice.actions;
 export default taskSlice.reducer;

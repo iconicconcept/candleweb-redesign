@@ -2,6 +2,7 @@ import { createAsyncThunk } from "@reduxjs/toolkit";
 import { axiosApi } from "../lib/axiosApi";
 import { AxiosError, AxiosInstance } from "axios";
 import {
+  setCourseTasks,
   setLeaderboard,
   setRewardTask,
   setStats,
@@ -9,6 +10,7 @@ import {
   setTask,
 } from "../redux/slices/taskSlice";
 import { error, success } from "../components/alert/Toast";
+import type { TaskProp } from "../types/task";
 
 const getErrorMessage = (err: any): string => {
   const e = err as AxiosError;
@@ -42,6 +44,50 @@ const getTasks = createAsyncThunk(
 
       thunkApi.dispatch(setTask(Array.isArray(data) ? data : []));
       return data;
+    } catch (err: any) {
+      return thunkApi.rejectWithValue(getErrorMessage(err));
+    }
+  },
+);
+
+/* Course tasks are NOT in /task/all/ — each enrolled course has its own
+   list at /task/course/{id}/. The course ids come from /tutor/courses/ (the
+   same list the Academy page shows as "your courses"). A course the student
+   isn't fully enrolled in answers 403 and a missing one 400 — those are
+   skipped quietly rather than failing the whole list. */
+const getCourseTasks = createAsyncThunk(
+  "/tasks/course",
+  async (api: AxiosInstance, thunkApi) => {
+    try {
+      const { data } = await api.get("/tutor/courses/");
+      const courses: any[] = Array.isArray(data?.data?.results)
+        ? data.data.results
+        : [];
+
+      const perCourse = await Promise.all(
+        courses
+          .filter((c) => c?.id != null)
+          .map(async (c): Promise<TaskProp[]> => {
+            try {
+              const { data: list } = await api.get(`/task/course/${c.id}/`);
+              // `{ status: "success", message: "No task available for now." }`
+              // is the empty state, same quirk as /task/all/.
+              if (!Array.isArray(list)) return [];
+              return list.map((t: TaskProp) => ({
+                ...t,
+                category: t.category ?? "course",
+                course: t.course ?? c.id,
+                course_title: t.course_title ?? c.title,
+              }));
+            } catch {
+              return [];
+            }
+          }),
+      );
+
+      const all = perCourse.flat();
+      thunkApi.dispatch(setCourseTasks(all));
+      return all;
     } catch (err: any) {
       return thunkApi.rejectWithValue(getErrorMessage(err));
     }
@@ -100,7 +146,8 @@ const claimReward = createAsyncThunk(
   "/claim/reward",
   async (payload: { api: AxiosInstance; id: string }, thunkApi) => {
     try {
-      const { data } = await payload.api.get(
+      // GET still works, but backend now prefers POST for claims.
+      const { data } = await payload.api.post(
         `/task/reward/claim/${payload.id}/`,
       );
 
@@ -109,6 +156,7 @@ const claimReward = createAsyncThunk(
         return;
       }
       thunkApi.dispatch(getTasks(payload.api));
+      thunkApi.dispatch(getCourseTasks(payload.api));
       thunkApi.dispatch(getReward(payload.api));
       thunkApi.dispatch(getTaskStats(payload.api));
       thunkApi.dispatch(getTaskStreak(payload.api));
@@ -173,6 +221,7 @@ const getLeaderboard = createAsyncThunk(
 
 const taskService = {
   getTasks,
+  getCourseTasks,
   getReward,
   getTaskStats,
   getTaskStreak,

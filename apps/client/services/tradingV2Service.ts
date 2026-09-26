@@ -57,6 +57,26 @@ const getTrade = createAsyncThunk(
   },
 );
 
+/* The API rejects `bot`, `pair` and `exchange_account` sent as objects
+   ("pk" error) — they must be bare ids. A trade read back from the API can
+   carry them nested, so normalise every write here, not at each call site. */
+export const toId = (v: unknown): number | null => {
+  if (v == null) return null;
+  if (typeof v === "object") {
+    const id = (v as { id?: unknown }).id;
+    return id == null ? null : Number(id);
+  }
+  return Number(v);
+};
+
+const withIds = (data: TradeV2Payload): TradeV2Payload => {
+  const out = { ...data };
+  if ("bot" in out) out.bot = toId(out.bot);
+  if ("pair" in out) out.pair = toId(out.pair) ?? undefined;
+  if ("exchange_account" in out) out.exchange_account = toId(out.exchange_account) ?? undefined;
+  return out;
+};
+
 /** POST /trading_v2/trades/ — create (status=PAUSED) */
 const createTrade = createAsyncThunk(
   "tradingV2/create",
@@ -65,7 +85,7 @@ const createTrade = createAsyncThunk(
     thunkApi,
   ) => {
     try {
-      const { data } = await payload.api.post<TradeV2>(BASE, payload.data);
+      const { data } = await payload.api.post<TradeV2>(BASE, withIds(payload.data));
       thunkApi.dispatch(upsertTradeV2(data));
       success("Trade saved.");
       payload.onSuccess?.(data);
@@ -91,7 +111,7 @@ const updateTrade = createAsyncThunk(
     thunkApi,
   ) => {
     try {
-      const { data } = await payload.api.patch<TradeV2>(`${BASE}${payload.id}/`, payload.data);
+      const { data } = await payload.api.patch<TradeV2>(`${BASE}${payload.id}/`, withIds(payload.data));
       thunkApi.dispatch(upsertTradeV2(data));
       success("Trade updated.");
       payload.onSuccess?.(data);
