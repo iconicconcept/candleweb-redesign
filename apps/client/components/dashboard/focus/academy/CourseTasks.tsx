@@ -86,7 +86,7 @@ export default function CourseTasks({ loaded, courseId }: Props) {
           <div className="fx-ctgrp" key={g.course}>
             {!single && (
             <div className="fx-ctgh">
-              {g.code && <span className="fx-due">{g.code}</span>}
+              {/* {g.code && <span className="fx-due">{g.code}</span>} */}
               {g.course > 0 ? (
                 <Link href={`/dashboard/tutor/course/${g.course}`}>{g.title}</Link>
               ) : (

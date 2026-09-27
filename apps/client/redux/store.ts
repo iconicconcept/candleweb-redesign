@@ -18,6 +18,7 @@ import tutorReducer from "./slices/tutorSlice";
 import paymentReducer from "./slices/paymentSlice";
 import agentReducer from "./slices/agentSlice";
 import tradingV2Reducer from "./slices/tradingV2Slice";
+import subscriptionV2Reducer from "./slices/subscriptionV2Slice";
 
 const combineReducer = combineReducers({
   auth: authReducer,
@@ -36,6 +37,7 @@ const combineReducer = combineReducers({
   payment: paymentReducer,
   agent: agentReducer,
   tradingV2: tradingV2Reducer,
+  subscriptionV2: subscriptionV2Reducer,
 });
 
 const makeStore = () =>

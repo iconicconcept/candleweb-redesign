@@ -344,12 +344,12 @@ const ConnectExchangePage = () => {
               <p className="fx-fsub">Set these on the exchange before you paste.</p>
               {/* the design's "we check what you actually granted" needs a
                   permission read-back: BACKEND_API_REQUESTS §1.14 */}
-              <p className="fx-hint" style={{ margin: "-8px 0 16px" }}>
+              {/* <p className="fx-hint" style={{ margin: "-8px 0 16px" }}>
                 <span className="fx-preview">
                   <i>◔</i> Checking what the key actually grants needs the key-permissions endpoint
                   (§1.14)
                 </span>
-              </p>
+              </p> */}
               <div className="fx-pcheck">
                 <div className="fx-pc on3">
                   <i>✓</i>

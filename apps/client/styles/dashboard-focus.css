@@ -543,6 +543,23 @@ button.fx-me[aria-expanded="true"] {
     border-color 0.18s,
     color 0.18s;
 }
+/* an icon dropped into a mini button (e.g. PlusIcon) — without this it renders
+   at the SVG default ~300x150 size and blows the button up. */
+.fx-mini:has(> svg) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.fx-mini > svg {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 .fx-mini:hover {
   transform: translateY(-1px);
   color: var(--fx-t1);
@@ -1078,10 +1095,27 @@ button.fx-me[aria-expanded="true"] {
   position: relative;
   z-index: 1;
 }
+/* Never taller than the screen: header and footer stay put and the body
+   scrolls inside the dialog, so a long dialog (e.g. a new bot's dev key +
+   setup notes) never pushes its buttons below the fold or scrolls the page. */
+.fx-dlg {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 36px);
+  max-height: calc(100dvh - 36px);
+}
+.fx-dlg .dh,
+.fx-dlg .df {
+  flex: 0 0 auto;
+}
 .fx-dlg .dh {
   padding: 26px 26px 0;
 }
 .fx-dlg .db {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 0 26px 24px;
 }
 .fx-dlg .df {
@@ -4297,6 +4331,18 @@ button.fx-me[aria-expanded="true"] {
   background: rgba(46, 230, 168, 0.1);
   color: var(--fx-teal2);
 }
+/* an icon in the pill — without this a shared icon renders at the SVG
+   default ~300x150 with a black fill */
+.fx-delta > svg {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 .fx-emptyrow {
   display: flex;
   gap: 10px;
@@ -4477,24 +4523,48 @@ button.fx-me[aria-expanded="true"] {
   stroke: var(--fx-t3);
   stroke-width: 1.8;
 }
-.fx-plan .fx-mini {
+/* centred label with real side padding — a bare `padding: 12px 0` let the
+   inherited left alignment push the text against the button's edge */
+.fx-plan .fx-mini,
+.fx-mini.wide9 {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   width: 100%;
-  padding: 12px 0;
+  min-height: 44px;
+  padding: 12px 18px;
+  border-radius: 12px;
+  text-align: center;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
 }
-.fx-plan .fx-mini.go9 {
+.fx-plan .fx-mini:not(.go9):not([disabled]):hover,
+.fx-mini.wide9:not(.go9):not([disabled]):hover {
+  color: var(--fx-teal2);
+  border-color: rgba(46, 230, 168, 0.45);
+  background: rgba(46, 230, 168, 0.06);
+}
+.fx-plan .fx-mini.go9,
+.fx-mini.wide9.go9 {
   background: var(--fx-teal);
   color: #04140f;
   border-color: transparent;
+  box-shadow: 0 8px 22px rgba(46, 230, 168, 0.18);
 }
-.fx-plan .fx-mini.go9:hover {
+.fx-plan .fx-mini.go9:hover,
+.fx-mini.wide9.go9:hover {
   box-shadow: 0 10px 26px rgba(46, 230, 168, 0.26);
 }
-.fx-plan .fx-mini[disabled] {
+.fx-plan .fx-mini[disabled],
+.fx-mini.wide9[disabled] {
   opacity: 0.5;
   cursor: default;
   transform: none;
 }
-:root[data-theme="light"] .fx-root .fx-plan .fx-mini.go9 {
+:root[data-theme="light"] .fx-root .fx-plan .fx-mini.go9,
+:root[data-theme="light"] .fx-root .fx-mini.wide9.go9 {
   background: var(--fx-teal);
 }
 
@@ -8115,4 +8185,216 @@ a.nm4:hover {
   display: inline;
   color: var(--fx-t2);
   font-weight: 600;
+}
+
+/* ================= subscription (v2) ================= */
+/* From candleweb-subscription.html (on a plan) + candleweb-subscription-new.html
+   (no plan yet), on /api/subscription_v2/. The hero reuses .fx-hero; the plan
+   cards, billing rows and safety panel reuse the "subscription page" section. */
+
+/* the rails backdrop uses the whole hero, not the chart's bottom band */
+.fx-hero-chart.rails9 {
+  inset: 0;
+  height: 100%;
+  opacity: 0.92;
+}
+
+/* segmented switches — billing cycle and preview currency */
+.fx-swtrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+.fx-swt {
+  display: inline-flex;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 13px;
+  border: 1px solid var(--fx-line);
+  background: var(--w04);
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+}
+.fx-swt button {
+  font-family: var(--fx-mono);
+  font-size: 10px;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--fx-t3);
+  border: 0;
+  background: none;
+  cursor: pointer;
+  padding: 8px 14px;
+  border-radius: 10px;
+  transition: background 0.18s, color 0.18s;
+}
+.fx-swt button:hover {
+  color: var(--fx-t1);
+}
+.fx-swt button.on {
+  color: var(--fx-teal2);
+  background: rgba(46, 230, 168, 0.16);
+  box-shadow: inset 0 1px 0 var(--w10);
+}
+:root[data-theme="light"] .fx-root .fx-swt {
+  background: #ffffff;
+}
+.fx-saven {
+  font-family: var(--fx-mono);
+  font-size: 10px;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--fx-teal2);
+}
+.fx-swtnote {
+  font-size: 12.2px;
+  color: var(--fx-t3);
+}
+
+/* review balance: ring + words */
+.fx-ledger {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.fx-ledger .lt9 {
+  min-width: 0;
+}
+.fx-ledger .lt9 b {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin-bottom: 4px;
+}
+.fx-ledger .lt9 span {
+  display: block;
+  font-size: 12.4px;
+  color: var(--fx-t3);
+  line-height: 1.55;
+}
+
+/* payment methods (panel list + the pay dialog's picker) */
+.fx-pays {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.fx-pay9 {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  gap: 13px;
+  align-items: center;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--fx-line);
+  border-radius: 14px;
+  padding: 13px 14px;
+  background: var(--w018);
+  color: var(--fx-t1);
+  font-family: "Outfit", sans-serif;
+  transition: border-color 0.2s, background 0.2s, transform 0.18s;
+}
+button.fx-pay9 {
+  cursor: pointer;
+}
+button.fx-pay9:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgba(46, 230, 168, 0.4);
+  background: rgba(46, 230, 168, 0.05);
+}
+button.fx-pay9:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+.fx-pay9.on9 {
+  border-color: rgba(46, 230, 168, 0.42);
+  background: rgba(46, 230, 168, 0.07);
+}
+.fx-pay9 .pi9 {
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  display: grid;
+  place-items: center;
+  background: var(--w05);
+  border: 1px solid var(--fx-line);
+}
+.fx-pay9 .pi9 svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: var(--fx-t2);
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.fx-pay9.on9 .pi9 {
+  background: rgba(46, 230, 168, 0.16);
+  border-color: rgba(46, 230, 168, 0.4);
+}
+.fx-pay9.on9 .pi9 svg {
+  stroke: var(--fx-teal);
+}
+.fx-pay9 .pt9 {
+  min-width: 0;
+}
+.fx-pay9 .pt9 b {
+  display: block;
+  font-size: 13.4px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  margin-bottom: 3px;
+}
+.fx-pay9 .pt9 span {
+  display: block;
+  font-size: 11.6px;
+  color: var(--fx-t3);
+  line-height: 1.45;
+}
+.fx-pay9 .pc9 {
+  font-family: var(--fx-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--fx-t3);
+  white-space: nowrap;
+}
+.fx-pay9 .pc9 svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+/* the picker only ticks the chosen method */
+.fx-pays.pick9 .fx-pay9 .pc9 {
+  color: transparent;
+  transition: color 0.18s;
+}
+.fx-pays.pick9 .fx-pay9.on9 .pc9 {
+  color: var(--fx-teal);
+}
+.fx-pays.pick9 .fx-pay9:disabled .pc9 {
+  color: var(--fx-t3);
+}
+
+/* billing status that isn't "paid" */
+.fx-brow .bs9.warn9 {
+  color: var(--fx-amber2);
+}
+.fx-brow .bs9.bad9 {
+  color: var(--fx-rose2);
+}
+
+/* side-by-side panels that should end level (subscription "When you are
+   ready to pay"): stretch both to the taller one, as the design does */
+@media (min-width: 980px) {
+  .fx-cols.even9 {
+    align-items: stretch;
+  }
 }

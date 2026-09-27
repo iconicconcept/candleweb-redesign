@@ -71,16 +71,22 @@ const DashboardPage = () => {
   const activeBots = bots.filter((b) => b.status === "ACTIVE").length;
   const failingBots = bots.filter((b) => b.status === "FAILING");
 
-  /* The bot the momentum section is "about" — one with a running trade if
-     there is one, otherwise any active bot, otherwise just the first. */
+  /* The bot the momentum section is "about" (and named in its heading) — the
+     healthiest working one: ACTIVE before PAUSED before FAILING, then the most
+     running trades, then the fewest consecutive failed calls. */
   const featuredBot = useMemo(() => {
     if (!bots.length) return null;
-    const runningBotIds = new Set(
-      trades.filter((t) => t.status === "RUNNING" && t.bot != null).map((t) => t.bot as number),
-    );
-    return (
-      bots.find((b) => runningBotIds.has(b.id)) || bots.find((b) => b.status === "ACTIVE") || bots[0]
-    );
+    const running = new Map<number, number>();
+    trades.forEach((t) => {
+      if (t.status === "RUNNING" && t.bot != null) running.set(t.bot, (running.get(t.bot) || 0) + 1);
+    });
+    const statusRank = { ACTIVE: 0, PAUSED: 1, FAILING: 2 } as const;
+    return [...bots].sort(
+      (a, b) =>
+        (statusRank[a.status] ?? 3) - (statusRank[b.status] ?? 3) ||
+        (running.get(b.id) || 0) - (running.get(a.id) || 0) ||
+        (a.consecutive_fail_count || 0) - (b.consecutive_fail_count || 0),
+    )[0];
   }, [bots, trades]);
 
   const firstBot = useMemo(() => {
@@ -468,7 +474,7 @@ const DashboardPage = () => {
             <section className="fx-mom rv">
               <div className="fx-sh">
                 <h2>
-                  Your momentum <span className="sub2">progress toward a system you can trust</span>
+                  {featuredBot ? `Your ${featuredBot.name}` : "Your momentum"} <span className="sub2">progress toward a system you can trust</span>
                 </h2>
                 <span className="fx-preview">
                   <i>◔</i> Needs the decisions + review endpoints

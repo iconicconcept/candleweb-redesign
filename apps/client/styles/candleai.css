@@ -22,12 +22,8 @@
   position: relative;
   isolation: isolate;
   overflow: clip;
-  max-width: 1340px;
-  margin: 14px auto 32px;
-  border: 1px solid var(--cai-line);
-  border-radius: 28px;
+  margin: 0;
   background: linear-gradient(180deg, #0f0f13, #08080b 50%, #0b0b0f);
-  box-shadow: 0 50px 140px rgba(0, 0, 0, 0.8);
   color: var(--cai-text);
   font: 16px/1.62 "Outfit", "Helvetica Neue", sans-serif;
 }
@@ -658,7 +654,6 @@
   /* --cai-amber2 stays light gold for the amber CTA gradient. */
 
   background: linear-gradient(180deg, #ffffff, #f6f7f5 50%, #f1f2ef);
-  box-shadow: 0 40px 110px rgba(16, 22, 18, 0.12);
 }
 :root[data-site-theme="light"] .cai-grid {
   background-image:

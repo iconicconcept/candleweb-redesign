@@ -19,12 +19,8 @@
   isolation: isolate;
   /* `clip` (not `hidden`) so a position:sticky header can escape this box. */
   overflow: clip;
-  max-width: 1340px;
-  margin: 14px auto 32px;
+  margin: 0;
   background: linear-gradient(180deg, #0f0f13, #08080b 50%, #0b0b0f);
-  border: 1px solid var(--landing-line);
-  border-radius: 28px;
-  box-shadow: 0 50px 140px rgba(0, 0, 0, 0.8);
   color: var(--landing-text);
   font-family: "Outfit", "Helvetica Neue", sans-serif;
   line-height: 1.62;
@@ -39,8 +35,8 @@
 .landing-wrap {
   position: relative;
   z-index: 2;
-  padding-left: clamp(20px, 4.5vw, 64px);
-  padding-right: clamp(20px, 4.5vw, 64px);
+  padding-left: var(--pub-gutter);
+  padding-right: var(--pub-gutter);
 }
 .landing-aura {
   position: absolute;
@@ -1513,7 +1509,6 @@
      on light surfaces is re-coloured per-rule below. */
 
   background: linear-gradient(180deg, #ffffff, #f6f7f5 50%, #f1f2ef);
-  box-shadow: 0 40px 110px rgba(16, 22, 18, 0.12);
 }
 :root[data-site-theme="light"] .landing-stage h2 strong,
 :root[data-site-theme="light"] .landing-rows b {

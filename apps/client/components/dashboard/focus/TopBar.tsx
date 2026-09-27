@@ -8,6 +8,7 @@ import useUserStore from "../../../lib/hooks/useUserStore";
 import useDashboardTheme from "../../../lib/hooks/useDashboardTheme";
 import notificationService from "../../../services/notificationService";
 import { setCurrentPlan, setSubscription, setSubscriptionHistory } from "../../../redux/slices/subscriptionSlice";
+import { resetSubscriptionV2 } from "../../../redux/slices/subscriptionV2Slice";
 import { setExchangeRecord } from "../../../redux/slices/exchangeSlice";
 import { setNotification } from "../../../redux/slices/notificationSlice";
 import {
@@ -131,6 +132,7 @@ export default function TopBar({ crumb, title, subtitle, actions, hideHeading }:
     dispatch(setUnsubscribedReferral({}));
     dispatch(setSubscribedReferral({}));
     dispatch(setSubscriptionHistory([]));
+    dispatch(resetSubscriptionV2());
     dispatch(setActiveTrade([]));
     dispatch(setPortfolioTrade({}));
     dispatch(setYearList({}));

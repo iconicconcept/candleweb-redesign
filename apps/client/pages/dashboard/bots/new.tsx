@@ -5,7 +5,8 @@ import { useDispatch } from "react-redux";
 import { AppDispatch } from "../../../redux/store";
 import tradingV2Service from "../../../services/tradingV2Service";
 import useAxiosAuth from "../../../lib/hooks/useAxiosAuth";
-import { error } from "../../../components/alert/Toast";
+import { error, success } from "../../../components/alert/Toast";
+import { writeClipboard } from "../../../lib/hooks/useClipboard";
 import DashboardShell from "../../../components/dashboard/focus/DashboardShell";
 import TopBar from "../../../components/dashboard/focus/TopBar";
 import Dialog from "../../../components/dashboard/focus/Dialog";
@@ -171,8 +172,16 @@ const AddBotPage = () => {
     }
   };
 
-  const copyKey = () => {
-    if (created?.dev_key && navigator.clipboard) navigator.clipboard.writeText(created.dev_key);
+  const [copied, setCopied] = useState(false);
+  const copyKey = async () => {
+    if (!created?.dev_key) return;
+    if (await writeClipboard(created.dev_key)) {
+      success("Developer key copied");
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } else {
+      error("Couldn't copy — select the key and copy it manually.");
+    }
   };
 
   return (
@@ -338,7 +347,7 @@ const AddBotPage = () => {
                     title={created?.dev_key ? undefined : "Available once the bot is saved"}
                     onClick={copyKey}
                   >
-                    Copy
+                    {copied ? "Copied" : "Copy"}
                   </button>
                   <button
                     type="button"
@@ -684,7 +693,7 @@ const AddBotPage = () => {
           footer={
             <>
               <button className="fx-cta ghost2" type="button" onClick={copyKey}>
-                Copy key
+                {copied ? "Copied ✓" : "Copy key"}
               </button>
               <button
                 className="fx-cta main2"

@@ -12,7 +12,6 @@ export type DesignExchange = {
   tag: string;
   broker: boolean;
   logo: string;
-  /* the Bybit file is a padded square; cropping keeps its wordmark readable */
   fit: "contain" | "cover";
   menu: string;
   ticks: string;
@@ -63,8 +62,9 @@ export const DESIGN_EXCHANGES: DesignExchange[] = [
     name: "Bybit",
     tag: "Supported",
     broker: false,
-    logo: "/bybit-logo.jpg",
-    fit: "cover",
+    /* trimmed from the padded-square bybit-logo.jpg so it sits like the others */
+    logo: "/bybit-logo-wide.png",
+    fit: "contain",
     menu: "API Management",
     ticks: "Read-Write with Spot Trading",
     note: PUBLIC_NOTE("Bybit"),

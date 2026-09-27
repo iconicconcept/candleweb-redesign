@@ -9,17 +9,30 @@ Base URL: `https://api.candleweb.io/api/` (`apps/client/lib/axiosApi.ts`).
 
 ---
 
-## 1. Subscription — `pages/dashboard/subscription.tsx` (rebuilt)
+## 1. Subscription — `pages/dashboard/subscription.tsx` (rebuilt on subscription_v2, 2026-09-27)
+
+Two designs on one route: `candleweb-subscription-new.html` (no live subscription) and
+`candleweb-subscription.html` (on a plan, incl. the free Paper plan). Old token-pack
+`/subscription/*` endpoints are no longer used by this page (the public pricing page still
+uses them). Service `services/subscriptionV2Service.ts`, slice `subscriptionV2`.
 
 | | Endpoint | Notes |
 |---|---|---|
-| ✅ | `GET /subscription/retrieve/all/` | plan list + `features[0]` |
-| ✅ | `GET /subscription/user/history/` | current plan + billing history |
-| ✅ | `GET /subscription/payment/methods/all/` | crypto networks |
-| ✅ | `POST /subscription/user/` | create sub after on-chain payment |
-| ✅ | `GET /subscription/cancel/{id}` | cancel plan |
-| ⛔ | **`amount_paid` field on each `/subscription/user/history/` row** | history has no stored amount. The page currently derives it as `plan.price × tokens`, which is wrong once a plan's price changes or a plan is deleted. Need the actual charged amount + currency stored per purchase. |
-| ❓ | expiry semantics | confirm whether `tokens` are voided at `expiry_date` or only the plan status changes. |
+| ✅ | `GET /subscription_v2/plans/` | plan cards, prices by currency × cycle, bullets, entitlements (upgrade/downgrade diff rows) |
+| ✅ | `GET /subscription_v2/me/` | picks the view. Handled as `{subscription, entitlements}` **or** a bare Subscription — the schema says Subscription, the description says a wrapper; confirm which. |
+| ✅ | `GET /subscription_v2/me/usage/` | hero volume + included-volume meter |
+| ✅ | `GET /subscription_v2/me/reviews/` | review chip, ring, streak |
+| ✅ | `GET /subscription_v2/me/invoices/` | billing history; an `open`/`failed` invoice shows a "Pay … due" button |
+| ✅ | `GET /subscription_v2/me/payment-methods/` | "Paying with" label |
+| ✅ | `POST /subscription_v2/subscribe/` | free plan starts inline; paid → redirect to `checkout_url` |
+| ✅ | `POST /subscription_v2/change-plan/` | upgrade → `checkout_url`; downgrade → `scheduled` + `effective_at` toast |
+| ✅ | `POST /subscription_v2/cancel/` · `/resume/` | cancel dialog; "undo cancellation" button while `cancel_at_period_end` |
+| ✅ | `POST /subscription_v2/me/invoices/{number}/pay/` | pay an outstanding invoice |
+| ❓ | checkout return URL | on return the page polls `/me/` (6× / 3s) if the query has `status`, `tx_ref`, `transaction_id` or `checkout`. Confirm what Flutterwave's `redirect_url` points at and which params it carries. |
+| ⛔ | crypto payment | subscribe/change-plan take no payment method and only return a Flutterwave checkout, so "Pay with crypto" is shown disabled ("Soon"). |
+| ⛔ | review top-ups | the mockup's 1 / 5 / 12 review packs have no purchase endpoint (invoice kind `topup` exists) — strip not built. |
+| ⛔ | invoice download | "Download invoices" link not built — no PDF endpoint. |
+| ⛔ | closed-trades count | "First bot review · N of 20 trades" meter shows 0 filled; no closed-trade count per prompt. |
 
 ---
 

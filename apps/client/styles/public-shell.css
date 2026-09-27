@@ -11,13 +11,18 @@
   --pub-amber: #ffb93d;
   --pub-amber-2: #ffd489;
   --pub-s2: #141419;
+  /* Horizontal gutter for every public-page content row. The page stages run
+     full width; this grows past the base padding on wide screens so content
+     never exceeds --pub-max (percentages resolve against the stage width). */
+  --pub-max: 1280px;
+  --pub-gutter: max(clamp(20px, 4.5vw, 64px), calc((100% - var(--pub-max)) / 2));
 }
 
 .pub-wrap {
   position: relative;
   z-index: 2;
-  padding-left: clamp(20px, 4.5vw, 64px);
-  padding-right: clamp(20px, 4.5vw, 64px);
+  padding-left: var(--pub-gutter);
+  padding-right: var(--pub-gutter);
 }
 /* Sticky nav — stays in view on scroll (the page stages use `overflow: clip`
    so this can escape them). Above the page content below it. */

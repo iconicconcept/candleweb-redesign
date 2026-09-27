@@ -389,7 +389,7 @@ const AcademyCourses = () => {
 
       {showNameModal && selectedCourse && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-[#111111] border border-white/10 rounded-[24px] p-6 lg:p-8 w-full max-w-md relative shadow-2xl">
+          <div className="bg-[#111111] border border-white/10 rounded-[24px] p-6 lg:p-8 w-full max-w-md relative shadow-2xl max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain">
             <h3 className="text-white text-xl font-bold mb-2">
               Complete Your Profile
             </h3>

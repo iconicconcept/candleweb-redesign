@@ -388,11 +388,10 @@ export default function AcademyDashboard() {
         )}
 
         <section className="fx-sec">
-          <div className="fx-cols">
-            <div>
-              {/* Academy = course work only; general tasks live on /dashboard/tasks */}
+          {/* <div className="fx-cols"> */}
+            {/* <div>
               <CourseTasks loaded={courseTasksLoaded} />
-            </div>
+            </div> */}
             <div>
               <div className="fx-sh">
                 <h2>Top of your cohort</h2>
@@ -400,7 +399,7 @@ export default function AcademyDashboard() {
               </div>
               <Leaderboard />
             </div>
-          </div>
+          {/* </div> */}
         </section>
 
         <section className="fx-sec" id="enrol">

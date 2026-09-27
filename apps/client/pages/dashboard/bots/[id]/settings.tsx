@@ -8,7 +8,8 @@ import tradingV2Service from "../../../../services/tradingV2Service";
 import useAxiosAuth from "../../../../lib/hooks/useAxiosAuth";
 import useUserStore from "../../../../lib/hooks/useUserStore";
 import { isAuthorizationHeaderSet } from "../../../../utils/check_auth";
-import { error } from "../../../../components/alert/Toast";
+import { error, success } from "../../../../components/alert/Toast";
+import { writeClipboard } from "../../../../lib/hooks/useClipboard";
 import DashboardShell from "../../../../components/dashboard/focus/DashboardShell";
 import TopBar from "../../../../components/dashboard/focus/TopBar";
 import Dialog from "../../../../components/dashboard/focus/Dialog";
@@ -203,8 +204,16 @@ const BotSettingsPage = () => {
     }
   };
 
-  const copyText = (v: string | null | undefined) => {
-    if (v && navigator.clipboard) navigator.clipboard.writeText(v);
+  const [copied, setCopied] = useState(false);
+  const copyText = async (v: string | null | undefined) => {
+    if (!v) return;
+    if (await writeClipboard(v)) {
+      success("Developer key copied");
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } else {
+      error("Couldn't copy — select the key and copy it manually.");
+    }
   };
   const copyKey = () => copyText(newKey);
 
@@ -745,7 +754,7 @@ const BotSettingsPage = () => {
           footer={
             <>
               <button className="fx-cta ghost2" type="button" onClick={copyKey}>
-                Copy key
+                {copied ? "Copied ✓" : "Copy key"}
               </button>
               <button className="fx-cta main2" type="button" onClick={() => setNewKey(null)}>
                 Done

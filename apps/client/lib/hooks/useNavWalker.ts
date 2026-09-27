@@ -1,6 +1,9 @@
 import { useEffect } from "react";
 
-const IDLE_MS = 1600;
+/* How long the page must sit still (no scroll/click/key) before the icon
+   waves, and the gap between waves while it stays idle. Until the first wave
+   the plain nav icon shows. Scrolling still walks the figure immediately. */
+const IDLE_MS = 20000;
 const WAVE_MS = 3400;
 
 /**

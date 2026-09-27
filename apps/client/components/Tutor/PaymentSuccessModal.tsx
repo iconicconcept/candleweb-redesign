@@ -14,7 +14,7 @@ const PaymentSuccessModal: React.FC<PaymentSuccessModalProps> = ({ isOpen, onClo
 
   return (
     <div 
-      className="fixed inset-0 z-[100] flex items-center justify-center px-4"
+      className="fixed inset-0 z-[100] flex items-center justify-center px-4 py-4"
       onClick={onClose}
     >
       {/* Backdrop */}
@@ -22,7 +22,7 @@ const PaymentSuccessModal: React.FC<PaymentSuccessModalProps> = ({ isOpen, onClo
       
       {/* Modal Content */}
       <div 
-        className="relative bg-gradient-to-br from-[#121212] to-[#1a1a1a] border border-white/10 p-8 rounded-3xl shadow-2xl max-w-md w-full text-center animate-[scaleUp_0.4s_cubic-bezier(0.16,1,0.3,1)] overflow-hidden"
+        className="relative bg-gradient-to-br from-[#121212] to-[#1a1a1a] border border-white/10 p-8 rounded-3xl shadow-2xl max-w-md w-full text-center animate-[scaleUp_0.4s_cubic-bezier(0.16,1,0.3,1)] overflow-x-hidden overflow-y-auto overscroll-contain max-h-[calc(100dvh-2rem)]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Decorative elements */}

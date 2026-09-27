@@ -275,7 +275,8 @@ Priority:
   - **Badge "Nothing stale"** — same criterion as checklist row 4.
   - **Badge "More than one"** — already real today (`exchangeRecord.length >= 2`), no
     new field needed.
-- **Used by:** `pages/dashboard/exchanges.tsx`, `pages/dashboard/exchanges/new.tsx` (the Connect
+- **Used by:** `pages/dashboard/settings.tsx` (the "Account safety" stat + section — same score
+  ring number, same fields), `pages/dashboard/exchanges.tsx`, `pages/dashboard/exchanges/new.tsx` (the Connect
   page's "we check what you actually granted" line and the design's read-only verification run —
   reach exchange / read balance / read permissions / confirm withdraw off / check IP lock — both
   wait on this; ideally `POST /exchange/record/` returns the same permission fields on success)
