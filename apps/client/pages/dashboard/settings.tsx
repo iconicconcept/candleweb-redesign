@@ -262,13 +262,17 @@ export default function SettingsDashboard() {
                 : "payouts have nowhere to go"}
             </i>
           </div>
+          {/* Account safety hidden until the key-permissions endpoint exists
+              (BACKEND_API_REQUESTS.md §1.14).
           <div className="fx-cp">
             <span>Account safety</span>
             <b className="mut2">—</b>
             <i>needs a permissions endpoint</i>
           </div>
+          */}
         </div>
 
+        {/* Account safety section hidden until the key-permissions endpoint exists.
         <section className="fx-sec">
           <div className="fx-sh">
             <h2>Account safety</h2>
@@ -291,6 +295,7 @@ export default function SettingsDashboard() {
             </p>
           )}
         </section>
+        */}
 
         <section className="fx-sec">
           <div className="fx-sh">
