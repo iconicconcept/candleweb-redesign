@@ -31,7 +31,15 @@ import {
   shortDate,
   usd,
 } from "../../lib/subscriptionV2Format";
-import type { InvoiceV2, PlanV2, SubCurrency, SubCycle, SubscriptionV2 } from "../../types/subscriptionV2";
+import type {
+  InvoiceV2,
+  PlanV2,
+  ReviewBalanceV2,
+  ReviewPackV2,
+  SubCurrency,
+  SubCycle,
+  SubscriptionV2,
+} from "../../types/subscriptionV2";
 
 /* ------------------------------------------------------------------ *
  * small shared bits
@@ -248,11 +256,60 @@ function PlansSection({
 }
 
 /* ------------------------------------------------------------------ *
+ * review top-ups — any plan can buy, and the closed-trades rule only
+ * gates running a review, so these are never disabled for it
+ * ------------------------------------------------------------------ */
+
+function ReviewPacks({
+  packs,
+  disabled,
+  onBuy,
+}: {
+  packs: ReviewPackV2[];
+  disabled: boolean;
+  onBuy: (pack: ReviewPackV2) => void;
+}) {
+  if (!packs.length) return null;
+  const sorted = [...packs].sort((a, b) => a.quantity - b.quantity);
+  /* the dearest per-review price is the baseline a bigger pack saves against */
+  const base = Math.max(...sorted.map((p) => Number(p.unit_amount) || 0));
+  return (
+    <div className="fx-tops">
+      {sorted.map((p) => {
+        const unit = Number(p.unit_amount) || 0;
+        const save = base > 0 && unit > 0 ? Math.round((1 - unit / base) * 100) : 0;
+        const label = `${p.quantity} review${p.quantity === 1 ? "" : "s"}`;
+        return (
+          <button
+            key={p.code}
+            className="fx-top9"
+            type="button"
+            disabled={disabled}
+            aria-label={`Buy ${label} for ${money(p.amount, p.currency)}`}
+            onClick={() => onBuy(p)}
+          >
+            <b>{money(p.amount, p.currency)}</b>
+            <span>
+              {label}
+              {save > 0 && <em> · save {save}%</em>}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ *
  * the page
  * ------------------------------------------------------------------ */
 
 /* what a checkout we sent the user to was for — survives the round trip */
-type Pending = { kind: "plan"; plan: string } | { kind: "invoice"; number: string };
+type Pending =
+  | { kind: "plan"; plan: string }
+  | { kind: "invoice"; number: string }
+  /* `before` is the balance when they left, so a late webhook still reads as new reviews */
+  | { kind: "reviews"; quantity: number; number: string | null; before: number };
 const PENDING_KEY = "cw-sub-pending";
 const writePending = (p: Pending) => {
   try {
@@ -294,7 +351,8 @@ const WHAT_REVIEW =
 type PayIntent =
   | { kind: "subscribe"; plan: PlanV2; cycle: SubCycle }
   | { kind: "change"; plan: PlanV2; cycle: SubCycle }
-  | { kind: "invoice"; invoice: InvoiceV2 };
+  | { kind: "invoice"; invoice: InvoiceV2 }
+  | { kind: "reviews"; pack: ReviewPackV2 };
 
 const SubscriptionPage = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -302,8 +360,19 @@ const SubscriptionPage = () => {
   const axiosToken = useAxiosAuth();
   const { user } = useUserStore((state) => state);
 
-  const { plans, plansLoaded, subscription, entitlements, meLoaded, usage, reviews, invoices, paymentMethods } =
-    useSelector((state: RootState) => state.subscriptionV2);
+  const {
+    plans,
+    plansLoaded,
+    subscription,
+    entitlements,
+    meLoaded,
+    usage,
+    reviews,
+    reviewPacks,
+    reviewPacksLoaded,
+    invoices,
+    paymentMethods,
+  } = useSelector((state: RootState) => state.subscriptionV2);
   const { bots, botsLoaded } = useSelector((state: RootState) => state.tradingV2);
   const { exchangeRecord } = useSelector((state: RootState) => state.exchange);
 
@@ -332,6 +401,7 @@ const SubscriptionPage = () => {
 
   useEffect(() => {
     if (!plansLoaded) dispatch(subscriptionV2Service.listPlans());
+    if (!reviewPacksLoaded) dispatch(subscriptionV2Service.listReviewPacks());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -363,7 +433,24 @@ const SubscriptionPage = () => {
       for (let i = 0; i < 6 && !stop && !done; i++) {
         await new Promise((r) => setTimeout(r, i === 0 ? 800 : 3000));
         if (stop) return;
-        if (pending?.kind === "invoice") {
+        if (pending?.kind === "reviews") {
+          /* credited only once the webhook lands — watch the balance, and the
+             top-up invoice when we know its number */
+          const [rv, inv]: any[] = await Promise.all([
+            dispatch(subscriptionV2Service.getReviews(axiosToken)),
+            dispatch(subscriptionV2Service.getInvoices(axiosToken)),
+          ]);
+          const bal = (rv?.payload as ReviewBalanceV2 | undefined)?.balance;
+          const paid =
+            !!pending.number &&
+            (inv?.payload as InvoiceV2[] | undefined)?.find((x) => x.number === pending.number)?.status === "paid";
+          if (paid || (bal != null && bal >= pending.before + pending.quantity)) {
+            const n = pending.quantity;
+            success(`${n} bot review${n === 1 ? "" : "s"} added. Reviews you buy never expire.`);
+            done = true;
+            if (paid) dispatch(subscriptionV2Service.getReviews(axiosToken));
+          }
+        } else if (pending?.kind === "invoice") {
           const res: any = await dispatch(subscriptionV2Service.getInvoices(axiosToken));
           const inv = (res?.payload as InvoiceV2[] | undefined)?.find((x) => x.number === pending.number);
           if (inv?.status === "paid") {
@@ -446,6 +533,14 @@ const SubscriptionPage = () => {
     let res: any;
     if (pay.kind === "invoice") {
       res = await dispatch(subscriptionV2Service.payInvoice({ api: axiosToken, number: pay.invoice.number }));
+    } else if (pay.kind === "reviews") {
+      res = await dispatch(
+        subscriptionV2Service.buyReviews({
+          api: axiosToken,
+          pack: pay.pack.code,
+          callbackUrl: `${window.location.origin}/dashboard/subscription?checkout=reviews`,
+        }),
+      );
     } else {
       const thunk = pay.kind === "subscribe" ? subscriptionV2Service.subscribe : subscriptionV2Service.changePlan;
       res = await dispatch(thunk({ api: axiosToken, plan: pay.plan.code, cycle: pay.cycle }));
@@ -456,11 +551,21 @@ const SubscriptionPage = () => {
     }
     const body = res.payload ?? {};
     const pending: Pending =
-      pay.kind === "invoice" ? { kind: "invoice", number: pay.invoice.number } : { kind: "plan", plan: pay.plan.code };
+      pay.kind === "invoice"
+        ? { kind: "invoice", number: pay.invoice.number }
+        : pay.kind === "reviews"
+          ? {
+              kind: "reviews",
+              quantity: pay.pack.quantity,
+              number: body.invoice?.number ?? null,
+              before: reviews?.balance ?? 0,
+            }
+          : { kind: "plan", plan: pay.plan.code };
     if (goCheckout(body.checkout_url, pending)) return; // leaving the page; busy stays on
     setBusy(false);
     setPay(null);
-    if (body.subscription) success(`You're on ${body.subscription.plan_name}.`);
+    if (pay.kind === "reviews") success("Done. Your reviews are added as soon as the payment is confirmed.");
+    else if (body.subscription) success(`You're on ${body.subscription.plan_name}.`);
     else success("Done. Your plan will update as soon as the payment is confirmed.");
     loadMine();
   };
@@ -515,6 +620,8 @@ const SubscriptionPage = () => {
   const payLine = (() => {
     if (!pay) return "";
     if (pay.kind === "invoice") return `${pay.invoice.description} · ${money(pay.invoice.total, pay.invoice.currency)}`;
+    if (pay.kind === "reviews")
+      return `${pay.pack.quantity} bot review${pay.pack.quantity === 1 ? "" : "s"} · ${money(pay.pack.amount, pay.pack.currency)}`;
     const p = pay.plan;
     const each = pay.cycle === "monthly" ? "a month" : "a year";
     const price = `${money(priceOf(p, "NGN", pay.cycle), "NGN")} ${each}`;
@@ -700,8 +807,9 @@ const SubscriptionPage = () => {
                       className={`fx-ring ${reviews && reviews.balance <= 1 ? "mid5" : ""}`}
                       style={
                         {
+                          /* bought reviews can take the balance past the allowance */
                           "--v": reviews && reviews.included_per_month
-                            ? Math.round((reviews.balance / reviews.included_per_month) * 100)
+                            ? Math.min(100, Math.round((reviews.balance / reviews.included_per_month) * 100))
                             : 0,
                           "--sz": "58px",
                         } as React.CSSProperties
@@ -726,9 +834,11 @@ const SubscriptionPage = () => {
                         {reviews && reviews.unlock_closed_trades > 0
                           ? `, and a review needs ${reviews.unlock_closed_trades} closed trades on the same prompt.`
                           : "."}
+                        {reviewPacks.length > 0 && " Reviews you buy never expire."}
                       </span>
                     </div>
                   </div>
+                  <ReviewPacks packs={reviewPacks} disabled={busy} onBuy={(pack) => openPay({ kind: "reviews", pack })} />
                 </div>
               </section>
 
@@ -1180,8 +1290,11 @@ const SubscriptionPage = () => {
             </button>
           </div>
           <p className="fx-dwarn">
-            You&rsquo;ll finish on Flutterwave&rsquo;s secure checkout, then come back here. Your plan
-            changes once the payment is confirmed. Either way your trading funds stay on your own
+            You&rsquo;ll finish on Flutterwave&rsquo;s secure checkout, then come back here.{" "}
+            {pay?.kind === "reviews"
+              ? "The reviews are added once the payment is confirmed, and they never expire."
+              : "Your plan changes once the payment is confirmed."}{" "}
+            Either way your trading funds stay on your own
             exchange &mdash; this pays for the platform, nothing else.
           </p>
         </Dialog>

@@ -91,6 +91,16 @@ export interface ReviewBalanceV2 {
   unlock_closed_trades: number;
 }
 
+/** GET /review-packs/ — public; `unit_amount` is the price per review */
+export interface ReviewPackV2 {
+  code: string;
+  name: string;
+  quantity: number;
+  currency: SubCurrency;
+  amount: string;
+  unit_amount: string;
+}
+
 export type InvoiceStatusV2 = "draft" | "open" | "paid" | "failed" | "void";
 export type InvoiceKindV2 = "subscription" | "overage" | "topup" | "course_grant";
 
@@ -130,5 +140,8 @@ export interface CheckoutResultV2 {
   effective_at?: string | null;
   /** cancel */
   active_until?: string | null;
+  /** reviews/purchase: the pack and the open top-up invoice */
+  pack?: { code: string; quantity: number; amount: string } | null;
+  invoice?: { number: string; kind?: InvoiceKindV2; total: string } | null;
   message?: string;
 }

@@ -41,14 +41,14 @@ export interface TradeV2 {
 
 export type BotV2Platform =
   | "N8N_CLOUD"
-  | "N8N_SELF"
+  | "N8N_SELF_HOSTED"
   | "MAKE"
   | "ZAPIER"
-  | "OWN_CODE"
+  | "CUSTOM_CODE"
   | "OTHER";
 export type BotV2ReachMode = "PUSH" | "PULL";
 export type BotV2OnNoReply = "SKIP" | "HOLD" | "CLOSE";
-export type BotV2DecisionStyle = "BUY_SELL_HOLD" | "BUY_HOLD" | "SIGNAL_STRENGTH";
+export type BotV2DecisionStyle = "BUY_SELL_HOLD" | "BUY_HOLD_ONLY" | "SIGNAL_STRENGTH";
 export type BotV2Status = "ACTIVE" | "PAUSED" | "FAILING";
 
 export interface BotV2 {
@@ -57,7 +57,8 @@ export interface BotV2 {
   note: string;
   platform: BotV2Platform;
   reach_mode: BotV2ReachMode;
-  webhook_url: string;
+  /** null for a PULL bot that has no URL */
+  webhook_url: string | null;
   /** Returned in full on create / regenerate-key; may be masked on later reads. */
   dev_key: string;
   reply_timeout_s: number;
@@ -80,7 +81,8 @@ export interface BotV2Payload {
   note?: string;
   platform?: BotV2Platform;
   reach_mode?: BotV2ReachMode;
-  webhook_url?: string;
+  /** optional for PULL — send null, never "" (a blank URL fails validation) */
+  webhook_url?: string | null;
   reply_timeout_s?: number;
   on_no_reply?: BotV2OnNoReply;
   prompt?: string;
@@ -92,6 +94,12 @@ export interface BotV2Payload {
 }
 
 /** POST /bots/test-connection/ result. */
+/** GET /trading_v2/limits/ — what the plan lets the user run. `max: null` = unlimited. */
+export interface TradingLimitsV2 {
+  agents: { running: number; max: number | null; can_start_another: boolean; has_active_plan: boolean };
+  exchanges: { in_use: number; max: number | null; can_use_another: boolean };
+}
+
 export interface BotV2TestResult {
   ok: boolean;
   status_code?: number;

@@ -10,7 +10,14 @@ import {
   removeBotV2,
   patchBotV2,
 } from "../redux/slices/tradingV2Slice";
-import { TradeV2, TradeV2Payload, BotV2, BotV2Payload, BotV2TestResult } from "../types/tradingV2";
+import {
+  TradeV2,
+  TradeV2Payload,
+  BotV2,
+  BotV2Payload,
+  BotV2TestResult,
+  TradingLimitsV2,
+} from "../types/tradingV2";
 
 const BASE = "/trading_v2/trades/";
 
@@ -356,6 +363,19 @@ const testBotConnection = createAsyncThunk(
   },
 );
 
+/** GET /trading_v2/limits/ — running bots / exchanges against the plan, so the
+    UI can disable an action before the backend refuses it. Resolves to null on
+    failure (the backend still enforces the limit with a readable 403). */
+const getLimits = async (api: AxiosInstance): Promise<TradingLimitsV2 | null> => {
+  try {
+    const { data } = await api.get("/trading_v2/limits/");
+    const body = data && typeof data === "object" && "data" in data ? (data as any).data : data;
+    return body?.agents ? (body as TradingLimitsV2) : null;
+  } catch {
+    return null;
+  }
+};
+
 const tradingV2Service = {
   listTrades,
   getTrade,
@@ -373,6 +393,7 @@ const tradingV2Service = {
   resumeBot,
   regenerateBotKey,
   testBotConnection,
+  getLimits,
 };
 
 export default tradingV2Service;

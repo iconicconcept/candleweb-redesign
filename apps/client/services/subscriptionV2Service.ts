@@ -7,6 +7,7 @@ import {
   setMeV2,
   setUsageV2,
   setReviewsV2,
+  setReviewPacksV2,
   setInvoicesV2,
   setPaymentMethodsV2,
 } from "../redux/slices/subscriptionV2Slice";
@@ -17,6 +18,7 @@ import {
   PaymentMethodV2,
   PlanV2,
   ReviewBalanceV2,
+  ReviewPackV2,
   SubCycle,
   SubscriptionV2,
   UsageV2,
@@ -54,6 +56,19 @@ const listPlans = createAsyncThunk("subscriptionV2/plans", async (_: void, thunk
     const plans = unwrap<PlanV2[]>(data);
     const list = Array.isArray(plans) ? plans : [];
     thunkApi.dispatch(setPlansV2(list));
+    return list;
+  } catch (err: any) {
+    return thunkApi.rejectWithValue(getErrorMessage(err));
+  }
+});
+
+/** GET /review-packs/ — public; bought reviews never expire */
+const listReviewPacks = createAsyncThunk("subscriptionV2/reviewPacks", async (_: void, thunkApi) => {
+  try {
+    const { data } = await axiosApi.get(`${BASE}review-packs/`);
+    const packs = unwrap<ReviewPackV2[]>(data);
+    const list = Array.isArray(packs) ? packs : [];
+    thunkApi.dispatch(setReviewPacksV2(list));
     return list;
   } catch (err: any) {
     return thunkApi.rejectWithValue(getErrorMessage(err));
@@ -165,8 +180,25 @@ const payInvoice = createAsyncThunk(
   },
 );
 
+/** POST /reviews/purchase/ — opens a checkout for a pack. Nothing is credited
+    until the webhook settles it, so re-read /me/reviews/ after the return. */
+const buyReviews = createAsyncThunk(
+  "subscriptionV2/buyReviews",
+  async (p: { api: AxiosInstance; pack: string; callbackUrl?: string }, thunkApi) => {
+    try {
+      return await post(p.api, "reviews/purchase/", {
+        pack: p.pack,
+        ...(p.callbackUrl ? { callback_url: p.callbackUrl } : {}),
+      });
+    } catch (err: any) {
+      return fail(err, thunkApi);
+    }
+  },
+);
+
 const subscriptionV2Service = {
   listPlans,
+  listReviewPacks,
   getMe,
   getUsage,
   getReviews,
@@ -177,6 +209,7 @@ const subscriptionV2Service = {
   cancel,
   resume,
   payInvoice,
+  buyReviews,
 };
 
 export default subscriptionV2Service;

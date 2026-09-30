@@ -30,7 +30,8 @@ uses them). Service `services/subscriptionV2Service.ts`, slice `subscriptionV2`.
 | ✅ | `POST /subscription_v2/me/invoices/{number}/pay/` | pay an outstanding invoice |
 | ❓ | checkout return URL | on return the page polls `/me/` (6× / 3s) if the query has `status`, `tx_ref`, `transaction_id` or `checkout`. Confirm what Flutterwave's `redirect_url` points at and which params it carries. |
 | ⛔ | crypto payment | subscribe/change-plan take no payment method and only return a Flutterwave checkout, so "Pay with crypto" is shown disabled ("Soon"). |
-| ⛔ | review top-ups | the mockup's 1 / 5 / 12 review packs have no purchase endpoint (invoice kind `topup` exists) — strip not built. |
+| ✅ (2026-09-30) | `GET /subscription_v2/review-packs/` | public; top-up strip in the "Bot reviews" card (active view), sorted by quantity, "save N%" from `unit_amount` vs the dearest pack |
+| ✅ (2026-09-30) | `POST /subscription_v2/reviews/purchase/` | `{pack, callback_url}` via the pay dialog → Flutterwave `checkout_url`. On return the page polls `/me/reviews/` + `/me/invoices/` and only confirms once the top-up invoice is `paid` or the balance rises by the pack size. Never gated on `unlock_closed_trades`. Not offered on the "no plan yet" view (not in that mockup), though the API allows it. |
 | ⛔ | invoice download | "Download invoices" link not built — no PDF endpoint. |
 | ⛔ | closed-trades count | "First bot review · N of 20 trades" meter shows 0 filled; no closed-trade count per prompt. |
 
@@ -204,7 +205,8 @@ live, health/decisions/P&L are **design-only** behind `.fx-preview`) ·
 | ✅ | `POST /trading_v2/bots/{id}/pause/` · `/resume/` | pause / resume controls |
 | ✅ | `POST /trading_v2/bots/{id}/regenerate-key/` | returns `{ status, dev_key }`; new key shown once |
 | ✅ | `POST /trading_v2/bots/test-connection/` | `{ webhook_url }` → `{ ok, status_code?, body?, error? }`; never throws |
-| ❓ | **enum values** | doc spells out only `platform=N8N_CLOUD`, `reach_mode=PUSH`, `on_no_reply=SKIP`, `decision_style=BUY_SELL_HOLD`, `status=ACTIVE`. Front-end assumes the rest (`N8N_SELF/MAKE/ZAPIER/OWN_CODE/OTHER`, `PULL`, `HOLD/CLOSE`, `BUY_HOLD/SIGNAL_STRENGTH`, `PAUSED/FAILING`) in `lib/botV2Labels.ts` + `types/tradingV2.d.ts`. Confirm/replace. |
+| ✅ (2026-09-30) | **enum values** | confirmed against the API schema. Three FE guesses were wrong and got rejected ("not a valid choice"): `N8N_SELF`→`N8N_SELF_HOSTED`, `OWN_CODE`→`CUSTOM_CODE`, `BUY_HOLD`→`BUY_HOLD_ONLY`. Also `webhook_url` is optional for PULL — sent as `null` when empty (a blank string fails URL validation). |
+| ✅ (2026-09-30) | `GET /trading_v2/limits/` | `bots/new.tsx` disables both add buttons when `agents.can_start_another` is false and says why (no plan / N of N running) with a link to plans. Not yet used on trades or on resume. |
 | ❓ | **`model_name`** | free-text string. Front-end offers a fixed `MODEL_OPTIONS` list but sends whatever's set; confirm there's no server-side enum. |
 | ❓ | **`dev_key` on later reads** | assumed masked/absent after create. Settings page shows `••••` until regenerate if the field comes back empty. Confirm. |
 | ❓ | **`test-connection` response shape** | `BotV2TestResult` (`ok`/`status_code`/`body`/`error`) is the front-end's assumption — confirm field names. |

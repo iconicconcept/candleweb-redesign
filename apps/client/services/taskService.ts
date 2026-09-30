@@ -11,6 +11,7 @@ import {
 } from "../redux/slices/taskSlice";
 import { error, success } from "../components/alert/Toast";
 import type { TaskProp } from "../types/task";
+import { rememberTaskTypes } from "../lib/taskTypeCache";
 
 const getErrorMessage = (err: any): string => {
   const e = err as AxiosError;
@@ -42,7 +43,9 @@ const getTasks = createAsyncThunk(
         return [];
       }
 
-      thunkApi.dispatch(setTask(Array.isArray(data) ? data : []));
+      const list = Array.isArray(data) ? data : [];
+      rememberTaskTypes(list);
+      thunkApi.dispatch(setTask(list));
       return data;
     } catch (err: any) {
       return thunkApi.rejectWithValue(getErrorMessage(err));
@@ -86,6 +89,7 @@ const getCourseTasks = createAsyncThunk(
       );
 
       const all = perCourse.flat();
+      rememberTaskTypes(all);
       thunkApi.dispatch(setCourseTasks(all));
       return all;
     } catch (err: any) {

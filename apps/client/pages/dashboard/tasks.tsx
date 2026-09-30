@@ -12,6 +12,8 @@ import TopBar from "../../components/dashboard/focus/TopBar";
 import DailyTasks from "../../components/dashboard/focus/academy/DailyTasks";
 import CourseTasks from "../../components/dashboard/focus/academy/CourseTasks";
 import Leaderboard from "../../components/dashboard/focus/academy/Leaderboard";
+import { rememberedTaskType } from "../../lib/taskTypeCache";
+import type { RewardTaskProp } from "../../types/task";
 
 const BADGES: { key: "first" | "quiz" | "builder" | "clear"; title: string; sub: string; icon: JSX.Element }[] = [
   {
@@ -127,12 +129,16 @@ export default function TasksDashboard() {
     ready.length === 0 &&
     underReview.length === 0;
 
-  /* Quiz / Builder badges need task_type on the reward rows. It's documented
-     on the task lists, not on /task/reward/ — so only judge them if the
-     rows actually carry it. */
-  const rewardsHaveType = (completed ?? []).some((r) => r.task_type != null);
-  const claimedQuiz = claimed.some((r) => r.task_type === "quiz");
-  const claimedBuild = claimed.some((r) => r.task_type === "builder");
+  /* Quiz / Builder badges need each reward's task_type. /task/reward/ doesn't
+     send it yet, so fall back to the type remembered from the task lists
+     (lib/taskTypeCache). "Quiz clean" = a quiz reward claimed; "Builder" = a
+     builder project a marker has verified (passed) — as the badge copy says. */
+  const typeOf = (r: RewardTaskProp) => r.task_type ?? rememberedTaskType(r.task_id);
+  const claimedQuiz = claimed.some((r) => typeOf(r) === "quiz");
+  const claimedBuild = (completed ?? []).some((r) => r.is_verified && typeOf(r) === "builder");
+  /* a builder still waiting on its marker is worth saying out loud */
+  const buildInReview = underReview.some((r) => typeOf(r) === "builder");
+  const someUntyped = (completed ?? []).some((r) => !typeOf(r));
 
   const streakWeeks = streak?.user_streak ?? 0;
   const bestWeeks = streak?.longest_streak ?? 0;
@@ -290,13 +296,20 @@ export default function TasksDashboard() {
                         : b.key === "quiz"
                           ? claimedQuiz
                           : claimedBuild;
-                  const untracked = (b.key === "quiz" || b.key === "builder") && !rewardsHaveType;
+                  /* only blame missing data when a done task's type is actually unknown */
+                  const untracked = !won && (b.key === "quiz" || b.key === "builder") && someUntyped;
+                  const sub =
+                    !won && b.key === "builder" && buildInReview
+                      ? "Submitted — unlocks once it's marked"
+                      : untracked
+                        ? "Some done tasks have no type yet"
+                        : b.sub;
                   return (
                     <div className={`fx-bdg ${won ? "won" : ""}`} key={b.key}>
                       <span className="lk2">{won ? "Earned" : "Locked"}</span>
                       <span className="bi">{b.icon}</span>
                       <b>{b.title}</b>
-                      <span>{untracked ? "Needs task-type data to track" : b.sub}</span>
+                      <span>{sub}</span>
                     </div>
                   );
                 })}

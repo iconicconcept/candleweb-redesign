@@ -1,10 +1,11 @@
 import Head from "next/head";
 import { useRouter } from "next/router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
 import { AppDispatch } from "../../../redux/store";
 import tradingV2Service from "../../../services/tradingV2Service";
 import useAxiosAuth from "../../../lib/hooks/useAxiosAuth";
+import { isAuthorizationHeaderSet } from "../../../utils/check_auth";
 import { error, success } from "../../../components/alert/Toast";
 import { writeClipboard } from "../../../lib/hooks/useClipboard";
 import DashboardShell from "../../../components/dashboard/focus/DashboardShell";
@@ -26,6 +27,7 @@ import {
   BotV2Platform,
   BotV2ReachMode,
   BotV2TestResult,
+  TradingLimitsV2,
 } from "../../../types/tradingV2";
 
 const DEFAULT_PROMPT = `You are a disciplined crypto trading analyst. You will receive the last 20 closed candles for a single pair along with the indicators the trade is configured to send.
@@ -95,18 +97,40 @@ const AddBotPage = () => {
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<BotV2TestResult | null>(null);
   const [created, setCreated] = useState<BotV2 | null>(null);
+  const [limits, setLimits] = useState<TradingLimitsV2 | null>(null);
+
+  /* a bot is created active, so adding one spends a running slot — check the
+     plan first rather than letting the backend refuse after the form is filled */
+  useEffect(() => {
+    if (!isAuthorizationHeaderSet(axiosToken)) return;
+    tradingV2Service.getLimits(axiosToken).then(setLimits);
+  }, [axiosToken]);
+  const agents = limits?.agents;
+  const blocked = !!agents && !agents.can_start_another;
+  const blockedWhy = !agents
+    ? ""
+    : !agents.has_active_plan
+      ? "You need an active plan to add a bot"
+      : `Your plan runs ${agents.max} bot${agents.max === 1 ? "" : "s"} at a time and you have ${agents.running} running. Pause one, or move to a larger plan`;
 
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
 
+  /* PUSH needs somewhere to send candles; a PULL bot fetches them itself, so
+     the URL is optional there — but if one is typed it still has to be valid */
   const needsWebhook = form.reach_mode === "PUSH";
+  const hookUrl = form.webhook_url.trim();
+  const hookValid = /^https?:\/\//i.test(hookUrl);
+  const hookOk = needsWebhook ? hookValid : !hookUrl || hookValid;
+  /* a pull bot with no URL has nothing for us to call, so nothing to test */
+  const canTest = hookValid;
 
   const missing = useMemo(() => {
     const m: string[] = [];
     if (!form.name.trim()) m.push("name it");
-    if (needsWebhook && !/^https?:\/\//i.test(form.webhook_url.trim())) m.push("add a valid webhook URL");
+    if (!hookOk) m.push(needsWebhook ? "add a valid webhook URL" : "fix the webhook URL or leave it empty");
     return m;
-  }, [form.name, form.webhook_url, needsWebhook]);
+  }, [form.name, hookOk, needsWebhook]);
 
   /* Real completion, one flag per section below (05 has working defaults, so
      nothing there is required) plus a final "ready to save" flag — not the
@@ -114,34 +138,52 @@ const AddBotPage = () => {
      how long this takes any given person. */
   const stepsDone = [
     !!form.name.trim(),
-    needsWebhook ? /^https?:\/\//i.test(form.webhook_url.trim()) : true,
+    hookOk,
     !!form.prompt.trim(),
-    !!testResult?.ok,
+    /* nothing to test for a pull bot without a URL */
+    !!testResult?.ok || (!needsWebhook && !hookUrl),
     true,
     missing.length === 0,
   ];
   const doneCount = stepsDone.filter(Boolean).length;
 
-  const runTest = async () => {
-    if (!/^https?:\/\//i.test(form.webhook_url.trim())) {
-      error("Enter a webhook URL first.");
-      return;
+  const runTest = async (): Promise<BotV2TestResult | null> => {
+    if (!canTest) {
+      error(needsWebhook ? "Enter a webhook URL first." : "A pull bot needs no test — add a webhook URL only if you want one.");
+      return null;
     }
     setTesting(true);
     setTestResult(null);
     try {
-      const res = await dispatch(
-        tradingV2Service.testBotConnection({ api: axiosToken, webhook_url: form.webhook_url.trim() }),
-      );
-      setTestResult(res.payload as BotV2TestResult);
+      const res = await dispatch(tradingV2Service.testBotConnection({ api: axiosToken, webhook_url: hookUrl }));
+      const result = res.payload as BotV2TestResult;
+      setTestResult(result);
+      return result;
     } finally {
       setTesting(false);
     }
   };
 
+  /* main action: test first when there is a URL to test, then save. A failed
+     test stops here — "Save bot" is the way to add it untested. */
+  const testAndAdd = async () => {
+    if (canTest) {
+      const result = await runTest();
+      if (!result?.ok) {
+        error("Your webhook didn't answer correctly. Fix it, or use Save bot to add it untested.");
+        return;
+      }
+    }
+    await save();
+  };
+
   const save = async () => {
     if (missing.length) {
       error(`Before saving: ${missing.join(", ")}.`);
+      return;
+    }
+    if (blocked) {
+      error(`${blockedWhy}.`);
       return;
     }
     setBusy(true);
@@ -154,7 +196,7 @@ const AddBotPage = () => {
             note: form.note.trim(),
             platform: form.platform,
             reach_mode: form.reach_mode,
-            webhook_url: form.webhook_url.trim(),
+            webhook_url: hookUrl || null,
             reply_timeout_s: form.reply_timeout_s,
             on_no_reply: form.on_no_reply,
             prompt: form.prompt,
@@ -523,7 +565,9 @@ const AddBotPage = () => {
                 <span className="fx-tick2">✓</span>
               </div>
               <p className="fx-fsub">
-                We send one sample candle to your webhook with a throwaway key. Nothing is traded.
+                {!needsWebhook && !hookUrl
+                  ? "Nothing to test — a pull bot calls us, so there is no URL for us to reach. Add one above only if you want us to check it."
+                  : "We send one sample candle to your webhook with a throwaway key. Nothing is traded."}
               </p>
               <div className="fx-test">
                 <div className="fx-th2">
@@ -531,7 +575,8 @@ const AddBotPage = () => {
                   <button
                     className="fx-mini go"
                     type="button"
-                    disabled={testing}
+                    disabled={testing || !canTest}
+                    title={canTest ? undefined : "Add a webhook URL to test it"}
                     onClick={runTest}
                   >
                     {testing ? "Sending…" : "Send test candle"}
@@ -617,7 +662,7 @@ const AddBotPage = () => {
                 <button
                   className="fx-cta ghost2"
                   type="button"
-                  disabled={busy}
+                  disabled={busy || testing || blocked}
                   onClick={save}
                 >
                   {busy ? "Saving…" : "Save bot"}
@@ -625,17 +670,18 @@ const AddBotPage = () => {
                 <button
                   className="fx-cta main2"
                   type="button"
-                  disabled={busy || missing.length > 0}
-                  onClick={async () => {
-                    await runTest();
-                    await save();
-                  }}
+                  disabled={busy || testing || blocked || missing.length > 0}
+                  onClick={testAndAdd}
                 >
-                  {busy ? "Saving…" : "Test and add bot →"}
+                  {testing ? "Testing…" : busy ? "Saving…" : canTest ? "Test and add bot →" : "Add bot →"}
                 </button>
               </div>
               <p className="fx-note3">
-                {missing.length > 0 ? (
+                {blocked ? (
+                  <>
+                    <b>{blockedWhy}.</b> <a href="/dashboard/subscription">See plans →</a>
+                  </>
+                ) : missing.length > 0 ? (
                   <>
                     <b>Before you can add it:</b> {missing.join(", ")}.
                   </>
@@ -657,11 +703,13 @@ const AddBotPage = () => {
                   <span>Name, platform, endpoint</span>
                 </div>
               </div>
-              <div className={`fx-ul ${testResult?.ok ? "got3" : ""}`}>
-                <i>{testResult?.ok ? "✓" : "2"}</i>
+              <div className={`fx-ul ${stepsDone[3] ? "got3" : ""}`}>
+                <i>{stepsDone[3] ? "✓" : "2"}</i>
                 <div>
-                  <b>Connection tested</b>
-                  <span>Your webhook answered correctly</span>
+                  <b>{canTest || needsWebhook ? "Connection tested" : "Nothing to test"}</b>
+                  <span>
+                    {canTest || needsWebhook ? "Your webhook answered correctly" : "Your bot pulls from us"}
+                  </span>
                 </div>
               </div>
               <div className="fx-ul">

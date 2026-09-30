@@ -392,6 +392,16 @@ Priority:
 
 ---
 
+### 1.25 `task_type` + `category` on `GET /task/reward/` rows (Tasks page "Quiz clean" / "Builder" badges)
+
+The badges need to know what kind of task each reward came from. Reward rows carry `task_id` but
+not `task_type`, and `/task/all/` + `/task/course/{id}/` both drop a task once the user has taken
+part — so after a submission nothing in the API says the task was a quiz or a builder project, and
+there's no single-task endpoint to look it up. **Ask:** add `task_type` (and `category`) to each
+reward row — the endpoint already says it merges the task's details in, so it's one more field.
+**Stopgap in the FE:** `lib/taskTypeCache.ts` remembers each type seen on a task list before
+submission (per browser), so tasks done before 2026-09-30, or on another device, stay untracked.
+
 ## P2 — Bulk endpoints (works now, but the frontend loops single calls)
 
 ### 2.1 Claim all task rewards
@@ -423,7 +433,7 @@ Priority:
 
 | # | Question |
 |---|---|
-| 3.6 | **Enum values.** Docs spell out only `platform=N8N_CLOUD`, `reach_mode=PUSH`, `on_no_reply=SKIP`, `decision_style=BUY_SELL_HOLD`, `status=ACTIVE`. We assume the rest — confirm or correct: <br>• `platform`: `N8N_CLOUD, N8N_SELF, MAKE, ZAPIER, OWN_CODE, OTHER` <br>• `reach_mode`: `PUSH, PULL` <br>• `on_no_reply`: `SKIP, HOLD, CLOSE` <br>• `decision_style`: `BUY_SELL_HOLD, BUY_HOLD, SIGNAL_STRENGTH` <br>• `status`: `ACTIVE, PAUSED, FAILING` |
+| 3.6 | ~~**Enum values.**~~ **Resolved 2026-09-30** — read from the schema (`BotV2PlatformEnum` etc.); FE corrected to `N8N_SELF_HOSTED`, `CUSTOM_CODE`, `BUY_HOLD_ONLY`. |
 | 3.7 | **`model_name`.** Free-text, or is there a server-side enum? We show a suggested list but send whatever's typed. |
 | 3.8 | **`dev_key` on reads.** We assume it comes back full only on create + regenerate-key, and is masked/absent on `GET /bots/{id}/`. Confirm — the settings page shows `••••` when it's empty. |
 | 3.9 | **`test-connection` response.** We expect `{ ok: bool, status_code?: int, body?: any, error?: string }`. Confirm field names. Confirm it never returns a non-2xx for a failed webhook (we rely on that). |

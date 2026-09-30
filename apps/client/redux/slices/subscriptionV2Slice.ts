@@ -6,6 +6,7 @@ import {
   PaymentMethodV2,
   PlanV2,
   ReviewBalanceV2,
+  ReviewPackV2,
   SubscriptionV2,
   UsageV2,
 } from "../../types/subscriptionV2";
@@ -19,6 +20,9 @@ interface SubscriptionV2State {
   meLoaded: boolean;
   usage: UsageV2 | null;
   reviews: ReviewBalanceV2 | null;
+  /** public, like plans */
+  reviewPacks: ReviewPackV2[];
+  reviewPacksLoaded: boolean;
   invoices: InvoiceV2[];
   paymentMethods: PaymentMethodV2[];
 }
@@ -31,6 +35,8 @@ const initialState: SubscriptionV2State = {
   meLoaded: false,
   usage: null,
   reviews: null,
+  reviewPacks: [],
+  reviewPacksLoaded: false,
   invoices: [],
   paymentMethods: [],
 };
@@ -57,14 +63,24 @@ export const subscriptionV2Slice = createSlice({
     setReviewsV2: (state, action: PayloadAction<ReviewBalanceV2 | null>) => {
       state.reviews = action.payload;
     },
+    setReviewPacksV2: (state, action: PayloadAction<ReviewPackV2[]>) => {
+      state.reviewPacks = action.payload;
+      state.reviewPacksLoaded = true;
+    },
     setInvoicesV2: (state, action: PayloadAction<InvoiceV2[]>) => {
       state.invoices = action.payload;
     },
     setPaymentMethodsV2: (state, action: PayloadAction<PaymentMethodV2[]>) => {
       state.paymentMethods = action.payload;
     },
-    /* on sign-out: everything but the public plan list is per-user */
-    resetSubscriptionV2: (state) => ({ ...initialState, plans: state.plans, plansLoaded: state.plansLoaded }),
+    /* on sign-out: everything but the public plan + review-pack lists is per-user */
+    resetSubscriptionV2: (state) => ({
+      ...initialState,
+      plans: state.plans,
+      plansLoaded: state.plansLoaded,
+      reviewPacks: state.reviewPacks,
+      reviewPacksLoaded: state.reviewPacksLoaded,
+    }),
   },
 });
 
@@ -73,6 +89,7 @@ export const {
   setMeV2,
   setUsageV2,
   setReviewsV2,
+  setReviewPacksV2,
   setInvoicesV2,
   setPaymentMethodsV2,
   resetSubscriptionV2,

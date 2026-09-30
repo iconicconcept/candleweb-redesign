@@ -8398,3 +8398,53 @@ button.fx-pay9:disabled {
     align-items: stretch;
   }
 }
+
+/* review top-up strip, same shape as the bot strip */
+.fx-tops {
+  display: flex;
+  gap: 9px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+.fx-top9 {
+  flex: 1;
+  min-width: 104px;
+  text-align: left;
+  border: 1px solid var(--fx-line);
+  border-radius: 14px;
+  padding: 13px 14px;
+  background: var(--w018);
+  color: var(--fx-t1);
+  font-family: var(--sans);
+  cursor: pointer;
+  transition:
+    transform 0.18s,
+    border-color 0.18s,
+    background 0.18s;
+}
+.fx-top9:hover:not([disabled]) {
+  transform: translateY(-2px);
+  border-color: rgba(46, 230, 168, 0.4);
+  background: rgba(46, 230, 168, 0.05);
+}
+.fx-top9[disabled] {
+  opacity: 0.55;
+  cursor: default;
+}
+.fx-top9 b {
+  display: block;
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin-bottom: 3px;
+}
+.fx-top9 span {
+  display: block;
+  font-size: 11.2px;
+  color: var(--fx-t3);
+}
+.fx-top9 span em {
+  font-style: normal;
+  color: var(--fx-teal2);
+}

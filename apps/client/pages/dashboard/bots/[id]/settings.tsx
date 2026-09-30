@@ -121,6 +121,11 @@ const BotSettingsPage = () => {
       error("Give the bot a name.");
       return;
     }
+    const hookUrl = form.webhook_url.trim();
+    if (hookUrl ? !/^https?:\/\//i.test(hookUrl) : form.reach_mode === "PUSH") {
+      error(hookUrl ? "Enter a valid webhook URL (https://…)." : "A push bot needs a webhook URL.");
+      return;
+    }
     setBusy("save");
     try {
       await dispatch(
@@ -132,7 +137,7 @@ const BotSettingsPage = () => {
             note: form.note.trim(),
             platform: form.platform,
             reach_mode: form.reach_mode,
-            webhook_url: form.webhook_url.trim(),
+            webhook_url: form.webhook_url.trim() || null,
             reply_timeout_s: form.reply_timeout_s,
             on_no_reply: form.on_no_reply,
             prompt: form.prompt,
@@ -351,7 +356,7 @@ const BotSettingsPage = () => {
 
                   <div style={{ marginTop: "16px" }}>
                     <label className="fx-fl" htmlFor="hk">
-                      Webhook URL
+                      Webhook URL {form.reach_mode === "PULL" && <em>— optional for pull mode</em>}
                     </label>
                     <div className="fx-inp">
                       <input

@@ -354,7 +354,7 @@ const BotDetailPage = () => {
                         <button
                           className="fx-mini"
                           type="button"
-                          onClick={() => copyField("webhook", bot.webhook_url)}
+                          onClick={() => copyField("webhook", bot.webhook_url ?? undefined)}
                         >
                           {copiedField === "webhook" ? "Copied" : "Copy"}
                         </button>

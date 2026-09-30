@@ -6,17 +6,16 @@ import {
   BotV2Status,
 } from "../types/tradingV2";
 
-/* Enum → label maps for Bots (v2). The API doc only spells out N8N_CLOUD / PUSH /
-   SKIP / BUY_SELL_HOLD / ACTIVE — the rest of the keys here are the front-end's
-   assumption and need confirming with the backend (tracked in
-   apps/client/DASHBOARD_ENDPOINTS.md). */
+/* Enum → label maps for Bots (v2). Values match the API schema's
+   BotV2PlatformEnum / ReachModeEnum / OnNoReplyEnum / DecisionStyleEnum /
+   BotV2StatusEnum (https://sandboxapi.candleweb.io/api/schema/). */
 
 export const PLATFORMS: { value: BotV2Platform; label: string; sub: string }[] = [
   { value: "N8N_CLOUD", label: "n8n Cloud", sub: "Hosted n8n workflow" },
-  { value: "N8N_SELF", label: "n8n self-hosted", sub: "Your own server or machine" },
+  { value: "N8N_SELF_HOSTED", label: "n8n self-hosted", sub: "Your own server or machine" },
   { value: "MAKE", label: "Make", sub: "Make.com scenario" },
   { value: "ZAPIER", label: "Zapier", sub: "Zap with a webhook step" },
-  { value: "OWN_CODE", label: "My own code", sub: "Python, JS, anything" },
+  { value: "CUSTOM_CODE", label: "My own code", sub: "Python, JS, anything" },
   { value: "OTHER", label: "Something else", sub: "Tell us what" },
 ];
 
@@ -39,7 +38,7 @@ export const onNoReplyLabel = (v?: BotV2OnNoReply): string =>
 
 export const DECISION_STYLES: { value: BotV2DecisionStyle; label: string }[] = [
   { value: "BUY_SELL_HOLD", label: "Buy / sell / hold" },
-  { value: "BUY_HOLD", label: "Buy / hold only (long)" },
+  { value: "BUY_HOLD_ONLY", label: "Buy / hold only (long)" },
   { value: "SIGNAL_STRENGTH", label: "Signal strength 0–1" },
 ];
 
