@@ -13,8 +13,11 @@ import { isAuthorizationHeaderSet } from "../../utils/check_auth";
 import DashboardShell from "../../components/dashboard/focus/DashboardShell";
 import TopBar from "../../components/dashboard/focus/TopBar";
 import HeroChart from "../../components/dashboard/focus/HeroChart";
+import DecisionsFeed from "../../components/dashboard/focus/DecisionsFeed";
 import { STATUS_META } from "../../lib/botV2Labels";
 import { BalanceProp } from "../../types/user";
+import { FleetHealthV2 } from "../../types/tradingV2";
+import { NOT_MEASURED, failureStreakParts, isUnavailable } from "../../lib/botHealthV2";
 
 const DIRECTION_SIDE: Record<string, { label: string; cls: string }> = {
   LONG: { label: "long", cls: "b2" },
@@ -49,6 +52,19 @@ const DashboardPage = () => {
   const { exchangeRecord } = useSelector((state: RootState) => state.exchange);
   const fetchedRef = useRef(false);
 
+  const [fleet, setFleet] = useState<FleetHealthV2 | null>(null);
+
+  /* The fleet's streak is its WORST bot, not an average. The fleet payload has
+     no `last_failure_at`, so `failed_30d` is what separates a 0 meaning
+     "failed today" from a 0 meaning "nothing has failed yet". */
+  const botStreak =
+    !fleet || isUnavailable(fleet.unavailable, "days_without_failure")
+      ? { value: null, caption: NOT_MEASURED }
+      : failureStreakParts(
+          fleet.days_without_failure,
+          fleet.failed_30d != null && fleet.failed_30d > 0 ? "yes" : null,
+        );
+
   useEffect(() => {
     if (!isAuthorizationHeaderSet(axiosToken) || fetchedRef.current) return;
     fetchedRef.current = true;
@@ -56,6 +72,10 @@ const DashboardPage = () => {
     dispatch(tradingV2Service.listTrades(axiosToken));
     if (!balance || balance.length === 0) dispatch(userService.getBalance(axiosToken));
     if (exchangeRecord.length === 0) dispatch(exchangeServices.getExchangeRecords(axiosToken));
+    tradingV2Service
+      .getFleetHealth(axiosToken)
+      .then(setFleet)
+      .catch(() => setFleet(null));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [axiosToken, dispatch]);
 
@@ -81,11 +101,12 @@ const DashboardPage = () => {
       if (t.status === "RUNNING" && t.bot != null) running.set(t.bot, (running.get(t.bot) || 0) + 1);
     });
     const statusRank = { ACTIVE: 0, PAUSED: 1, FAILING: 2 } as const;
+    /* No third tiebreak: `consecutive_fail_count` used to be it, but it is
+       always 0 — nothing increments it — so it sorted nothing. */
     return [...bots].sort(
       (a, b) =>
         (statusRank[a.status] ?? 3) - (statusRank[b.status] ?? 3) ||
-        (running.get(b.id) || 0) - (running.get(a.id) || 0) ||
-        (a.consecutive_fail_count || 0) - (b.consecutive_fail_count || 0),
+        (running.get(b.id) || 0) - (running.get(a.id) || 0),
     )[0];
   }, [bots, trades]);
 
@@ -388,7 +409,7 @@ const DashboardPage = () => {
                         <div className="bn2">
                           <span>{meta.label}</span>
                           <span className="p3">
-                            {b.consecutive_fail_count > 0 ? `${b.consecutive_fail_count} fails` : "ok"}
+                            {b.reply_timeout_s}s timeout
                           </span>
                         </div>
                       </Link>
@@ -401,24 +422,23 @@ const DashboardPage = () => {
             {/* ---- activity + needs you ---- */}
             <div className="fx-cols fx-sec rv">
               <section>
+                {/* Decisions are read in place — a few at a time, with
+                    "Show more" for the rest — so there is nowhere else to
+                    send the user. Each row opens that decision in full. */}
                 <div className="fx-sh">
                   <h2>Recent activity</h2>
-                  <span className="fx-preview">
-                    <i>◔</i> Decision feed pending
-                  </span>
+                  <span className="fx-src">what your bots decided</span>
                 </div>
-                <div className="fx-spine">
-                  {[0, 1, 2].map((i) => (
-                    <div className="fx-ev" key={i}>
-                      <span className="t2">—</span>
-                      <b>Bot decisions show here</b>
-                      <p>
-                        Every call Candleweb sends a bot, the reply it gave and what the order did
-                        — once the decisions endpoint exists this fills in on its own.
-                      </p>
-                    </div>
-                  ))}
-                </div>
+                <DecisionsFeed
+                  api={axiosToken}
+                  pageSize={4}
+                  empty={
+                    <>
+                      <b>Nothing from your bots yet.</b> Each time one of your bots fetches candles
+                      and answers, the decision lands here.
+                    </>
+                  }
+                />
               </section>
               <section>
                 <div className="fx-sh">
@@ -429,9 +449,8 @@ const DashboardPage = () => {
                     <div className="fx-soft warn5" key={b.id} style={{ marginBottom: "12px" }}>
                       <h3>{b.name} isn&rsquo;t responding</h3>
                       <p>
-                        {b.consecutive_fail_count} failed call
-                        {b.consecutive_fail_count === 1 ? "" : "s"} in a row — no orders are being
-                        placed for trades it decides.{" "}
+                        Candleweb is not getting answers from it, so no orders are being placed for
+                        the trades it decides.{" "}
                         <Link href={`/dashboard/bots/${b.id}`} style={{ color: "var(--fx-teal2)" }}>
                           Open the bot
                         </Link>
@@ -477,7 +496,7 @@ const DashboardPage = () => {
                   {featuredBot ? `Your ${featuredBot.name}` : "Your momentum"} <span className="sub2">progress toward a system you can trust</span>
                 </h2>
                 <span className="fx-preview">
-                  <i>◔</i> Needs the decisions + review endpoints
+                  <i>◔</i> Review readiness needs closed-trade history
                 </span>
               </div>
               <div className="fx-momgrid">
@@ -502,14 +521,25 @@ const DashboardPage = () => {
                   </div>
                   <div className="fx-streaks2">
                     <div className="fx-stk2">
+                      {/* `b` here is a 26px figure slot — "Not measured yet"
+                          is a sentence and goes in the small token instead. */}
                       <span>Days with no bot failures</span>
-                      <b className="mut3">—</b>
-                      <i>needs the decisions endpoint</i>
+                      {botStreak.value == null ? (
+                        <b className="none3">{botStreak.caption}</b>
+                      ) : (
+                        <>
+                          <b className={botStreak.caption === "failed today" ? "amb3" : ""}>
+                            {botStreak.value}
+                          </b>
+                          <i>{botStreak.caption}</i>
+                        </>
+                      )}
+                      <span className="why3">your worst bot, not an average</span>
                     </div>
                     <div className="fx-stk2">
                       <span>Review suggestions applied</span>
                       <b className="mut3">—</b>
-                      <i>needs the review endpoint</i>
+                      <span className="why3">needs the review endpoint</span>
                     </div>
                   </div>
                 </div>

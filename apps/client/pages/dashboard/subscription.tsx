@@ -1413,11 +1413,17 @@ function UsageSection({
             <Segments filled={filled} />
             <p className="fx-mnote">
               {included > 0 ? (
+                /* `overage_due` is calculated but never billed: no invoice is
+                   raised from it and no card is charged for it. So it is
+                   never worded as money owed — a user who reads "you owe
+                   $5.00" contacts support about a charge that never
+                   happened. */
                 <>
-                  Nothing extra is charged until your agents move more than {usd(included)} this
-                  period. After that it is {Number(usage?.overage_rate_pct ?? 0)}% on the amount above
-                  the line, not on everything.
-                  {Number(usage?.overage_due ?? 0) > 0 && ` Estimated so far: ${usd(usage?.overage_due)}.`}
+                  Your plan includes {usd(included)} of volume this period, charged at{" "}
+                  {Number(usage?.overage_rate_pct ?? 0)}% above the line — on the amount above it,
+                  not on everything.
+                  {Number(usage?.overage_due ?? 0) > 0 &&
+                    ` You are above the included volume by an estimated ${usd(usage?.overage_due)} in fees. This is not billed — nothing is charged for it.`}
                 </>
               ) : (
                 <>{live.plan_name} runs on paper, so there is no live volume to count.</>

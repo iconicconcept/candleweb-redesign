@@ -1,4 +1,5 @@
 import Head from "next/head";
+import Link from "next/link";
 import { maskString } from "ui";
 import { useRouter } from "next/router";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -253,9 +254,13 @@ const BotSettingsPage = () => {
           <>
             {meta.dead && (
               <p className="fx-failmsg">
-                <b>Not responding.</b> {bot.consecutive_fail_count} failed calls in a row — no
-                orders are being placed for any trade this bot decides. Fix the webhook, then
-                resume.
+                <b>Not responding.</b> Candleweb is not getting answers from this bot, so no orders
+                are being placed for any trade it decides. Fix it here, then resume — its
+                reliability record is on{" "}
+                <Link href={`/dashboard/bots/${bot.id}`} style={{ color: "var(--fx-teal2)" }}>
+                  the bot&rsquo;s page
+                </Link>
+                .
               </p>
             )}
 
@@ -366,13 +371,12 @@ const BotSettingsPage = () => {
                         onChange={(e) => set("webhook_url", e.target.value)}
                       />
                     </div>
-                    {/* last-call time + reply average: BACKEND_API_REQUESTS §1.6 */}
                     <p className="fx-hint">
-                      <span className="fx-preview">
-                        <i>◔</i> Last call &amp; reply time need the bot health endpoint (§1.6)
-                      </span>
-                      {bot.consecutive_fail_count > 0 &&
-                        ` ${bot.consecutive_fail_count} failed call${bot.consecutive_fail_count === 1 ? "" : "s"} in a row`}
+                      Last signal, reply time, failed candles and 30-day uptime are on{" "}
+                      <Link href={`/dashboard/bots/${bot.id}`} style={{ color: "var(--fx-teal2)" }}>
+                        the bot&rsquo;s page
+                      </Link>
+                      .
                     </p>
                   </div>
 
@@ -380,12 +384,12 @@ const BotSettingsPage = () => {
                   <div style={{ marginTop: "18px" }}>
                     <span className="fx-fl">Developer key</span>
                     <div className="fx-key">
-                      <code>{bot.dev_key ? maskString(bot.dev_key) : "•••••••••••••••• — shown only on create / regenerate"}</code>
+                      <code>{bot.dev_key ? maskString(bot.dev_key) : "— no key on this bot —"}</code>
                       <button
                         type="button"
                         className="fx-mini"
                         disabled={!bot.dev_key}
-                        title={bot.dev_key ? undefined : "The full key is only shown on create / regenerate"}
+                        title={bot.dev_key ? undefined : "This bot has no developer key"}
                         onClick={() => copyText(bot.dev_key)}
                       >
                         Copy
@@ -743,8 +747,11 @@ const BotSettingsPage = () => {
           }
         >
           <p className="fx-dwarn">
-            Every n8n workflow, Make scenario or script that calls Candleweb for this bot will need
-            the new key pasted in. Until then, those calls fail and the bot shows as not responding.
+            The old key stops working the moment you do this, on <b>every</b> trade this bot
+            decides for — one key serves them all. Every n8n workflow, Make scenario or script
+            that calls Candleweb for this bot will need the new key pasted in; until then those
+            calls are refused and the bot shows as not responding. The trade URLs themselves do not
+            change.
           </p>
         </Dialog>
 
@@ -755,7 +762,7 @@ const BotSettingsPage = () => {
           labelledBy="newkey-title"
           icon={<RefreshIcon />}
           title={<span id="newkey-title">New developer key</span>}
-          subtitle="Copy it now — it is shown once"
+          subtitle="Paste it into your bot before it is next called"
           footer={
             <>
               <button className="fx-cta ghost2" type="button" onClick={copyKey}>

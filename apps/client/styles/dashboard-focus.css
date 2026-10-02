@@ -8448,3 +8448,75 @@ button.fx-pay9:disabled {
   font-style: normal;
   color: var(--fx-teal2);
 }
+
+/* ---- health tiles: a sentence is not a figure ----------------------
+   `.fx-stk2 b` is 26px because the design puts a short count there ("12",
+   "6"). "Not measured yet" is a sentence and must not inherit that size,
+   so it gets its own small token plus a block caption underneath. */
+.fx-stk2 b.none3 {
+  font-size: 13.5px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--fx-t3);
+}
+.fx-stk2 .why3 {
+  display: block;
+  margin: 8px 0 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--fx-t3);
+  max-width: 36ch;
+}
+.fx-stk2 .why3 b {
+  font-size: inherit;
+  font-weight: 600;
+  color: var(--fx-t2);
+  letter-spacing: 0;
+}
+
+/* ---- decisions feed: show more / collapse -------------------------- */
+.fx-feedacts {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--fx-line);
+}
+.fx-feedacts .fx-mini {
+  padding: 9px 13px;
+}
+.fx-feedacts .rest9 {
+  font-family: var(--fx-mono);
+  font-size: 10.5px;
+  color: var(--fx-t3);
+  margin-left: auto;
+}
+/* a decision row is clickable, so it reads like one */
+.fx-ev.pick9,
+.fx-drow.pick9 {
+  cursor: pointer;
+  transition: background 0.16s;
+  border-radius: 10px;
+}
+.fx-ev.pick9:hover,
+.fx-drow.pick9:hover {
+  background: var(--w022);
+}
+.fx-ev .stale9 {
+  font-family: var(--fx-mono);
+  font-size: 10px;
+  color: var(--fx-amber2);
+}
+
+/* `.fx-hz b` is a 15px mono figure. "Not measured yet" is a note, so it drops
+   out of the mono figure scale rather than wrapping across the tile. */
+.fx-hz b.none3 {
+  font-family: var(--sans);
+  font-size: 11.8px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--fx-t3);
+  cursor: help;
+}

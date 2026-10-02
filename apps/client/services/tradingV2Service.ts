@@ -17,10 +17,21 @@ import {
   BotV2Payload,
   BotV2TestResult,
   TradingLimitsV2,
+  BotDecisionV2Detail,
+  BotDecisionsV2Page,
+  BotDecisionsV2Query,
+  BotHealthV2,
+  FleetHealthV2,
 } from "../types/tradingV2";
+import { unwrapV2, unwrapPageV2 } from "../lib/tradingV2Shape";
 
 const BASE = "/trading_v2/trades/";
 
+/* Every error from /api/trading_v2/ carries `status` and `message`, whatever
+   went wrong — bad payload, bad filter, not found, not logged in, rate
+   limited. `message` is written for the user (including on 403 and 409), so
+   it is always what we show. There is no `detail` key any more, and nothing
+   here reads one. A 500 may not be JSON at all, hence the fallbacks. */
 const getErrorMessage = (err: any): string => {
   const e = err as AxiosError;
   const data = e.response?.data as any;
@@ -33,6 +44,23 @@ const getErrorMessage = (err: any): string => {
     if (typeof firstValue === "string") return firstValue;
   }
   return e.message ?? e.toString();
+};
+
+/* On a form 400 the field's own errors sit next to `status` and `message`,
+   keyed by field name, each a list of strings — so an error can be put under
+   its input instead of only in a toast. `status` and `message` are skipped
+   when looping; a problem that isn't about one field has no field key at all
+   and stays in `message`. */
+export const getFieldErrors = (err: any): Record<string, string> => {
+  const data = (err as AxiosError)?.response?.data as any;
+  if (!data || typeof data !== "object" || Array.isArray(data)) return {};
+  const out: Record<string, string> = {};
+  Object.entries(data).forEach(([key, value]) => {
+    if (key === "status" || key === "message") return;
+    if (Array.isArray(value) && value.length > 0) out[key] = String(value[0]);
+    else if (typeof value === "string") out[key] = value;
+  });
+  return out;
 };
 
 /** GET /trading_v2/trades/ — list my trades */
@@ -369,10 +397,79 @@ const testBotConnection = createAsyncThunk(
 const getLimits = async (api: AxiosInstance): Promise<TradingLimitsV2 | null> => {
   try {
     const { data } = await api.get("/trading_v2/limits/");
-    const body = data && typeof data === "object" && "data" in data ? (data as any).data : data;
+    const body = unwrapV2<any>(data);
     return body?.agents ? (body as TradingLimitsV2) : null;
   } catch {
     return null;
+  }
+};
+
+/* ================= Bot decisions & health (v2) =================
+
+   All four are read-only, and all four are plain async functions rather than
+   thunks: the same endpoint is read with different filters on several screens
+   at once (the whole timeline, one bot's last ten, one trade's), so a single
+   shared array in the store would have them overwriting each other. Each
+   caller keeps its own page. Same pattern as getLimits above.
+
+   Errors are thrown with the backend's own `message` so the caller can show
+   it; a 404 is always "Not found." and also covers a record that exists but
+   belongs to someone else, deliberately, so ids cannot be probed. */
+
+/** GET /trading_v2/decisions/ — newest first, across all of the user's bots.
+    `count` is the total, for paging; `results` is this page. */
+const listDecisions = async (
+  api: AxiosInstance,
+  query: BotDecisionsV2Query = {},
+): Promise<BotDecisionsV2Page> => {
+  // An `undefined` filter must not be sent: `?bot=undefined` is a 400
+  // ("bot: Must be an id."), which usually just means the filter state had
+  // not been set yet.
+  const params: Record<string, string | number> = {};
+  if (query.bot != null) params.bot = query.bot;
+  if (query.trade != null) params.trade = query.trade;
+  if (query.decision) params.decision = query.decision;
+  if (query.limit != null) params.limit = query.limit;
+  if (query.offset != null) params.offset = query.offset;
+  try {
+    const { data } = await api.get("/trading_v2/decisions/", { params });
+    return unwrapPageV2<BotDecisionsV2Page["results"][number]>(data);
+  } catch (err: any) {
+    throw new Error(getErrorMessage(err));
+  }
+};
+
+/** GET /trading_v2/decisions/{id}/ — the row plus `market_data_ids`. Bare. */
+const getDecision = async (
+  api: AxiosInstance,
+  id: number,
+): Promise<BotDecisionV2Detail> => {
+  try {
+    const { data } = await api.get(`/trading_v2/decisions/${id}/`);
+    return unwrapV2<BotDecisionV2Detail>(data);
+  } catch (err: any) {
+    throw new Error(getErrorMessage(err));
+  }
+};
+
+/** GET /trading_v2/bots/{id}/health/ — one bot's reliability record. */
+const getBotHealth = async (api: AxiosInstance, id: number): Promise<BotHealthV2> => {
+  try {
+    const { data } = await api.get(`${BOTS}${id}/health/`);
+    return unwrapV2<BotHealthV2>(data);
+  } catch (err: any) {
+    throw new Error(getErrorMessage(err));
+  }
+};
+
+/** GET /trading_v2/bots/health/ — the fleet at a glance. A user with no bots
+    gets zeroes and an empty `bots` array, not an error. */
+const getFleetHealth = async (api: AxiosInstance): Promise<FleetHealthV2> => {
+  try {
+    const { data } = await api.get(`${BOTS}health/`);
+    return unwrapV2<FleetHealthV2>(data);
+  } catch (err: any) {
+    throw new Error(getErrorMessage(err));
   }
 };
 
@@ -394,6 +491,10 @@ const tradingV2Service = {
   regenerateBotKey,
   testBotConnection,
   getLimits,
+  listDecisions,
+  getDecision,
+  getBotHealth,
+  getFleetHealth,
 };
 
 export default tradingV2Service;

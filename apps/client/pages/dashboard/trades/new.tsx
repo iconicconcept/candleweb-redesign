@@ -13,6 +13,7 @@ import { error } from "../../../components/alert/Toast";
 import DashboardShell from "../../../components/dashboard/focus/DashboardShell";
 import TopBar from "../../../components/dashboard/focus/TopBar";
 import { CheckIcon } from "../../../components/dashboard/focus/icons";
+import ConnectBotPanel from "../../../components/dashboard/focus/ConnectBotPanel";
 import { indicatorChips } from "../../../lib/tradingV2Indicators";
 import {
   TradeV2,
@@ -44,14 +45,23 @@ const FALLBACK_BOTS: { id: number; name: string }[] = [];
 /* `stop` is the typical stop distance assumed for that candle size — used
    only to illustrate what a risk % works out to in section 05, same as the
    original design. */
+/* `1d` is deliberately absent. The model accepts it, so a user *can* save a
+   1d trade — but the candle feed does not serve it, and their bot then gets
+   "Timeframe '1d' is not available on the candle feed yet." forever. It goes
+   back in the list when the backend says the feed supports it. */
 const TIMEFRAMES: { v: TradeV2Timeframe; calls: number; stop: number; every: string }[] = [
   { v: "1m", calls: 1440, stop: 0.6, every: "Every minute" },
   { v: "5m", calls: 288, stop: 1.1, every: "Every 5 minutes" },
   { v: "15m", calls: 96, stop: 2.4, every: "Every 15 minutes" },
   { v: "1h", calls: 24, stop: 3.6, every: "Every hour" },
   { v: "4h", calls: 6, stop: 5.2, every: "Every 4 hours" },
-  { v: "1d", calls: 1, stop: 7.5, every: "Once a day" },
 ];
+
+/* Only `1m` returns real indicator numbers today; on 15m/1h/4h every
+   indicator value comes back null. The candles themselves are correct on
+   every timeframe — it is just the indicator figures that are missing, so
+   the picker stays usable and the user gets told. */
+const INDICATOR_VALUES_TIMEFRAMES: TradeV2Timeframe[] = ["1m"];
 
 function listWords(arr: string[]) {
   if (arr.length === 0) return "nothing";
@@ -79,7 +89,6 @@ const INDICATORS: { key: string; label: string }[] = [
 
 const HISTORY_OPTIONS = [20, 30, 50, 100];
 const RISK_STEPS = [0.5, 10];
-const API_ROOT = "https://api.candleweb.io/api/trading_v2";
 
 const DIRECTION_LABELS: Record<TradeV2Direction, string> = {
   BOTH: "long & short",
@@ -106,7 +115,7 @@ const DEFAULTS: FormState = {
   // 0 = none picked yet; the first connected account is filled in on load
   exchange_account: 0,
   pair: PLACEHOLDER_PAIRS[0].id,
-  timeframe: "15m",
+  timeframe: "1m",
   allocated_amount: "",
   indicators: ["rsi", "macd", "macd_signal", "sma_50"],
   candle_history_len: 20,
@@ -134,6 +143,10 @@ const NewTradePage = () => {
   const [environment, setEnvironment] = useState<"demo" | "live">("demo");
   const [busy, setBusy] = useState<null | "save" | "start">(null);
   const [existing, setExisting] = useState<TradeV2 | null>(null);
+  /* Set on a successful create so the user leaves this flow with the pull
+     URL, the decision URL and the bot's key in front of them, instead of
+     being bounced to the list with nothing to paste into their bot. */
+  const [justCreated, setJustCreated] = useState<TradeV2 | null>(null);
   const loadedRef = useRef<number | null>(null);
   const botsFetchedRef = useRef(false);
 
@@ -199,6 +212,20 @@ const NewTradePage = () => {
     if (editing || form.exchange_account || accountOptions.length === 0) return;
     setForm((f) => ({ ...f, exchange_account: accountOptions[0].id }));
   }, [editing, form.exchange_account, accountOptions]);
+
+  /* The panel needs the bot's `dev_key`. It is on every bot response, but the
+     cached list row can predate the bot being created in this session, so
+     fetch the bot when the key is missing. */
+  const keyFetchedRef = useRef<number | null>(null);
+  useEffect(() => {
+    const botId = toId(justCreated?.bot ?? existing?.bot ?? form.bot);
+    if (botId == null || !isAuthorizationHeaderSet(axiosToken)) return;
+    const known = bots.find((b) => b.id === botId);
+    if (known?.dev_key || keyFetchedRef.current === botId) return;
+    keyFetchedRef.current = botId;
+    dispatch(tradingV2Service.getBot({ api: axiosToken, id: botId }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [axiosToken, dispatch, bots, justCreated, existing, form.bot]);
 
   const accountName = (id: number) =>
     accountOptions.find((a) => a.id === id)?.name ||
@@ -317,6 +344,31 @@ const NewTradePage = () => {
     return res?.payload?.id ? (res.payload as TradeV2) : null;
   };
 
+  /* A new OWN_BOT trade stays on this screen so the connection details can be
+     handed over; editing an existing one, or a CandleAI trade, has nothing to
+     show and goes back to the list as before. */
+  const afterSave = (saved: TradeV2) => {
+    const hasLinks = !!(saved.candles_url || saved.decision_url);
+    if (!editing && hasLinks) {
+      setJustCreated(saved);
+      setExisting(saved);
+      /* Put the new id in the URL so the page is now *editing* this trade.
+         Without it a second save would POST another trade instead of
+         patching this one. `loadedRef` is pinned first so the hydrate effect
+         treats the form as already loaded and leaves the user's input
+         alone. */
+      loadedRef.current = saved.id;
+      router.replace(
+        { pathname: router.pathname, query: { id: String(saved.id) } },
+        undefined,
+        { shallow: true },
+      );
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } else {
+      router.push("/dashboard/trades");
+    }
+  };
+
   const onSave = async () => {
     if (!form.exchange_account) {
       error("Connect an exchange account before saving this trade.");
@@ -325,7 +377,7 @@ const NewTradePage = () => {
     setBusy("save");
     try {
       const saved = await persist();
-      if (saved) router.push("/dashboard/trades");
+      if (saved) afterSave(saved);
     } finally {
       setBusy(null);
     }
@@ -340,15 +392,32 @@ const NewTradePage = () => {
     try {
       const saved = await persist();
       if (saved) {
-        await dispatch(tradingV2Service.startTrade({ api: axiosToken, id: saved.id }));
-        router.push("/dashboard/trades");
+        const started: any = await dispatch(
+          tradingV2Service.startTrade({ api: axiosToken, id: saved.id }),
+        );
+        afterSave(started?.payload?.id ? (started.payload as TradeV2) : saved);
       }
     } finally {
       setBusy(null);
     }
   };
 
-  const tradeIdForUrl = existing ? String(existing.id) : "{trade_id}";
+  /* The three things a bot needs. The two URLs come off the trade response
+     verbatim — never assembled from the id, since the host differs between
+     sandbox and production and the API already picks the right one. The key
+     belongs to the BOT, not the trade (one bot can serve many trades), so it
+     is read from the bot record. */
+  const connectTrade = justCreated ?? existing;
+  const connectBotId = connectTrade ? toId(connectTrade.bot) : form.bot;
+  const connectBot = connectBotId != null ? bots.find((b) => b.id === connectBotId) : undefined;
+
+  // Both URLs are null on a CandleAI trade — there is no bot to connect.
+  const isAiTrade = connectTrade
+    ? !connectTrade.candles_url && !connectTrade.decision_url
+    : form.decider_type === "CANDLE_AI";
+
+  const indicatorValuesMissing =
+    form.indicators.length > 0 && !INDICATOR_VALUES_TIMEFRAMES.includes(form.timeframe);
 
   return (
     <>
@@ -369,6 +438,48 @@ const NewTradePage = () => {
         />
 
         <div className="fx-formwrap">
+          {/* Straight after a create: the three things the bot needs, before
+              anything else on the page. Without them the trade cannot be
+              hooked up at all, and a user who is bounced to the list has to
+              go hunting. The same panel lives in section 03 for a trade
+              opened later — it is rendered once, here, while this banner is
+              up. */}
+          {justCreated && !isAiTrade && (
+            <section className="fx-fsec" style={{ borderColor: "rgba(46,230,168,0.3)" }}>
+              <div className="fx-fh">
+                <span className="fx-fn">LIVE</span>
+                <h3>Your trade is live — connect your bot</h3>
+                <span className="fx-tick2">✓</span>
+              </div>
+              <p className="fx-fsub">
+                {justCreated.pair_name || `Pair #${justCreated.pair}`} ·{" "}
+                {justCreated.timeframe} · trade #{justCreated.id}. It is running from now; your bot
+                decides, and Candleweb records what it decides.
+              </p>
+              <ConnectBotPanel
+                candlesUrl={justCreated.candles_url}
+                decisionUrl={justCreated.decision_url}
+                devKey={connectBot?.dev_key}
+                botId={connectBotId}
+                botName={connectBot?.name ?? justCreated.bot_name ?? undefined}
+                botPaused={connectBot?.status === "PAUSED"}
+                intro="These three values are everything your bot needs. They are also on this trade's setup screen whenever you come back for them."
+              />
+              <div className="fx-actions" style={{ marginTop: 18 }}>
+                <button
+                  type="button"
+                  className="fx-cta main2"
+                  onClick={() => router.push("/dashboard/trades")}
+                >
+                  Done — back to my trades
+                </button>
+                <button type="button" className="fx-cta ghost2" onClick={() => setJustCreated(null)}>
+                  Keep editing this trade
+                </button>
+              </div>
+            </section>
+          )}
+
           <form onSubmit={(e) => e.preventDefault()}>
             <div className="fx-prog">
               <div className="fx-ph">
@@ -683,42 +794,44 @@ const NewTradePage = () => {
                 </div>
               </div>
 
-              {form.decider_type === "OWN_BOT" && (
-                <div className="fx-epbox">
-                  <div className="fx-ep2">
-                    <div className="eh2">
-                      <span className="fx-mv g4">GET</span>
-                      <b>Fetch market data</b>
-                      <small>
-                        Paste into an n8n HTTP Request node, a Make module, or your own code. Returns
-                        the candles and the indicators selected above — the URL stays valid across
-                        edits.
-                      </small>
-                    </div>
-                    <div className="eb2">
-                      <code>{`${API_ROOT}/trades/${tradeIdForUrl}/candles/`}</code>
-                    </div>
-                  </div>
-                  <div className="fx-ep2">
-                    <div className="eh2">
-                      <span className="fx-mv p4">POST</span>
-                      <b>Send your decision back</b>
-                      <small>
-                        Your bot posts buy, sell or hold here. Candleweb sizes the order against your
-                        limits and places it.
-                      </small>
-                    </div>
-                    <div className="eb2">
-                      <code>{`${API_ROOT}/trades/${tradeIdForUrl}/decision/`}</code>
-                    </div>
-                  </div>
-                  <p className="fx-epnote">
-                    <b>Note.</b> Authenticate with the bot&rsquo;s developer key in the{" "}
-                    <code>X-Candleweb-Key</code> header. Both URLs are secret.
-                    {!existing && " The real trade id fills in once you save."}
-                  </p>
-                </div>
+              {/* Only 1m carries real indicator numbers today — the candles
+                  themselves are right on every timeframe. Saying so here
+                  saves a support ticket about a column of dashes. */}
+              {indicatorValuesMissing && (
+                <p className="fx-epnote" style={{ marginTop: 14 }}>
+                  <b>Heads up.</b> On {form.timeframe} the candles your bot receives are correct,
+                  but the indicator <em>values</em> are not calculated yet — they arrive as{" "}
+                  <code>null</code>. Only <code>1m</code> has real indicator numbers today. Your bot
+                  can still read the candles and work them out itself.
+                </p>
               )}
+
+              {/* The connection details, straight off the trade response. On a
+                  trade that hasn't been saved yet there are no URLs to show —
+                  they only exist once the trade does. */}
+              {form.decider_type === "OWN_BOT" &&
+                !justCreated &&
+                (connectTrade && !isAiTrade ? (
+                  <ConnectBotPanel
+                    candlesUrl={connectTrade.candles_url}
+                    decisionUrl={connectTrade.decision_url}
+                    devKey={connectBot?.dev_key}
+                    botId={connectBotId}
+                    botName={connectBot?.name ?? connectTrade.bot_name ?? undefined}
+                    botPaused={connectBot?.status === "PAUSED"}
+                    heading="Connect your bot"
+                    intro="Your bot needs these three things, and nothing else. Paste them into an n8n HTTP Request node, a Make module, or your own code."
+                  />
+                ) : (
+                  <div className="fx-epbox">
+                    <p className="fx-epnote" style={{ marginTop: 0 }}>
+                      <b>Not yet.</b> Candleweb issues this trade&rsquo;s pull URL and decision URL
+                      when you save it — they are specific to the trade, so they cannot be shown in
+                      advance. Save, and they appear here with copy buttons alongside your
+                      bot&rsquo;s developer key.
+                    </p>
+                  </div>
+                ))}
 
               {form.decider_type === "CANDLE_AI" && (
                 <div className="fx-aibox">

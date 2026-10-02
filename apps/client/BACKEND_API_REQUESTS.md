@@ -90,7 +90,17 @@ Priority:
 - **Used by:** `pages/dashboard/trades.tsx` (+ future trade-detail page). Also the source `bots.tsx`
   would sum per-bot to fill in each bot row's honest `—`-and-`.fx-preview` "P&L · 30d" tile.
 
-### 1.5 Bot decision history
+### 1.5 Bot decision history — DELIVERED 2026-10-02
+**Shipped as `GET /trading_v2/decisions/?bot=<id>` (not the proposed
+`/bots/{id}/decisions/`), wrapped as `{ status, message, count, results }`.
+Field names differ from the proposal below — see `types/tradingV2.d.ts`
+(`BotDecisionV2`) for what actually arrives: `decision`, `confidence`,
+`rationale`, `candles_seen`, `market_data_count`, `saw_stale_data`,
+`think_time_seconds`, `decided_at`. There is no order outcome (`status`,
+`size_pct`): nothing is bought or sold from a decision, so "what the order
+did" does not exist. Wired in `components/dashboard/focus/DecisionsList.tsx`.
+Original request kept below for reference.**
+
 - **Why:** the bot-detail page has a "Recent decisions" table (candle → the bot's
   call → what the order did). It's a **design-only placeholder** right now.
 - **Proposed:** `GET /trading_v2/bots/{id}/decisions/?page=N`
@@ -121,7 +131,18 @@ Priority:
   below. Today that section only shows each bot's *current* status (real), with an honest
   `.fx-preview` note in place of the rest.
 
-### 1.6 Bot health / uptime
+### 1.6 Bot health / uptime — DELIVERED 2026-10-02
+**Shipped as `GET /trading_v2/bots/{id}/health/` plus a fleet roll-up at
+`GET /trading_v2/bots/health/`, both wrapped as `{ status, message, data }`.
+Field names differ from the proposal below — see `BotHealthV2` /
+`FleetHealthV2` in `types/tradingV2.d.ts`. Two things to know when reading it:
+`unavailable` lists the fields with no measurement yet, which must render as
+"Not measured yet" rather than 0 or 100%; and `daily_replies` is always
+exactly 30 zero-filled entries. Presentation rules live in
+`lib/botHealthV2.ts`. Still missing: p95 reply time, and the settings page's
+"last *successful* call" (the endpoint reports last signal, not last success).
+Original request kept below for reference.**
+
 - **Why:** bot-detail shows "Uptime · 30d", "Median reply time", "Decisions · 30d".
   All `—` today.
 - **Proposed:** `GET /trading_v2/bots/{id}/health/`
@@ -239,7 +260,11 @@ Priority:
   ```
 - **Used by:** `pages/dashboard/index.tsx`
 
-### 1.13 Account-wide decision feed
+### 1.13 Account-wide decision feed — DELIVERED 2026-10-02
+**Shipped as `GET /trading_v2/decisions/` with `bot`, `trade`, `decision`,
+`limit` and `offset` filters. Powers the Overview "Recent activity" spine and
+the new `/dashboard/decisions` page. Original request kept below.**
+
 - **Why:** the Overview "Recent activity" spine. Same data as the per-bot
   decisions (1.5) but across all of the user's bots, newest first.
 - **Proposed:** `GET /trading_v2/decisions/?limit=20` — same row shape as 1.5

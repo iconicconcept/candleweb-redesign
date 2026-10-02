@@ -1,6 +1,6 @@
 import Head from "next/head";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "../../redux/store";
 import tradingV2Service from "../../services/tradingV2Service";
@@ -10,8 +10,18 @@ import DashboardShell from "../../components/dashboard/focus/DashboardShell";
 import TopBar from "../../components/dashboard/focus/TopBar";
 import Dialog from "../../components/dashboard/focus/Dialog";
 import { TrashIcon } from "../../components/dashboard/focus/icons";
-import { BotV2 } from "../../types/tradingV2";
+import { BotV2, FleetHealthV2 } from "../../types/tradingV2";
 import { STATUS_META, platformLabel } from "../../lib/botV2Labels";
+import {
+  NOT_MEASURED,
+  answeringLabel,
+  connectionState,
+  failureStreakParts,
+  isUnavailable,
+  pausesCaveat,
+  unavailableReason,
+  whenLabel,
+} from "../../lib/botHealthV2";
 
 const BotsPage = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -22,28 +32,58 @@ const BotsPage = () => {
 
   const [busyId, setBusyId] = useState<number | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<BotV2 | null>(null);
+  const [fleet, setFleet] = useState<FleetHealthV2 | null>(null);
   const fetchedRef = useRef(false);
+
+  /* `GET /bots/health/` — one call for the whole fleet. A user with no bots
+     gets zeroes and an empty `bots` array rather than an error, so a null
+     here means the call itself failed and every tile falls back to "not
+     measured" instead of to a zero. */
+  const loadFleet = useCallback(async () => {
+    if (!isAuthorizationHeaderSet(axiosToken)) return;
+    try {
+      setFleet(await tradingV2Service.getFleetHealth(axiosToken));
+    } catch {
+      setFleet(null);
+    }
+  }, [axiosToken]);
 
   useEffect(() => {
     if (!isAuthorizationHeaderSet(axiosToken) || fetchedRef.current) return;
     fetchedRef.current = true;
     dispatch(tradingV2Service.listBots(axiosToken));
     dispatch(tradingV2Service.listTrades(axiosToken));
-  }, [axiosToken, dispatch]);
+    loadFleet();
+  }, [axiosToken, dispatch, loadFleet]);
+
+  /* Pausing / resuming / removing a bot changes `connected` and `running`
+     immediately, so the fleet numbers are re-read rather than left stale. */
+  const fleetBot = (id: number) => fleet?.bots.find((b) => b.bot_id === id) ?? null;
 
   // The design's chips under each bot show the real pair/timeframe of every
   // trade currently pointed at it — not the bot's own config (decision style,
   // on-no-reply), which was shown here before real trade data was wired up.
   const tradesForBot = (botId: number) => trades.filter((t) => t.bot === botId);
 
-  const runningCount = bots.filter((b) => b.status === "ACTIVE").length;
-  // "Fleet health" from the design wants a 7-day trend, streaks and a
-  // "reviews waiting" milestone panel — none of that exists yet (needs bot
-  // decision history + a review endpoint, see BACKEND_API_REQUESTS.md §1.5/
-  // §1.7). What IS real right now: each bot's current status, so the meter
-  // below reflects "healthy right now", not a fabricated 7-day history.
-  const healthyCount = bots.filter((b) => !(STATUS_META[b.status] ?? STATUS_META.PAUSED).dead).length;
-  const failingCount = bots.length - healthyCount;
+  /* `running` = bots that are not paused; `connected` = bots actually
+     answering. Both come from the fleet endpoint; the local status list is
+     only the fallback for the moment before it resolves. */
+  const runningCount = fleet ? fleet.running : bots.filter((b) => b.status === "ACTIVE").length;
+  const connectedCount = fleet ? fleet.connected : null;
+  const notAnswering = fleet ? Math.max(0, fleet.answering_of - fleet.answering) : 0;
+
+  /* The fleet's `days_without_failure` is its WORST bot, not an average —
+     four healthy bots must not hide one that failed this morning. The fleet
+     endpoint carries no `last_failure_at`, so `failed_30d` is what separates
+     a 0 that means "failed today" from a 0 that means "nothing has failed
+     yet" (the same split the per-bot page makes with `last_failure_at`). */
+  const streak =
+    !fleet || isUnavailable(fleet.unavailable, "days_without_failure")
+      ? { value: null, caption: NOT_MEASURED }
+      : failureStreakParts(
+          fleet.days_without_failure,
+          fleet.failed_30d != null && fleet.failed_30d > 0 ? "yes" : null,
+        );
 
   const toggleRun = async (b: BotV2) => {
     setBusyId(b.id);
@@ -53,6 +93,7 @@ const BotsPage = () => {
       } else {
         await dispatch(tradingV2Service.resumeBot({ api: axiosToken, id: b.id }));
       }
+      loadFleet();
     } finally {
       setBusyId(null);
     }
@@ -64,6 +105,7 @@ const BotsPage = () => {
     try {
       await dispatch(tradingV2Service.deleteBot({ api: axiosToken, id: confirmDelete.id }));
       setConfirmDelete(null);
+      loadFleet();
     } finally {
       setBusyId(null);
     }
@@ -104,14 +146,16 @@ const BotsPage = () => {
           </div>
         </section>
 
-        {/* ---- fleet status — real data only, see comment above ---- */}
+        {/* ---- fleet status — GET /bots/health/ ---- */}
         {bots.length > 0 && (
           <section className="fx-mom rv d2" style={{ marginTop: "clamp(26px,3.4vw,38px)", paddingTop: 24 }}>
             <div className="fx-sh">
               <h2>
                 Your bots at a glance{" "}
                 <span className="sub2">
-                  {bots.length} connected · {runningCount} running
+                  {fleet ? fleet.bots_total : bots.length} bot
+                  {(fleet ? fleet.bots_total : bots.length) === 1 ? "" : "s"} · {runningCount} running
+                  {connectedCount != null && ` · ${connectedCount} answering`}
                 </span>
               </h2>
             </div>
@@ -120,67 +164,114 @@ const BotsPage = () => {
                 <div className="fx-meter">
                   <div className="fx-mh">
                     <b>Fleet health — right now</b>
-                    <span>
-                      {healthyCount} of {bots.length} healthy
-                    </span>
+                    <span>{answeringLabel(fleet)}</span>
                   </div>
+                  {/* One segment per bot, filled when that bot is actually
+                      answering. A paused bot reads as not-answering here,
+                      which is correct — it is just not a fault. */}
                   <div className="fx-seg">
-                    {bots.map((b) => (
-                      <i key={b.id} className={(STATUS_META[b.status] ?? STATUS_META.PAUSED).dead ? "" : "f"} />
-                    ))}
+                    {(fleet?.bots ?? bots.map((b) => ({ bot_id: b.id, connected: false }))).map(
+                      (b: { bot_id: number; connected: boolean }) => (
+                        <i key={b.bot_id} className={b.connected ? "f" : ""} />
+                      ),
+                    )}
                   </div>
                   <p className="fx-mnote">
-                    {failingCount > 0
-                      ? `${failingCount} bot${failingCount === 1 ? "" : "s"} not responding right now — see below.`
-                      : "Every connected bot is answering its calls."}{" "}
-                    <span className="fx-preview" style={{ marginLeft: 6 }}>
-                      <i>◔</i> 7-day trend needs decision history
-                    </span>
+                    {!fleet
+                      ? "Reading the fleet…"
+                      : notAnswering > 0
+                        ? `${notAnswering} bot${notAnswering === 1 ? "" : "s"} not in touch right now — see below.`
+                        : "Every bot is answering right now."}{" "}
+                    Answering means a reply in the last six hours — wide enough that a 4-hour trade
+                    still reads as healthy. This is right now, not uptime.
                   </p>
                 </div>
                 <div className="fx-streaks2">
                   <div className="fx-stk2">
                     <span>Days with no failures</span>
-                    <b className="mut">—</b>
-                    <div className="fx-preview" style={{ marginTop: 8 }}>
-                      <i>◔</i> needs bot decision history
-                    </div>
+                    {/* The tile's `b` is a 26px figure slot, so a sentence
+                        goes in the small caption instead of being blown up to
+                        heading size. */}
+                    {streak.value == null ? (
+                      <b className="none3">{streak.caption}</b>
+                    ) : (
+                      <>
+                        <b className={streak.caption === "failed today" ? "amb3" : ""}>
+                          {streak.value}
+                        </b>
+                        <i>{streak.caption}</i>
+                      </>
+                    )}
+                    <span className="why3">
+                      {streak.value == null ? (
+                        unavailableReason(fleet?.unavailable, "days_without_failure") ??
+                        "No bot has been handed a candle and given time to answer yet."
+                      ) : (
+                        <>
+                          Your <b>worst</b> bot, not an average.
+                        </>
+                      )}
+                    </span>
                   </div>
                   <div className="fx-stk2">
                     <span>Reviews waiting</span>
-                    <b className="mut">—</b>
-                    <div className="fx-preview" style={{ marginTop: 8 }}>
-                      <i>◔</i> needs a bot-review endpoint
-                    </div>
+                    {/* Always null — nothing spends a bot review yet, so none
+                        can be waiting. Never render this as a 0. */}
+                    <b className="none3">{NOT_MEASURED}</b>
+                    <span className="why3">
+                      {unavailableReason(fleet?.unavailable, "reviews_waiting") ??
+                        "Nothing spends a bot review yet, so none can be waiting."}
+                    </span>
                   </div>
                 </div>
               </div>
               <div>
                 <div className="fx-unlock">
-                  <h4>Next milestone</h4>
-                  <p className="us">Two bots with real trade history unlocks strategy comparison.</p>
-                  <div className="fx-ul">
-                    <i>1</i>
+                  <h4>The last 7 days</h4>
+                  <p className="us">Measured by Candleweb, not reported by your bots.</p>
+                  {/* No tick on a zero — the mark says "this is measured",
+                      so it only goes on a figure that exists. */}
+                  <div className={`fx-ul ${fleet && fleet.decisions_7d > 0 ? "got3" : ""}`}>
+                    <i>{fleet && fleet.decisions_7d > 0 ? "✓" : "·"}</i>
                     <div>
-                      <b>Two bots with closed-trade history</b>
-                      {/* a <div>, not `.fx-ul span` — that selector would
-                          override `.fx-preview`'s pill styling */}
-                      <div className="fx-preview" style={{ marginTop: 4 }}>
-                        <i>◔</i> needs BACKEND_API_REQUESTS.md §1.5 (bot decision history)
-                      </div>
+                      <b>
+                        {fleet ? fleet.decisions_7d.toLocaleString() : "—"} decision
+                        {fleet?.decisions_7d === 1 ? "" : "s"} answered
+                      </b>
+                      <span>
+                        {fleet && fleet.decisions_7d > 0
+                          ? "Open a bot to read what it decided and why."
+                          : "Nothing answered this week."}
+                      </span>
                     </div>
                   </div>
                   <div className="fx-ul">
-                    <i>2</i>
+                    <i>{fleet?.failed_30d ? "!" : "·"}</i>
                     <div>
-                      <b>Strategy comparison</b>
-                      <span>Put two prompts side by side on the same pair</span>
+                      <b>
+                        {fleet == null || fleet.failed_30d == null
+                          ? NOT_MEASURED
+                          : `${fleet.failed_30d.toLocaleString()} missed candle${fleet.failed_30d === 1 ? "" : "s"} in 30 days`}
+                      </b>
+                      <span>
+                        {fleet?.failed_30d == null
+                          ? "No bot has been asked anything yet."
+                          : "Across every bot. A candle is missed when no decision came back inside that bot’s timeout."}
+                      </span>
                     </div>
                   </div>
                   <p className="fx-tip2">
-                    <b style={{ color: "var(--fx-t2)" }}>Worth knowing.</b> Recommendations ready and a review
-                    verdict per bot (§1.7) need the same decision history — until then this stays a locked
-                    preview instead of a guess at whether any bot actually qualifies.
+                    <b style={{ color: "var(--fx-t2)" }}>Worth knowing.</b> Silence is a failure;{" "}
+                    <b>hold</b> is not — a bot with nothing to say should answer <code>HOLD</code>.
+                    A bot polling the same candle repeatedly owes one answer, not one per request.
+                    {pausesCaveat(fleet?.unavailable) && (
+                      <>
+                        {" "}
+                        <span title={pausesCaveat(fleet?.unavailable)} style={{ cursor: "help" }}>
+                          Time spent paused before this release still counts against uptime (?)
+                        </span>
+                      </>
+                    )}
                   </p>
                 </div>
               </div>
@@ -194,7 +285,7 @@ const BotsPage = () => {
             <h2>
               Connected bots{" "}
               <span className="sub2">
-                {bots.length} connected · {runningCount} running
+                {bots.length} bot{bots.length === 1 ? "" : "s"} · {runningCount} running
               </span>
             </h2>
             <Link className="fx-link" href="/dashboard/bots/new">
@@ -220,6 +311,12 @@ const BotsPage = () => {
           {bots.map((b) => {
             const meta = STATUS_META[b.status] ?? STATUS_META.PAUSED;
             const running = b.status === "ACTIVE";
+            const fb = fleetBot(b.id);
+            /* "Paused" and "never answered yet" are not faults, so neither
+               gets a red state — see connectionState. */
+            const conn = connectionState(
+              fb ? { connected: fb.connected, status: fb.status, last_signal: fb.last_signal } : null,
+            );
             return (
               <div key={b.id} className={`fx-bcard ${meta.dead ? "dead" : ""} ${b.status === "PAUSED" ? "off5" : ""}`}>
                 <div className="fx-bl1">
@@ -227,6 +324,7 @@ const BotsPage = () => {
                     {b.name}
                   </Link>
                   <span className={`fx-st4 ${meta.cls}`}>{meta.label}</span>
+                  {fb && <span className={`fx-st4 ${conn.cls}`}>{conn.label}</span>}
                   <span className="fx-src">
                     {platformLabel(b.platform)} · {b.reach_mode === "PULL" ? "pull" : "push"}
                   </span>
@@ -241,10 +339,13 @@ const BotsPage = () => {
                     <span>Reply timeout</span>
                     <b>{b.reply_timeout_s}s</b>
                   </div>
+                  {/* `consecutive_fail_count` used to sit here. It is always
+                      0 — nothing increments it — so it is not displayed
+                      anywhere; the health endpoint is the real source. */}
                   <div className="fx-bm">
-                    <span>Fails in a row</span>
-                    <b className={b.consecutive_fail_count > 0 ? "dn5" : ""}>
-                      {b.consecutive_fail_count}
+                    <span>Last signal</span>
+                    <b className={fb?.last_signal ? "" : "mut"}>
+                      {fb ? (fb.last_signal ? whenLabel(fb.last_signal) : "Never") : "—"}
                     </b>
                   </div>
                   <div className="fx-bm">
@@ -271,9 +372,25 @@ const BotsPage = () => {
 
                 {meta.dead && (
                   <p className="fx-failmsg">
-                    <b>Not responding.</b> {b.consecutive_fail_count} failed{" "}
-                    call{b.consecutive_fail_count === 1 ? "" : "s"} in a row — no orders are being
-                    placed. Check the webhook is reachable, then resume it.
+                    <b>Not responding.</b> Candleweb is not getting answers from this bot. Check it
+                    is running and reachable, then resume it —{" "}
+                    <Link href={`/dashboard/bots/${b.id}`} style={{ color: "var(--fx-teal2)" }}>
+                      its reliability record
+                    </Link>{" "}
+                    shows which candles went unanswered.
+                  </p>
+                )}
+                {!meta.dead && conn.tone === "bad" && (
+                  <p className="fx-hint" style={{ marginTop: 10 }}>
+                    <b>Nothing in the last six hours.</b> That is only a problem if this bot should
+                    have been asked something in that time — open it to see the candles it owed an
+                    answer to.
+                  </p>
+                )}
+                {conn.tone === "new" && b.status !== "PAUSED" && (
+                  <p className="fx-hint" style={{ marginTop: 10 }}>
+                    <b>Not connected yet.</b> This bot has never answered. Assign it to a trade and
+                    point it at that trade&rsquo;s pull and decision URLs.
                   </p>
                 )}
 

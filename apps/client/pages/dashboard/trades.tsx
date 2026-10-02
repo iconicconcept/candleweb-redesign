@@ -278,8 +278,13 @@ const TradesPage = () => {
                     {busyId === t.id ? "…" : running ? "Pause" : "Start"}
                   </button>
                   <Link className="fx-mini" href={`/dashboard/trades/new?id=${t.id}`}>
-                    Edit setup
+                    {isAi ? "Edit setup" : "Setup & connection"}
                   </Link>
+                  {!isAi && t.bot != null && (
+                    <Link className="fx-mini" href={`/dashboard/bots/${t.bot}`}>
+                      Bot &amp; decisions
+                    </Link>
+                  )}
                   <button
                     type="button"
                     className="fx-mini dgr"

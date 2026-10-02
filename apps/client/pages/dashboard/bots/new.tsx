@@ -75,7 +75,9 @@ const DEFAULTS: FormState = {
   name: "",
   note: "",
   platform: "N8N_CLOUD",
-  reach_mode: "PUSH",
+  // PULL, because nothing pushes yet — a PUSH bot still has to pull its own
+  // candles, so defaulting to PUSH would set up an expectation we don't meet.
+  reach_mode: "PULL",
   webhook_url: "",
   reply_timeout_s: 60,
   on_no_reply: "SKIP",
@@ -332,8 +334,9 @@ const AddBotPage = () => {
                 <span className="fx-tick2">✓</span>
               </div>
               <p className="fx-fsub">
-                Push is the normal choice. Pull suits self-hosted setups that aren&rsquo;t reachable
-                from the internet.
+                Pull is the one to choose. Nothing pushes yet — even a bot set to push has to
+                fetch its own candles today, so push is a setting you are storing for later rather
+                than a way of working now.
               </p>
 
               <div className="fx-reach2">
@@ -348,10 +351,14 @@ const AddBotPage = () => {
                     <b>{r.label}</b>
                     <span>
                       {r.value === "PUSH"
-                        ? "We POST the closed candle to your URL and wait for a decision."
-                        : "Your bot calls our market-data endpoint on its own schedule, then posts a decision back."}
+                        ? "One day we POST the closed candle to your URL and wait for a decision. Not yet — a push bot still has to pull."
+                        : "Your bot calls the trade's pull URL on its own schedule, then posts a decision back."}
                     </span>
-                    <em>{r.value === "PUSH" ? "Recommended" : "Works behind a firewall"}</em>
+                    <em>
+                      {r.value === "PUSH"
+                        ? "Not sending yet"
+                        : "Recommended · works behind a firewall"}
+                    </em>
                   </button>
                 ))}
               </div>

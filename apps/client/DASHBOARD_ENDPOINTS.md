@@ -143,8 +143,8 @@ variant `candleweb-new-account-dashboard.html`). The legacy body + the
 | ⛔ | **equity time series** | hero chart is a static placeholder SVG. Needs account-equity history (per exchange account, daily points). |
 | ⛔ | **open positions + stop distance** | "Your trades" rows show `—` for P&L and have no live position/entry/stop/mark. Needs the same per-trade performance / open-position data as §9. |
 | ⛔ | **daily & 30d P&L, drawdown, at-risk** | hero substats "Open P&L", "Realised · 30d" render `—`. |
-| ⛔ | **bot decision feed** | "Recent activity" spine is a design-only placeholder. Needs the per-bot decisions endpoint from §10 (`GET /trading_v2/bots/{id}/decisions/`), ideally an account-wide `GET /trading_v2/decisions/?limit=` for this feed. |
-| ⛔ | **momentum / review-readiness** | design-only — needs the decisions feed + `GET /trading_v2/bots/{id}/review/` (§10). |
+| ✅ (2026-10-02) | **bot decision feed** | `GET /trading_v2/decisions/?limit=10` — the "Recent activity" spine is live, rendered by the shared `DecisionsList` component (`variant="spine"`). Clicking a row opens the decision detail (`GET /decisions/{id}/`). |
+| ◔ (2026-10-02) | **momentum / review-readiness** | "Days with no bot failures" is now real from `GET /trading_v2/bots/health/` (the fleet's *worst* bot, not an average). The 20-trade review-readiness meter and "suggestions applied" still need closed-trade history + `GET /trading_v2/bots/{id}/review/` (§10). |
 
 New-account state: shown when `bots`, `trades` and `exchangeRecord` are all
 empty — a 3-step getting-started panel linking to the real flows (Settings →
@@ -175,9 +175,17 @@ Rebuilt 2026-09-10 on the new **Trades (v2)** API (`/api/trading_v2/`).
 | ❓ | **`status` enum** | assumed `RUNNING` / `PAUSED` / `ERROR` (doc example only shows `PAUSED`). |
 | ❓ | **no demo/live field** | mockup has a Demo/Live switch; v2 payload has none. Cut — confirm whether the exchange account implies it. |
 
-Bot-facing (documented, not used by the dashboard UI): `GET /trading_v2/trades/{trade_id}/candles/`, `POST …/decision/` — shown as reference URLs on the New-trade screen.
+| ✅ (2026-10-02) | **`candles_url` / `decision_url` on every trade** | the trade response now carries both, already host-correct. The form no longer builds them from the id (the old `API_ROOT` constant pointed at production while the app runs against sandbox) and shows them through `ConnectBotPanel` with copy buttons plus the bot's `dev_key` — after create and on the setup screen. Both are `null` on a CandleAI trade, where the panel is hidden. |
+| ⛔ (2026-10-02) | **`1d` candle feed** | the model accepts `1d` but the feed does not serve it, so a `1d` trade fails forever with "Timeframe '1d' is not available on the candle feed yet." **`1d` was removed from the timeframe dropdown** (`TIMEFRAMES` in `trades/new.tsx`) and goes back when the feed supports it. |
+| ⛔ (2026-10-02) | **indicator values above 1m** | on 15m/1h/4h every indicator value comes back `null`; the candles themselves are correct. The picker still works and the form warns on those timeframes. No screen displays indicator *values* yet — don't build one until this is fixed. |
 
-**Trade-detail page** (`candleweb-trade-detail-focus.html`) not built — needs a decisions-list endpoint, open-position / order data, and per-trade stats (win rate, confidence calibration). None exist.
+Bot-facing (documented, not called by the dashboard UI): `GET /trading_v2/trades/{trade_id}/candles/`, `POST …/decision/` — surfaced to the user through `ConnectBotPanel`, always from `candles_url` / `decision_url`, never assembled.
+
+**Trade-detail page** (`candleweb-trade-detail-focus.html`) still not built as its
+own route — `/dashboard/trades/new?id=<id>` serves as the detail/edit screen and
+now carries the connection panel. A dedicated page would need open-position /
+order data and per-trade stats (win rate, confidence calibration), which do not
+exist; per-trade decisions do (`/dashboard/decisions?trade=<id>`).
 
 The old `tradeService` v1 endpoints (`/trade/portfolio/`, `/trade/activate/{id}/`, `/trade/cancel/{id}/`, `/trade/active/`, `/trade/portfolio/profit/*`) are now **unused by any redesigned page** — `useDashboardBootstrap` and the legacy Overview body were the last callers. They can be retired once no other legacy route needs them.
 
@@ -208,10 +216,10 @@ live, health/decisions/P&L are **design-only** behind `.fx-preview`) ·
 | ✅ (2026-09-30) | **enum values** | confirmed against the API schema. Three FE guesses were wrong and got rejected ("not a valid choice"): `N8N_SELF`→`N8N_SELF_HOSTED`, `OWN_CODE`→`CUSTOM_CODE`, `BUY_HOLD`→`BUY_HOLD_ONLY`. Also `webhook_url` is optional for PULL — sent as `null` when empty (a blank string fails URL validation). |
 | ✅ (2026-09-30) | `GET /trading_v2/limits/` | `bots/new.tsx` disables both add buttons when `agents.can_start_another` is false and says why (no plan / N of N running) with a link to plans. Not yet used on trades or on resume. |
 | ❓ | **`model_name`** | free-text string. Front-end offers a fixed `MODEL_OPTIONS` list but sends whatever's set; confirm there's no server-side enum. |
-| ❓ | **`dev_key` on later reads** | assumed masked/absent after create. Settings page shows `••••` until regenerate if the field comes back empty. Confirm. |
+| ✅ (2026-10-02) | **`dev_key` on later reads** | confirmed present in full on **every** bot response, not only on create/regenerate. It is masked in the UI by choice (Show/Copy), not because the API withholds it. The "shown only on create" captions were removed. |
 | ❓ | **`test-connection` response shape** | `BotV2TestResult` (`ok`/`status_code`/`body`/`error`) is the front-end's assumption — confirm field names. |
-| ⛔ | **per-bot health / uptime / reply-time** | bot-detail shows 30d uptime %, median reply time. No endpoint — `—` preview strip on `bots/[id]/index.tsx`. |
-| ⛔ | **per-bot decisions list** | `bots/[id]/index.tsx` "Recent decisions" is a design-only table (candle → action → outcome). Needs `GET /trading_v2/bots/{id}/decisions/` (or similar). |
+| ✅ (2026-10-02) | **per-bot health / uptime / reply-time** | `GET /trading_v2/bots/{id}/health/`. The Connection block, the "Reply time" vital and the 30-day `.fx-uptime` bar chart (from `daily_replies`) are live. **Rule:** a field named in `health.unavailable` renders as "Not measured yet" — never 0, never a green 100%. Helpers in `lib/botHealthV2.ts`. Still absent: p95 reply time, and last *successful* call for the settings page. |
+| ✅ (2026-10-02) | **per-bot decisions list** | `GET /trading_v2/decisions/?bot=<id>&limit=10`, live on `bots/[id]/index.tsx`, with "See all" into `/dashboard/decisions?bot=<id>`. No order outcome column: nothing is bought or sold from a decision, so "what the order did" does not exist. |
 | ⛔ | **per-bot P&L** | "net on its trades · 30d" — `—` preview on detail + review. |
 | ⛔ | **bot review / recommendation** | `bots/[id]/review.tsx` is built as design-only (verdict, findings columns, suggested-prompt-change). Needs the decision history above **plus** an analysis endpoint that returns the verdict + findings + prompt diff. Every figure on that page is a placeholder. |
 | ⛔ (2026-09-23) | **fleet-level trend/streaks/milestone + per-bot P&L on the list page** | `bots.tsx` now has a real "Your bots at a glance" section (segmented fleet-health meter using each bot's *current* `status`, which is real) but the design's 7-day trend, failure streaks and "reviews waiting"/"strategy comparison" milestone panel are all `.fx-preview`-gated — same root cause as the two rows above (needs decision history + a review endpoint). Each bot row also got an honest `.fx-preview` "P&L · 30d" tile rather than a fabricated number. |
@@ -220,9 +228,41 @@ live, health/decisions/P&L are **design-only** behind `.fx-preview`) ·
 | ⛔ | **"Open now" — per-trade open-position flag** | `TradeV2Status` only covers whether the trade *config* is running, not whether it's actively holding a position and on which pair. See BACKEND_API_REQUESTS.md §1.21. |
 | ❓ | **CandleAI on/off toggle** | the design's `bots.tsx` mockup shows a toggle switch on the CandleAI hero card. `CANDLE_AI` is a real `decider_type` chosen per-trade (`types/tradingV2.d.ts`), but there's no account-level "enable/disable CandleAI" field or endpoint anywhere — so it's unclear what the toggle is meant to control. Not built; needs product/backend clarification before it can be wired to anything real. |
 
-Bot-facing (documented, not used by the dashboard UI): the bot authenticates
+Bot-facing (documented, not called by the dashboard UI): the bot authenticates
 its calls to `…/trades/{id}/candles/` and `…/decision/` with `dev_key` in the
-`X-Candleweb-Key` header.
+`X-Candleweb-Key` header. The dashboard **shows** those two URLs — it never
+builds them: they come off the trade response as `candles_url` /
+`decision_url`, already pointing at the right host, and the old hand-built
+`API_ROOT` constant on the trade form pointed at production while the app runs
+against sandbox. See `components/dashboard/focus/ConnectBotPanel.tsx`.
+
+---
+
+## 10b. Bot decisions — `pages/dashboard/decisions.tsx` (built 2026-10-02)
+
+New page, new rail entry ("Bot decisions"). The record of what each bot
+answered when it was handed a candle. **No order is placed from a decision** —
+nothing here is a trade.
+
+| Status | Endpoint | Notes |
+|---|---|---|
+| ✅ | `GET /trading_v2/decisions/` | `{ status, message, count, results }`. Filters: `bot`, `trade`, `decision` (BUY/SELL/HOLD), `limit` (default 25, max 100), `offset`. Paging is driven by **`count`** (the total), never `results.length`. A filter is only ever sent when it has a value — `?bot=undefined` is a 400 (`"bot: Must be an id."`). |
+| ✅ | `GET /trading_v2/decisions/{id}/` | bare object, adds `market_data_ids`. Opened from any decision row. `market_data_ids` can be **shorter** than `market_data_count` — the count is frozen at decision time and the links go when old market data is tidied up; the UI says so rather than showing a bare mismatch. |
+
+Field rules enforced in `DecisionsList` / `lib/botHealthV2.ts`:
+
+- `think_time_seconds` is measured by Candleweb, not self-reported; `null`
+  renders as a dash, **never `0`**.
+- `candles_seen` is what users see. `market_data_count` only appears in the
+  detail dialog, explained — it looks like a bug otherwise.
+- `saw_stale_data: true` gets a visible marker; it is the first thing to check
+  when a bot does something strange.
+- `rationale` is free text from the user's own bot; React escapes it and
+  nothing uses `dangerouslySetInnerHTML`.
+- `confidence` is 0–100 and optional.
+
+Deep links used elsewhere: `/dashboard/decisions?bot=<id>` (bot detail "See
+all") and `?trade=<id>` (trades list).
 
 ---
 

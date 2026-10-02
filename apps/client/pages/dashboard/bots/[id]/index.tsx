@@ -2,7 +2,7 @@ import Head from "next/head";
 import { maskString } from "ui";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "../../../../redux/store";
 import tradingV2Service from "../../../../services/tradingV2Service";
@@ -10,6 +10,7 @@ import useAxiosAuth from "../../../../lib/hooks/useAxiosAuth";
 import { isAuthorizationHeaderSet } from "../../../../utils/check_auth";
 import DashboardShell from "../../../../components/dashboard/focus/DashboardShell";
 import TopBar from "../../../../components/dashboard/focus/TopBar";
+import DecisionsFeed from "../../../../components/dashboard/focus/DecisionsFeed";
 import { error } from "../../../../components/alert/Toast";
 import {
   STATUS_META,
@@ -17,12 +18,32 @@ import {
   decisionStyleLabel,
   onNoReplyLabel,
 } from "../../../../lib/botV2Labels";
+import {
+  NOT_MEASURED,
+  connectionState,
+  dailyReplyBars,
+  failedLabel,
+  failureStreakParts,
+  isUnavailable,
+  pausesCaveat,
+  secondsLabel,
+  sinceLabel,
+  timeoutDiffers,
+  unavailableReason,
+  uptimeLabel,
+  whenLabel,
+} from "../../../../lib/botHealthV2";
+import { BotHealthV2 } from "../../../../types/tradingV2";
 
-/* The rich per-bot view. Header + config are live (Bots v2 fields + the
-   trades that reference this bot). Health, reply-time, decisions and P&L
-   are DESIGN ONLY behind a `.fx-preview` ribbon — no endpoints exist for
-   them yet (tracked in DASHBOARD_ENDPOINTS.md §10). Wire each block when
-   the backend exposes it; the markup is already in place. */
+/* The rich per-bot view. Live: the bot's own config, the trades that point
+   at it, its reliability record (`GET /bots/<id>/health/`) and the decisions
+   it has made (`GET /decisions/?bot=`). Still DESIGN ONLY behind a
+   `.fx-preview` ribbon: P&L and open-position state, which have no endpoint
+   (DASHBOARD_ENDPOINTS.md §1.4 / §1.21).
+
+   The health block's one rule: a field named in `health.unavailable` has no
+   measurement yet and renders as "Not measured yet" — never as 0, and never
+   as a green 100%. A bot nobody has called has not proved anything. */
 
 const BotDetailPage = () => {
   const router = useRouter();
@@ -36,8 +57,11 @@ const BotDetailPage = () => {
 
   const [busy, setBusy] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [health, setHealth] = useState<BotHealthV2 | null>(null);
+  const [healthFailed, setHealthFailed] = useState<string | null>(null);
   const fetchedRef = useRef(false);
   const botFetchedRef = useRef<number | null>(null);
+  const healthFetchedRef = useRef<number | null>(null);
 
   const copyField = async (field: string, value?: string) => {
     if (!value) return;
@@ -50,6 +74,21 @@ const BotDetailPage = () => {
     }
   };
 
+  /* Health and decisions are re-read after a pause/resume, since both change
+     what `connected` reports. A 404 from either means the bot does not exist
+     or belongs to someone else — the message is "Not found." either way,
+     deliberately, so ids cannot be probed. */
+  const loadHealth = useCallback(async () => {
+    if (!valid || !isAuthorizationHeaderSet(axiosToken)) return;
+    try {
+      setHealth(await tradingV2Service.getBotHealth(axiosToken, id as number));
+      setHealthFailed(null);
+    } catch (err: any) {
+      setHealth(null);
+      setHealthFailed(err?.message || "Couldn't read this bot's health.");
+    }
+  }, [axiosToken, valid, id]);
+
   useEffect(() => {
     if (!isAuthorizationHeaderSet(axiosToken)) return;
     if (!fetchedRef.current) {
@@ -61,7 +100,11 @@ const BotDetailPage = () => {
       botFetchedRef.current = id;
       dispatch(tradingV2Service.getBot({ api: axiosToken, id: id as number }));
     }
-  }, [axiosToken, dispatch, valid, id, bot]);
+    if (valid && healthFetchedRef.current !== id) {
+      healthFetchedRef.current = id;
+      loadHealth();
+    }
+  }, [axiosToken, dispatch, valid, id, bot, loadHealth]);
 
   const linkedTrades = useMemo(
     () => trades.filter((t) => t.bot === id),
@@ -77,12 +120,23 @@ const BotDetailPage = () => {
       } else {
         await dispatch(tradingV2Service.resumeBot({ api: axiosToken, id: bot.id }));
       }
+      loadHealth();
     } finally {
       setBusy(false);
     }
   };
 
   const meta = bot ? STATUS_META[bot.status] ?? STATUS_META.PAUSED : null;
+  const conn = connectionState(health);
+  /* `0` means two different things, and `last_failure_at` is what separates
+     them — "failed today" vs "nothing has failed yet". Split into a figure
+     plus a caption so the 26px `b` never holds a sentence. */
+  const streak =
+    !health || isUnavailable(health.unavailable, "days_without_failure")
+      ? { value: null, caption: NOT_MEASURED }
+      : failureStreakParts(health.days_without_failure, health.last_failure_at);
+  const bars = dailyReplyBars(health?.daily_replies);
+  const busiestDay = bars.reduce((m, b) => Math.max(m, b.decisions), 0);
 
   return (
     <>
@@ -117,6 +171,7 @@ const BotDetailPage = () => {
                 <h1>{bot.name}</h1>
                 <div className="row5">
                   <span className={`fx-st4 ${meta.cls}`}>{meta.label}</span>
+                  {health && <span className={`fx-st4 ${conn.cls}`}>{conn.label}</span>}
                   <span className="fx-src">
                     {platformLabel(bot.platform)} · connected{" "}
                     {new Date(bot.created_at).toLocaleDateString()} ·{" "}
@@ -160,12 +215,19 @@ const BotDetailPage = () => {
 
             {meta.dead && (
               <p className="fx-failmsg">
-                <b>Not responding.</b> {bot.consecutive_fail_count} failed calls in a row — no
-                orders are being placed for any trade this bot decides. Fix the webhook from{" "}
+                <b>Not responding.</b> Candleweb is not getting answers from this bot, so no orders
+                are being placed for any trade it decides. Check it is running and reachable — fix
+                it from{" "}
                 <Link href={`/dashboard/bots/${bot.id}/settings`} style={{ color: "var(--fx-teal2)" }}>
                   settings
                 </Link>
-                , then resume.
+                , then resume. The failed-candle count below says how much it has missed.
+              </p>
+            )}
+            {!meta.dead && bot.status === "PAUSED" && (
+              <p className="fx-hint" style={{ marginTop: 10 }}>
+                <b>Paused.</b> Its developer key is refused while it is paused, so both of its URLs
+                answer 401. Time spent paused from now on is excluded from its uptime.
               </p>
             )}
 
@@ -196,17 +258,25 @@ const BotDetailPage = () => {
               </div>
               <div className="fx-v">
                 <span>Reply time</span>
-                <b className="mut2">—</b>
-                <i>needs a health endpoint</i>
+                <b className={health?.reply_time_seconds == null ? "mut2" : undefined}>
+                  {health?.reply_time_seconds == null ? "—" : secondsLabel(health.reply_time_seconds)}
+                </b>
+                <i>
+                  {health?.reply_time_seconds == null
+                    ? "nothing to measure yet"
+                    : "average over 7 days"}
+                </i>
               </div>
             </div>
             <p className="fx-hint" style={{ marginTop: "10px" }}>
               <span className="fx-preview">
-                <i>◔</i> Health &amp; P&amp;L land when the backend exposes them
+                <i>◔</i> P&amp;L and open positions land when the backend exposes them
               </span>
-              . What we <b>can</b> tell you right now: this bot has failed{" "}
-              <b>{bot.consecutive_fail_count}</b> call{bot.consecutive_fail_count === 1 ? "" : "s"} in a
-              row, and auto-pauses after <b>{bot.auto_pause_after_n_fails || "—"}</b>.
+              . What we <b>can</b> tell you: this bot has answered{" "}
+              <b>{health ? health.decisions_total.toLocaleString() : "—"}</b> time
+              {health?.decisions_total === 1 ? "" : "s"} in total,{" "}
+              <b>{health ? health.decisions_7d.toLocaleString() : "—"}</b> of them this week, and it
+              auto-pauses after <b>{bot.auto_pause_after_n_fails || "—"}</b> failures.
             </p>
 
             {/* review readiness — the design's trade-count meter, streaks and
@@ -244,14 +314,35 @@ const BotDetailPage = () => {
                   </div>
                   <div className="fx-streaks2">
                     <div className="fx-stk2">
+                      {/* 0 means two different things, and `last_failure_at`
+                          is what tells them apart — "failed today" vs
+                          "nothing has failed yet". */}
                       <span>Days answering every candle</span>
-                      <b className="mut3">—</b>
-                      <i>needs decision history</i>
+                      {streak.value == null ? (
+                        <b className="none3">{streak.caption}</b>
+                      ) : (
+                        <>
+                          <b className={streak.caption === "failed today" ? "amb3" : ""}>
+                            {streak.value}
+                          </b>
+                          <i>{streak.caption}</i>
+                        </>
+                      )}
+                      <span className="why3">
+                        {health == null
+                          ? "reading…"
+                          : streak.value == null
+                            ? unavailableReason(health.unavailable, "days_without_failure") ??
+                              "Nothing in the last 30 days to measure."
+                            : health.last_failure_at
+                              ? `Last miss ${whenLabel(health.last_failure_at)}.`
+                              : "No missed candles on record."}
+                      </span>
                     </div>
                     <div className="fx-stk2">
                       <span>Suggestions applied</span>
                       <b className="mut3">—</b>
-                      <i>needs a bot-review endpoint</i>
+                      <span className="why3">needs a bot-review endpoint</span>
                     </div>
                   </div>
                 </div>
@@ -303,39 +394,137 @@ const BotDetailPage = () => {
                 trades on the left, decisions/prompt on the right */}
             <div className="fx-two2">
               <section data-rv>
-                {/* connection — design only. The design's uptime bars encode
-                    30 days of real daily reply history we don't have, so no
-                    bars are drawn rather than faking a pattern. */}
+                {/* connection — GET /bots/<id>/health/. `failed_7d` is never
+                    shown without `calls_expected_7d` next to it: "3 failed" is
+                    alarming and meaningless, "3 of 1,240" is information. */}
                 <div className="fx-sh">
                   <h2>Connection</h2>
-                  <span className="fx-preview">
-                    <i>◔</i> Needs a health endpoint
-                  </span>
+                  <span className={`fx-st4 ${conn.cls}`}>{conn.label}</span>
                 </div>
+
+                {healthFailed && (
+                  <div className="fx-failmsg" style={{ marginTop: 0 }}>
+                    <b>Couldn&rsquo;t read this bot&rsquo;s health.</b> {healthFailed}{" "}
+                    <button
+                      type="button"
+                      className="fx-mini"
+                      style={{ marginLeft: 8 }}
+                      onClick={loadHealth}
+                    >
+                      Try again
+                    </button>
+                  </div>
+                )}
+
                 <div className="fx-health">
                   <div className="fx-hz">
                     <span>Last signal</span>
-                    <b className="mut2">—</b>
+                    <b className={health?.last_signal ? "" : "mut2"}>
+                      {!health
+                        ? "—"
+                        : health.last_signal
+                          ? sinceLabel(health.seconds_since_last_signal)
+                          : "Never"}
+                    </b>
                   </div>
                   <div className="fx-hz">
                     <span>Reply time</span>
-                    <b className="mut2">—</b>
+                    <b className={health?.reply_time_seconds == null ? "mut2" : ""}>
+                      {secondsLabel(health?.reply_time_seconds)}
+                    </b>
                   </div>
                   <div className="fx-hz">
                     <span>Failed · 7d</span>
-                    <b className="mut2">—</b>
+                    <b
+                      className={
+                        !health || isUnavailable(health.unavailable, "failed_7d")
+                          ? "none3"
+                          : health.failed_7d
+                            ? "dn5"
+                            : "up5"
+                      }
+                      title={unavailableReason(health?.unavailable, "failed_7d")}
+                    >
+                      {!health || isUnavailable(health.unavailable, "failed_7d")
+                        ? NOT_MEASURED
+                        : failedLabel(health.failed_7d, health.calls_expected_7d)}
+                    </b>
                   </div>
                   <div className="fx-hz">
+                    {/* A null reports as null, NOT 100%. A green "100% uptime"
+                        badge on a bot that has never run is a lie the user
+                        would act on. */}
                     <span>Uptime · 30d</span>
-                    <b className="mut2">—</b>
+                    <b
+                      className={
+                        !health || isUnavailable(health.unavailable, "uptime_30d")
+                          ? "none3"
+                          : (health.uptime_30d ?? 0) >= 99
+                            ? "up5"
+                            : "dn5"
+                      }
+                      title={unavailableReason(health?.unavailable, "uptime_30d")}
+                    >
+                      {!health || isUnavailable(health.unavailable, "uptime_30d")
+                        ? NOT_MEASURED
+                        : uptimeLabel(health.uptime_30d)}
+                    </b>
                   </div>
                 </div>
+
+                {/* 30 days of daily replies — always exactly 30 zero-filled
+                    entries, oldest first, so nothing here fills gaps. The zero
+                    days are the interesting ones: that is what an outage looks
+                    like. */}
+                {bars.length > 0 && (
+                  <>
+                    <div className="fx-uptime" aria-hidden="true">
+                      {bars.map((b) => (
+                        <i
+                          key={b.date}
+                          className={b.cls}
+                          style={{ height: `${b.pct}%` }}
+                          title={`${b.date} — ${b.decisions} decision${b.decisions === 1 ? "" : "s"}`}
+                        />
+                      ))}
+                    </div>
+                    <div className="fx-uplab">
+                      <span>{bars[0].date}</span>
+                      <span>
+                        {busiestDay > 0 ? `busiest day ${busiestDay}` : "no replies in 30 days"}
+                      </span>
+                      <span>{bars[bars.length - 1].date}</span>
+                    </div>
+                  </>
+                )}
+
                 <p className="fx-hint" style={{ marginTop: "14px" }}>
-                  Daily reply history needs a health endpoint 
-                  {/* (BACKEND_API_REQUESTS.md §1.6). What we{" "}
-                  <b>can</b> tell you right now: this bot has failed{" "}
-                  <b>{bot.consecutive_fail_count}</b> call{bot.consecutive_fail_count === 1 ? "" : "s"} in
-                  a row. */}
+                  One answer is owed per candle shown — not per request, and a candle still
+                  inside the timeout is pending, not failed. <b>Silence counts as a failure; a hold
+                  does not.</b>
+                  {health?.reply_timeout_seconds != null && (
+                    <>
+                      {" "}
+                      Timeout in use: <b>{health.reply_timeout_seconds}s</b>
+                      {timeoutDiffers(health, bot.reply_timeout_s) && (
+                        <>
+                          {" "}
+                          — not the <b>{bot.reply_timeout_s}s</b> you set, because the timeout is
+                          clamped to between 5 seconds and 6 hours
+                        </>
+                      )}
+                      .
+                    </>
+                  )}
+                  {health?.first_seen && <> First seen {whenLabel(health.first_seen)}.</>}
+                  {pausesCaveat(health?.unavailable) && (
+                    <>
+                      {" "}
+                      <span title={pausesCaveat(health?.unavailable)} style={{ cursor: "help" }}>
+                        Time spent paused before this release still counts against uptime (?)
+                      </span>
+                    </>
+                  )}
                 </p>
 
                 {/* endpoints — live */}
@@ -367,7 +556,7 @@ const BotDetailPage = () => {
                       <b>Developer key · sent both ways</b>
                     </div>
                     <div className="eb2">
-                      <code>{bot.dev_key ? maskString(bot.dev_key) : "•••••••••••••••• — shown only on create / regenerate"}</code>
+                      <code>{bot.dev_key ? maskString(bot.dev_key) : "— no key on this bot —"}</code>
                       {bot.dev_key && (
                         <button
                           className="fx-mini"
@@ -380,11 +569,14 @@ const BotDetailPage = () => {
                     </div>
                   </div>
                   <p className="fx-hint" style={{ marginTop: "10px" }}>
-                    Regenerating the key is a settings action —{" "}
+                    The bot sends this key on both of its calls as the header{" "}
+                    <code>X-Candleweb-Key</code>. One key serves every trade this bot decides for,
+                    so regenerating it breaks all of them at once — that is a settings action,{" "}
                     <Link href={`/dashboard/bots/${bot.id}/settings`} style={{ color: "var(--fx-teal2)" }}>
                       open settings
                     </Link>
-                    .
+                    . Each trade&rsquo;s own pull and decision URLs are on that trade&rsquo;s setup
+                    screen.
                   </p>
                 </div>
 
@@ -443,28 +635,26 @@ const BotDetailPage = () => {
               </section>
 
               <section data-rv>
-                {/* recent decisions — design only. Matches the same
-                    `.fx-spine`/`.fx-ev` timeline already used for this exact
-                    gap on the Overview page's "Recent activity", instead of
-                    the plain table this page had before. */}
+                {/* this bot's decisions — GET /decisions/?bot=<id>, listed in
+                    place a few at a time. The feed pages itself and opens any
+                    row in full. No order is placed from a decision: this is
+                    the record of what the bot answered, nothing more. */}
                 <div className="fx-sh">
-                  <h2>Recent decisions</h2>
-                  <span className="fx-preview">
-                    <i>◔</i> Feed arrives with a decisions endpoint
-                  </span>
+                  <h2>Decisions</h2>
+                  <span className="fx-src">what this bot answered</span>
                 </div>
-                <div className="fx-spine">
-                  {[0, 1, 2].map((i) => (
-                    <div className="fx-ev" key={i}>
-                      <span className="t2">—</span>
-                      <b>Bot decisions show here</b>
-                      <p>
-                        Every call Candleweb sends this bot, the reply it gave and what the order did
-                        — once the decisions endpoint exists this fills in on its own.
-                      </p>
-                    </div>
-                  ))}
-                </div>
+                <DecisionsFeed
+                  api={axiosToken}
+                  bot={bot.id}
+                  pageSize={5}
+                  empty={
+                    <>
+                      <b>No decisions from this bot yet.</b> It records one each time it fetches a
+                      trade&rsquo;s candles and posts an answer back — including the times it
+                      answers <code>HOLD</code>.
+                    </>
+                  }
+                />
 
                 {/* prompt — live, read-only */}
                 <div style={{ marginTop: "26px" }}>
