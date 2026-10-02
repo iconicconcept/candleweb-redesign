@@ -263,7 +263,9 @@ Original request kept below for reference.**
 ### 1.13 Account-wide decision feed — DELIVERED 2026-10-02
 **Shipped as `GET /trading_v2/decisions/` with `bot`, `trade`, `decision`,
 `limit` and `offset` filters. Powers the Overview "Recent activity" spine and
-the new `/dashboard/decisions` page. Original request kept below.**
+the per-bot feed on bot detail, both through the inline `DecisionsFeed`
+component (paged with Show more / Close). There is no separate decisions page.
+Original request kept below.**
 
 - **Why:** the Overview "Recent activity" spine. Same data as the per-bot
   decisions (1.5) but across all of the user's bots, newest first.

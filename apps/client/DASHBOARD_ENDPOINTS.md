@@ -143,7 +143,7 @@ variant `candleweb-new-account-dashboard.html`). The legacy body + the
 | ⛔ | **equity time series** | hero chart is a static placeholder SVG. Needs account-equity history (per exchange account, daily points). |
 | ⛔ | **open positions + stop distance** | "Your trades" rows show `—` for P&L and have no live position/entry/stop/mark. Needs the same per-trade performance / open-position data as §9. |
 | ⛔ | **daily & 30d P&L, drawdown, at-risk** | hero substats "Open P&L", "Realised · 30d" render `—`. |
-| ✅ (2026-10-02) | **bot decision feed** | `GET /trading_v2/decisions/?limit=10` — the "Recent activity" spine is live, rendered by the shared `DecisionsList` component (`variant="spine"`). Clicking a row opens the decision detail (`GET /decisions/{id}/`). |
+| ✅ (2026-10-02) | **bot decision feed** | `GET /trading_v2/decisions/` — the "Recent activity" spine is live, rendered by the shared `DecisionsFeed` component. Clicking a row opens the decision detail (`GET /decisions/{id}/`). |
 | ◔ (2026-10-02) | **momentum / review-readiness** | "Days with no bot failures" is now real from `GET /trading_v2/bots/health/` (the fleet's *worst* bot, not an average). The 20-trade review-readiness meter and "suggestions applied" still need closed-trade history + `GET /trading_v2/bots/{id}/review/` (§10). |
 
 New-account state: shown when `bots`, `trades` and `exchangeRecord` are all
@@ -219,7 +219,7 @@ live, health/decisions/P&L are **design-only** behind `.fx-preview`) ·
 | ✅ (2026-10-02) | **`dev_key` on later reads** | confirmed present in full on **every** bot response, not only on create/regenerate. It is masked in the UI by choice (Show/Copy), not because the API withholds it. The "shown only on create" captions were removed. |
 | ❓ | **`test-connection` response shape** | `BotV2TestResult` (`ok`/`status_code`/`body`/`error`) is the front-end's assumption — confirm field names. |
 | ✅ (2026-10-02) | **per-bot health / uptime / reply-time** | `GET /trading_v2/bots/{id}/health/`. The Connection block, the "Reply time" vital and the 30-day `.fx-uptime` bar chart (from `daily_replies`) are live. **Rule:** a field named in `health.unavailable` renders as "Not measured yet" — never 0, never a green 100%. Helpers in `lib/botHealthV2.ts`. Still absent: p95 reply time, and last *successful* call for the settings page. |
-| ✅ (2026-10-02) | **per-bot decisions list** | `GET /trading_v2/decisions/?bot=<id>&limit=10`, live on `bots/[id]/index.tsx`, with "See all" into `/dashboard/decisions?bot=<id>`. No order outcome column: nothing is bought or sold from a decision, so "what the order did" does not exist. |
+| ✅ (2026-10-02) | **per-bot decisions list** | `GET /trading_v2/decisions/?bot=<id>`, live on `bots/[id]/index.tsx` as an inline `DecisionsFeed` (5 at a time, Show more / Close, row opens the detail). No order outcome column: nothing is bought or sold from a decision, so "what the order did" does not exist. |
 | ⛔ | **per-bot P&L** | "net on its trades · 30d" — `—` preview on detail + review. |
 | ⛔ | **bot review / recommendation** | `bots/[id]/review.tsx` is built as design-only (verdict, findings columns, suggested-prompt-change). Needs the decision history above **plus** an analysis endpoint that returns the verdict + findings + prompt diff. Every figure on that page is a placeholder. |
 | ⛔ (2026-09-23) | **fleet-level trend/streaks/milestone + per-bot P&L on the list page** | `bots.tsx` now has a real "Your bots at a glance" section (segmented fleet-health meter using each bot's *current* `status`, which is real) but the design's 7-day trend, failure streaks and "reviews waiting"/"strategy comparison" milestone panel are all `.fx-preview`-gated — same root cause as the two rows above (needs decision history + a review endpoint). Each bot row also got an honest `.fx-preview` "P&L · 30d" tile rather than a fabricated number. |
@@ -238,11 +238,20 @@ against sandbox. See `components/dashboard/focus/ConnectBotPanel.tsx`.
 
 ---
 
-## 10b. Bot decisions — `pages/dashboard/decisions.tsx` (built 2026-10-02)
+## 10b. Bot decisions — `components/dashboard/focus/DecisionsFeed.tsx` (2026-10-02)
 
-New page, new rail entry ("Bot decisions"). The record of what each bot
-answered when it was handed a candle. **No order is placed from a decision** —
-nothing here is a trade.
+**No page of its own.** A standalone `/dashboard/decisions` route was built and
+then removed the same day: decisions belong next to the bot that made them, not
+in a separate destination. `DecisionsFeed` is a self-fetching, self-paging
+component dropped wherever decisions are relevant — a few rows, a **Show more**
+that fetches and appends the next page, a **Close** that drops back to the
+first few, and a row click that opens that one decision in full.
+
+In use on: Overview ("Recent activity", all bots, 4 at a time) and bot detail
+("Decisions", `bot=<id>`, 5 at a time). The trades list links a trade to its
+bot rather than to a decisions URL. The record of what each bot answered when
+it was handed a candle — **no order is placed from a decision**, nothing here
+is a trade.
 
 | Status | Endpoint | Notes |
 |---|---|---|
@@ -261,8 +270,9 @@ Field rules enforced in `DecisionsList` / `lib/botHealthV2.ts`:
   nothing uses `dangerouslySetInnerHTML`.
 - `confidence` is 0–100 and optional.
 
-Deep links used elsewhere: `/dashboard/decisions?bot=<id>` (bot detail "See
-all") and `?trade=<id>` (trades list).
+The `trade` filter is supported by the endpoint but not currently used by any
+screen — a per-trade feed would go on the trade setup page if it is ever asked
+for.
 
 ---
 
