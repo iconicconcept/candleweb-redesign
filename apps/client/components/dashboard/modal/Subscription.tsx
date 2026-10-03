@@ -2,7 +2,20 @@ import Image from "next/image"
 import Link from "next/link"
 import { AiOutlineCheck } from "react-icons/ai"
 import { BNB, Button, ETH, EthereumIcon, Heading, Modal, SOL, Typography, addExpirationDate, dollarFormat, formatDate } from "ui"
-import { IPricingProps } from "../../../pages/pricing"
+/* This used to import its shape from the old /pricing page. That page is now
+   the redesigned public one and no longer exports it, so the type lives here.
+   NOTE: nothing imports this modal any more -- the old pricing page was its
+   only caller. Safe to delete once you are sure it is not wanted. */
+export interface IPricingProps {
+  icon?: any;
+  title: string;
+  description?: string;
+  price: number;
+  options?: string[];
+  color?: string;
+  id: number;
+  unit?: number;
+}
 import React from "react"
 import { useSelector } from "react-redux"
 import { RootState } from "../../../redux/store"

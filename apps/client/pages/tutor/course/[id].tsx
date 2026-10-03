@@ -451,7 +451,7 @@ const CourseDetailPage = () => {
                       disabled={enrolment.busy}
                       onClick={onAction}
                     >
-                      {enrolment.busy ? "Working…" : action} <span>→</span>
+                      {enrolment.busy ? "Enrolling..." : action} <span>→</span>
                     </button>
                   </div>
                 </div>

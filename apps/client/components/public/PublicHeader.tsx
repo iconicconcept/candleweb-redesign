@@ -61,6 +61,7 @@ export type PublicNavKey =
   | "home"
   | "candleai"
   | "academy"
+  | "pricing"
   | "docs"
   | "blog"
   | "about";
@@ -85,6 +86,7 @@ const NAV_LINKS: { label: string; href: string; key: PublicNavKey }[] = [
   { label: "Bring your bot", href: "/", key: "home" },
   { label: "CandleAI", href: "/candleai", key: "candleai" },
   { label: "Academy", href: "/tutor", key: "academy" },
+  { label: "Pricing", href: "/pricing", key: "pricing" },
   { label: "Docs", href: "/docs", key: "docs" },
   { label: "Blog", href: "/blog", key: "blog" },
   { label: "About", href: "/about", key: "about" },

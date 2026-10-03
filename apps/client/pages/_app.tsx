@@ -8,6 +8,7 @@ import "../styles/landing.css";
 import "../styles/about.css";
 import "../styles/academy.css";
 import "../styles/candleai.css";
+import "../styles/pricing.css";
 import "../styles/legal.css";
 import "../styles/auth.css";
 import "../styles/docs.css";
