@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { useRouter } from "next/router";
@@ -183,11 +184,7 @@ const AcademyCourses = () => {
   };
 
   const openCourse = (course: any) => {
-    if (!isLoggedIn) {
-      googleAuth("/tutor#courses");
-      return;
-    }
-    router.push(`/dashboard/tutor/course/${course.id}`);
+    router.push(`/tutor/course/${course.id}`);
   };
 
   const categories = useMemo(() => {
@@ -258,7 +255,20 @@ const AcademyCourses = () => {
             const image = courseImage(course);
             const usd = toUSD(course.price);
             return (
-              <article className="ac-course landing-rise" key={course.id}>
+              <article
+                className="ac-course landing-rise ac-course-open"
+                key={course.id}
+                role="link"
+                tabIndex={0}
+                aria-label={`${course.title} — course details`}
+                onClick={() => openCourse(course)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    openCourse(course);
+                  }
+                }}
+              >
                 <div className="ac-c-cover">
                   {image ? (
                     <Image
@@ -306,11 +316,8 @@ const AcademyCourses = () => {
 
                 <div className="ac-c-body">
                   <span className="ac-c-cat">{course.category || "Course"}</span>
-                  <h3
-                    onClick={() => openCourse(course)}
-                    style={{ cursor: "pointer" }}
-                  >
-                    {course.title}
+                  <h3>
+                    <Link href={`/tutor/course/${course.id}`}>{course.title}</Link>
                   </h3>
                   <p>{course.description}</p>
                   {course.features?.length > 0 && (
@@ -349,7 +356,10 @@ const AcademyCourses = () => {
                         disabled={
                           isInitiating || isVerifying || isCheckingProfile
                         }
-                        onClick={() => handlePayment(course)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePayment(course);
+                        }}
                       >
                         {purchased ? "Go to dashboard" : "Pay now"} <span>→</span>
                       </button>
@@ -362,7 +372,10 @@ const AcademyCourses = () => {
                       <button
                         type="button"
                         className="pub-btn pub-btn-teal"
-                        onClick={() => openCourse(course)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openCourse(course);
+                        }}
                       >
                         View curriculum <span>→</span>
                       </button>
