@@ -1312,17 +1312,6 @@ h1.ac-cd-title {
   margin: 0;
   color: var(--ac-text);
 }
-.ac-ses ul {
-  margin: 10px 0 2px;
-  padding: 0 0 0 18px;
-  color: var(--ac-muted);
-  font-size: 14px;
-  line-height: 1.6;
-  display: none;
-}
-.ac-lrn-list.rl-detail .ac-ses ul {
-  display: block;
-}
 
 /* each item lights in its colour, then its line fills down to the next */
 .ac-rail-seg {
@@ -1755,4 +1744,17 @@ h1.ac-cd-title {
     transition: none;
     transform: none;
   }
+}
+
+/* A schedule row carries one free-text description, not a list of learning
+   points, so it reads as a paragraph rather than a single bullet. */
+.ac-ses-body {
+  margin: 10px 0 2px;
+  color: var(--ac-muted);
+  font-size: 14px;
+  line-height: 1.6;
+  display: none;
+}
+.ac-lrn-list.rl-detail .ac-ses-body {
+  display: block;
 }

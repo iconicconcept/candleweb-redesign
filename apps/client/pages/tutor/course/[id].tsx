@@ -41,10 +41,17 @@ const toSessions = (course: any) => {
   const rows = Array.isArray(course?.class_schedules) ? course.class_schedules : [];
   return rows.map((row: any, i: number) => {
     const at = row.scheduled_datetime ? new Date(row.scheduled_datetime) : null;
-    const points = [row.description, row.objective, row.summary].filter(Boolean);
+    const title = row.topic || row.title || `Session ${i + 1}`;
+    /* A schedule carries one free-text `description`, not the mockup's list of
+       learning points — there is no field for those. Some rows repeat the
+       title in it, which reads as the heading printed twice, so drop it when
+       it says nothing new. */
+    const raw = typeof row.description === "string" ? row.description.trim() : "";
+    const covers =
+      raw && raw.toLowerCase() !== String(title).trim().toLowerCase() ? raw : "";
     return {
       id: row.id ?? i,
-      title: row.topic || row.title || `Session ${i + 1}`,
+      title,
       at:
         at && !Number.isNaN(at.getTime())
           ? at.toLocaleString([], {
@@ -55,10 +62,37 @@ const toSessions = (course: any) => {
               minute: "2-digit",
             })
           : null,
-      points,
+      covers,
     };
   });
 };
+
+/* The API often returns no `benefits` at all (the dashboard course page has
+   carried its own default list for the same reason). Rather than drop the
+   section the design calls for, fall back to what the Academy gives every
+   cohort. */
+const DEFAULT_BENEFITS = [
+  {
+    label: "Live classes, with recordings",
+    detail:
+      "Classes run at a fixed time each week and every one is recorded, so a missed session does not put you behind.",
+  },
+  {
+    label: "You build every week",
+    detail:
+      "Every module ends in something that runs. The last weeks are spent on a project you keep.",
+  },
+  {
+    label: "An AI tutor on call",
+    detail:
+      "Enrolment switches on a personal AI tutor for projects, lessons and coursework, paid for with the credits you earn.",
+  },
+  {
+    label: "A route to internships",
+    detail:
+      "Top performers get access to internship slots with our partners, and introductions to people already doing the work.",
+  },
+];
 
 /** `benefits` is either a list of strings or of {label, description}. */
 const toBenefits = (course: any) => {
@@ -80,7 +114,7 @@ const CourseDetailPage = () => {
   const id = typeof router.query.id === "string" ? router.query.id : null;
   const returnTo = id ? `/tutor/course/${id}` : "/tutor#courses";
 
-  const [course, setCourse] = useState<any>(null);
+  const [detail, setDetail] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState<string | null>(null);
   const [usdRate, setUsdRate] = useState<number | null>(null);
@@ -99,7 +133,7 @@ const CourseDetailPage = () => {
       .getCourseById(id)
       .then((data) => {
         if (!live) return;
-        setCourse(data);
+        setDetail(data);
         setFailed(null);
       })
       .catch((err: any) => {
@@ -128,8 +162,22 @@ const CourseDetailPage = () => {
       });
   }, []);
 
+  /* `GET /tutor/courses/{id}/` answers 403 "Authorization token required."
+     to anyone not signed in, so on its own it cannot carry a public page.
+     The featured list IS public, so a logged-out visitor still gets the
+     title, description, price, facts and cover from there; the syllabus,
+     benefits and lecturers only exist on the detail response. Remove this
+     fallback once the backend opens that endpoint. */
+  const listed = useMemo(
+    () => (courses || []).find((c: any) => String(c.id) === String(id)) || null,
+    [courses, id],
+  );
+  const course = detail ?? listed;
+  const partial = !detail && !!listed;
+
   const sessions = useMemo(() => toSessions(course), [course]);
-  const benefits = useMemo(() => toBenefits(course), [course]);
+  const fromApi = useMemo(() => toBenefits(course), [course]);
+  const benefits = fromApi.length > 0 ? fromApi : DEFAULT_BENEFITS;
   const lecturers = useMemo(
     () => (Array.isArray(course?.lecturers) ? course.lecturers : []),
     [course],
@@ -336,13 +384,13 @@ const CourseDetailPage = () => {
             <Link href="/tutor#courses">{course?.category || "Courses"}</Link>
           </nav>
 
-          {loading && (
+          {loading && !course && (
             <div style={{ padding: "80px 0" }}>
               <Loader />
             </div>
           )}
 
-          {!loading && (failed || !course) && (
+          {!loading && !course && (
             <div className="ac-cd-missing">
               <h1>That course isn&rsquo;t available.</h1>
               <p>
@@ -451,13 +499,7 @@ const CourseDetailPage = () => {
                               <div className="ac-ses">
                                 {s.at && <p className="ac-ses-at">{s.at}</p>}
                                 <h3>{s.title}</h3>
-                                {s.points.length > 0 && (
-                                  <ul>
-                                    {s.points.map((p: string, n: number) => (
-                                      <li key={n}>{p}</li>
-                                    ))}
-                                  </ul>
-                                )}
+                                {s.covers && <p className="ac-ses-body">{s.covers}</p>}
                               </div>
                             </div>
                           </div>
@@ -466,7 +508,7 @@ const CourseDetailPage = () => {
 
                       <div className="ac-syl-foot">
                         <p>Session order can shift between cohorts.</p>
-                        {sessions.some((s: any) => s.points.length > 0) && (
+                        {sessions.some((s: any) => s.covers) && (
                           <button
                             type="button"
                             className="ac-linkbtn"
@@ -482,8 +524,21 @@ const CourseDetailPage = () => {
                     </>
                   ) : (
                     <p className="ac-cd-empty">
-                      The syllabus is published once this cohort is scheduled. Enrol and it comes
-                      to you with the dates.
+                      {partial ? (
+                        <>
+                          The week-by-week syllabus for this course isn&rsquo;t public yet.{" "}
+                          <button
+                            type="button"
+                            className="ac-linkbtn"
+                            onClick={() => googleAuth(returnTo)}
+                          >
+                            Sign in
+                          </button>{" "}
+                          to read it.
+                        </>
+                      ) : (
+                        "The syllabus is published once this cohort is scheduled. Enrol and it comes to you with the dates."
+                      )}
                     </p>
                   )}
                 </section>
@@ -491,6 +546,7 @@ const CourseDetailPage = () => {
                 {/* ---- course benefits ---- */}
                 {benefits.length > 0 && (
                   <section className="ac-cd-block" aria-labelledby="ben-h">
+
                     <h2 id="ben-h">Course benefits.</h2>
                     <div className="ac-runs">
                       {benefits.map((b: any, i: number) => (
