@@ -123,6 +123,20 @@ export const failureStreakParts = (
   return { value: String(days), caption: days === 1 ? "day clean" : "days clean" };
 };
 
+/** The template's row stamp is just a clock time. Keep that for today and
+ *  add the date only once it stops being obvious. */
+export const decidedAtShort = (iso: string): string => {
+  const d = new Date(iso);
+  const time = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const today = new Date();
+  const sameDay =
+    d.getFullYear() === today.getFullYear() &&
+    d.getMonth() === today.getMonth() &&
+    d.getDate() === today.getDate();
+  if (sameDay) return time;
+  return `${d.toLocaleDateString([], { day: "numeric", month: "short" })}, ${time}`;
+};
+
 /** A timestamp, or a dash — never "just now" for a null. */
 export const whenLabel = (iso: string | null | undefined): string =>
   iso ? new Date(iso).toLocaleString() : "—";
@@ -150,14 +164,31 @@ export const dailyReplyBars = (
 ): { date: string; decisions: number; pct: number; cls: string }[] => {
   const rows = daily ?? [];
   const peak = rows.reduce((m, r) => Math.max(m, r.decisions), 0);
-  return rows.map((r) => ({
+  return rows.map((r) => {
+    const ratio = peak > 0 ? r.decisions / peak : 0;
+    return {
+      date: r.date,
+      decisions: r.decisions,
+      /* The template keeps every bar inside a narrow 34–46% band and lets
+         COLOUR carry the meaning. Scaling height straight off the peak
+         instead (one busy day, the rest quiet) collapsed 29 of the 30 bars
+         into a hairline, which read as "no data" rather than "a quiet week". */
+      pct: 34 + ratio * 12,
+      cls: r.decisions === 0 ? "miss2" : ratio < 0.5 ? "low2" : "",
+    };
+  });
+};
+
+/** The last 7 days as the template's small squares: answered or not. Not a
+ *  failure count — a quiet day may simply be a day nothing was asked. */
+export const recentReplyDots = (
+  daily: BotHealthV2["daily_replies"] | null | undefined,
+): { date: string; decisions: number; cls: string }[] =>
+  (daily ?? []).slice(-7).map((r) => ({
     date: r.date,
     decisions: r.decisions,
-    // a quiet day still gets a visible stub, so 30 slots always read as 30
-    pct: peak > 0 ? Math.max(6, (r.decisions / peak) * 100) : 6,
-    cls: r.decisions === 0 ? "miss2" : r.decisions < peak / 2 ? "low2" : "",
+    cls: r.decisions > 0 ? "on4" : "",
   }));
-};
 
 /* ------------------------------------------------------------------ *
  * Decisions

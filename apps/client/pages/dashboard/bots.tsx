@@ -202,10 +202,16 @@ const BotsPage = () => {
                         <i>{streak.caption}</i>
                       </>
                     )}
-                    <span className="why3">
+                    <span
+                      className="why3"
+                      title={
+                        streak.value == null
+                          ? unavailableReason(fleet?.unavailable, "days_without_failure")
+                          : undefined
+                      }
+                    >
                       {streak.value == null ? (
-                        unavailableReason(fleet?.unavailable, "days_without_failure") ??
-                        "No bot has been handed a candle and given time to answer yet."
+                        "No bot has been asked anything yet."
                       ) : (
                         <>
                           Your <b>worst</b> bot, not an average.
@@ -218,9 +224,11 @@ const BotsPage = () => {
                     {/* Always null — nothing spends a bot review yet, so none
                         can be waiting. Never render this as a 0. */}
                     <b className="none3">{NOT_MEASURED}</b>
-                    <span className="why3">
-                      {unavailableReason(fleet?.unavailable, "reviews_waiting") ??
-                        "Nothing spends a bot review yet, so none can be waiting."}
+                    <span
+                      className="why3"
+                      title={unavailableReason(fleet?.unavailable, "reviews_waiting")}
+                    >
+                      Nothing spends a review yet.
                     </span>
                   </div>
                 </div>
@@ -262,13 +270,12 @@ const BotsPage = () => {
                   </div>
                   <p className="fx-tip2">
                     <b style={{ color: "var(--fx-t2)" }}>Worth knowing.</b> Silence is a failure;{" "}
-                    <b>hold</b> is not — a bot with nothing to say should answer <code>HOLD</code>.
-                    A bot polling the same candle repeatedly owes one answer, not one per request.
+                    <b>hold</b> is not.
                     {pausesCaveat(fleet?.unavailable) && (
                       <>
                         {" "}
                         <span title={pausesCaveat(fleet?.unavailable)} style={{ cursor: "help" }}>
-                          Time spent paused before this release still counts against uptime (?)
+                          Older pauses still count against uptime (?)
                         </span>
                       </>
                     )}

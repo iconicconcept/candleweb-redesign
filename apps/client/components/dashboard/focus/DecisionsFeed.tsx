@@ -3,7 +3,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Dialog from "./Dialog";
 import tradingV2Service from "../../../services/tradingV2Service";
 import { error } from "../../alert/Toast";
-import { confidenceLabel, decisionMeta, secondsLabel, whenLabel } from "../../../lib/botHealthV2";
+import {
+  confidenceLabel,
+  decidedAtShort,
+  decisionMeta,
+  secondsLabel,
+  whenLabel,
+} from "../../../lib/botHealthV2";
 import {
   BotDecisionV2,
   BotDecisionV2Action,
@@ -152,7 +158,7 @@ const DecisionsFeed = ({ api, bot, trade, pageSize = 5, empty, refreshKey }: Pro
   return (
     <>
       {/* The filter only earns its place once there is enough to sift. */}
-      {(count > pageSize || kind !== "all") && (
+      {(count > pageSize * 2 || kind !== "all") && (
         <div className="fx-tfilter" style={{ marginBottom: 12 }}>
           {FILTERS.map((f) => (
             <button
@@ -219,7 +225,7 @@ const DecisionsFeed = ({ api, bot, trade, pageSize = 5, empty, refreshKey }: Pro
                   {...rowProps(d.id)}
                 >
                   <span className="t2">
-                    {new Date(d.decided_at).toLocaleString()}
+                    {decidedAtShort(d.decided_at)}
                     {" · "}
                     {d.think_time_seconds == null
                       ? "no think time"
@@ -242,13 +248,12 @@ const DecisionsFeed = ({ api, bot, trade, pageSize = 5, empty, refreshKey }: Pro
                         </span>
                       </>
                     )}
-                    {d.rationale && (
-                      <>
-                        <br />
-                        {d.rationale}
-                      </>
-                    )}
                   </p>
+                  {/* the bot's own words get the template's quoted block, not
+                      a <br /> inside the line above. Clamped to three lines
+                      because a real rationale is a paragraph — the row opens
+                      it in full. */}
+                  {d.rationale && <div className="q">{d.rationale}</div>}
                 </div>
               );
             })}
@@ -356,7 +361,7 @@ const DecisionsFeed = ({ api, bot, trade, pageSize = 5, empty, refreshKey }: Pro
               )}
             </div>
 
-            <div style={{ marginTop: 18 }}>
+            {/* <div style={{ marginTop: 18 }}>
               <div className="fx-sh">
                 <h2>
                   Candle records it looked at{" "}
@@ -381,7 +386,7 @@ const DecisionsFeed = ({ api, bot, trade, pageSize = 5, empty, refreshKey }: Pro
               {detail.market_data_ids.length > 0 && (
                 <pre className="fx-pre">{detail.market_data_ids.join(", ")}</pre>
               )}
-            </div>
+            </div> */}
           </>
         )}
       </Dialog>

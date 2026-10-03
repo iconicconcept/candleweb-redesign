@@ -416,6 +416,12 @@ const NewTradePage = () => {
     ? !connectTrade.candles_url && !connectTrade.decision_url
     : form.decider_type === "CANDLE_AI";
 
+  /* Straight after a create the page becomes the hand-over screen and
+     nothing else: the form, its sidebar and the progress rail all go. The
+     user has just finished setting the trade up — leaving the whole form
+     under the panel reads as "something still needs doing". */
+  const showConnectOnly = !!justCreated && !isAiTrade;
+
   const indicatorValuesMissing =
     form.indicators.length > 0 && !INDICATOR_VALUES_TIMEFRAMES.includes(form.timeframe);
 
@@ -430,21 +436,22 @@ const NewTradePage = () => {
         <TopBar
           crumb={
             <>
-              <a href="/dashboard/trades">‹ My trades</a> / {editing ? "Edit trade" : "New trade"}
+              <a href="/dashboard/trades">‹ My trades</a> /{" "}
+              {showConnectOnly ? "Trade created" : editing ? "Edit trade" : "New trade"}
             </>
           }
-          title={editing ? "Edit trade" : "New trade"}
-          subtitle="Define the setup, then choose who decides. Nothing reaches the exchange until you start it."
+          title={showConnectOnly ? "Trade created" : editing ? "Edit trade" : "New trade"}
+          subtitle={
+            showConnectOnly
+              ? "One step left: give your bot these three values."
+              : "Define the setup, then choose who decides. Nothing reaches the exchange until you start it."
+          }
         />
 
-        <div className="fx-formwrap">
-          {/* Straight after a create: the three things the bot needs, before
-              anything else on the page. Without them the trade cannot be
-              hooked up at all, and a user who is bounced to the list has to
-              go hunting. The same panel lives in section 03 for a trade
-              opened later — it is rendered once, here, while this banner is
-              up. */}
-          {justCreated && !isAiTrade && (
+        {showConnectOnly ? (
+          /* The three things the bot needs, on their own. The same panel
+             lives in section 03 of the form for a trade opened later. */
+          <div className="fx-formwrap" style={{ gridTemplateColumns: "minmax(0,1fr)" }}>
             <section className="fx-fsec" style={{ borderColor: "rgba(46,230,168,0.3)" }}>
               <div className="fx-fh">
                 <span className="fx-fn">LIVE</span>
@@ -478,250 +485,178 @@ const NewTradePage = () => {
                 </button>
               </div>
             </section>
-          )}
-
-          <form onSubmit={(e) => e.preventDefault()}>
-            <div className="fx-prog">
-              <div className="fx-ph">
-                <b>{editing ? "Editing this trade" : "Setting up this trade"}</b>
-                <span>{doneCount} of 5 ready</span>
-              </div>
-              <div className="fx-psteps">
-                {sectionsDone.map((ok, i) => (
-                  <i key={i} className={ok ? "done3" : i === sectionsDone.indexOf(false) ? "cur3" : ""} />
-                ))}
-              </div>
-            </div>
-
-            {/* 01 — market */}
-            <section className="fx-fsec">
-              <div className="fx-fh">
-                <span className="fx-fn">01</span>
-                <h3>What to trade</h3>
-              </div>
-              <p className="fx-fsub">
-                Candleweb watches this market and sends every closed candle to whoever decides.
-              </p>
-
-              <div className="fx-envrow">
-                <span className="fx-fl">Environment</span>
-                <div className="fx-env" role="group" aria-label="Environment">
-                  <button
-                    type="button"
-                    className={`fx-eb ${environment === "demo" ? "sel3" : ""}`}
-                    aria-pressed={environment === "demo"}
-                    onClick={() => setEnvironment("demo")}
-                  >
-                    <b>Demo</b>
-                    <span>Paper money, live prices</span>
-                  </button>
-                  <button
-                    type="button"
-                    className={`fx-eb live8 ${environment === "live" ? "sel3" : ""}`}
-                    aria-pressed={environment === "live"}
-                    onClick={() => setEnvironment("live")}
-                  >
-                    <b>Live</b>
-                    <span>Real orders, real money</span>
-                  </button>
+          </div>
+        ) : (
+          <div className="fx-formwrap">
+            <form onSubmit={(e) => e.preventDefault()}>
+              <div className="fx-prog">
+                <div className="fx-ph">
+                  <b>{editing ? "Editing this trade" : "Setting up this trade"}</b>
+                  <span>{doneCount} of 5 ready</span>
                 </div>
-                <p className="fx-envnote">
-                  {environment === "live" ? (
-                    <>
-                      <em>Real orders on your exchange account, with real money, from the moment you start it.</em>{" "}
-                      Everything else works the same as demo.
-                    </>
-                  ) : (
-                    "Orders are filled on paper at the live price. Your bot is called exactly the same way — only the fill is simulated, and nothing reaches the exchange. You can switch this trade to live later."
-                  )}
-                </p>
+                <div className="fx-psteps">
+                  {sectionsDone.map((ok, i) => (
+                    <i key={i} className={ok ? "done3" : i === sectionsDone.indexOf(false) ? "cur3" : ""} />
+                  ))}
+                </div>
               </div>
 
-              <div className="fx-fr two2">
-                <div>
-                  <label className="fx-fl" htmlFor="ex">
-                    Exchange account
-                  </label>
-                  <div className="fx-inp">
-                    <select
-                      id="ex"
-                      value={form.exchange_account}
-                      onChange={(e) => set("exchange_account", parseInt(e.target.value, 10))}
+              {/* 01 — market */}
+              <section className="fx-fsec">
+                <div className="fx-fh">
+                  <span className="fx-fn">01</span>
+                  <h3>What to trade</h3>
+                </div>
+                <p className="fx-fsub">
+                  Candleweb watches this market and sends every closed candle to whoever decides.
+                </p>
+
+                <div className="fx-envrow">
+                  <span className="fx-fl">Environment</span>
+                  <div className="fx-env" role="group" aria-label="Environment">
+                    <button
+                      type="button"
+                      className={`fx-eb ${environment === "demo" ? "sel3" : ""}`}
+                      aria-pressed={environment === "demo"}
+                      onClick={() => setEnvironment("demo")}
                     >
-                      {!form.exchange_account && (
-                        <option value={0} disabled>
-                          {accountOptions.length ? "Choose an account" : "No exchange connected"}
-                        </option>
-                      )}
-                      {accountOptions.map((a) => (
-                        <option key={a.id} value={a.id}>
-                          {a.name}
-                        </option>
-                      ))}
-                      {existing &&
-                        !accountOptions.some((a) => a.id === existing.exchange_account) && (
-                          <option value={existing.exchange_account}>
-                            {existing.exchange_name || `Account #${existing.exchange_account}`}
-                          </option>
-                        )}
-                    </select>
+                      <b>Demo</b>
+                      <span>Paper money, live prices</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={`fx-eb live8 ${environment === "live" ? "sel3" : ""}`}
+                      aria-pressed={environment === "live"}
+                      onClick={() => setEnvironment("live")}
+                    >
+                      <b>Live</b>
+                      <span>Real orders, real money</span>
+                    </button>
                   </div>
-                  <p className="fx-hint">
-                    {accountOptions.length ? (
-                      "The exchange accounts you've connected to Candleweb."
-                    ) : (
+                  <p className="fx-envnote">
+                    {environment === "live" ? (
                       <>
-                        No exchange connected yet —{" "}
-                        <a href="/dashboard/exchanges">connect one under Exchanges</a>.
+                        <em>Real orders on your exchange account, with real money, from the moment you start it.</em>{" "}
+                        Everything else works the same as demo.
                       </>
+                    ) : (
+                      "Orders are filled on paper at the live price. Your bot is called exactly the same way — only the fill is simulated, and nothing reaches the exchange. You can switch this trade to live later."
                     )}
                   </p>
                 </div>
-                <div>
-                  <label className="fx-fl" htmlFor="pr">
-                    Pair
-                  </label>
-                  <div className="fx-inp">
-                    <select
-                      id="pr"
-                      value={form.pair}
-                      onChange={(e) => set("pair", parseInt(e.target.value, 10))}
-                    >
-                      {PLACEHOLDER_PAIRS.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name}
-                        </option>
-                      ))}
-                      {existing && !PLACEHOLDER_PAIRS.some((p) => p.id === existing.pair) && (
-                        <option value={existing.pair}>
-                          {existing.pair_name || `Pair #${existing.pair}`}
-                        </option>
-                      )}
-                    </select>
-                  </div>
-                  <p className="fx-hint">Placeholder list — pending a pairs endpoint.</p>
-                </div>
-              </div>
 
-              <div className="fx-fr" style={{ marginTop: "14px" }}>
-                <div>
-                  <span className="fx-fl">Timeframe</span>
-                  <div className="fx-picks">
-                    {TIMEFRAMES.map((t) => (
-                      <button
-                        key={t.v}
-                        type="button"
-                        className={`fx-pk ${form.timeframe === t.v ? "on7" : ""}`}
-                        onClick={() => set("timeframe", t.v)}
+                <div className="fx-fr two2">
+                  <div>
+                    <label className="fx-fl" htmlFor="ex">
+                      Exchange account
+                    </label>
+                    <div className="fx-inp">
+                      <select
+                        id="ex"
+                        value={form.exchange_account}
+                        onChange={(e) => set("exchange_account", parseInt(e.target.value, 10))}
                       >
-                        {t.v}
-                      </button>
-                    ))}
+                        {!form.exchange_account && (
+                          <option value={0} disabled>
+                            {accountOptions.length ? "Choose an account" : "No exchange connected"}
+                          </option>
+                        )}
+                        {accountOptions.map((a) => (
+                          <option key={a.id} value={a.id}>
+                            {a.name}
+                          </option>
+                        ))}
+                        {existing &&
+                          !accountOptions.some((a) => a.id === existing.exchange_account) && (
+                            <option value={existing.exchange_account}>
+                              {existing.exchange_name || `Account #${existing.exchange_account}`}
+                            </option>
+                          )}
+                      </select>
+                    </div>
+                    <p className="fx-hint">
+                      {accountOptions.length ? (
+                        "The exchange accounts you've connected to Candleweb."
+                      ) : (
+                        <>
+                          No exchange connected yet —{" "}
+                          <a href="/dashboard/exchanges">connect one under Exchanges</a>.
+                        </>
+                      )}
+                    </p>
                   </div>
-                  <p className="fx-hint">
-                    Your bot is called once per closed candle — about{" "}
-                    {tf.calls.toLocaleString("en-US")} calls a day.
-                  </p>
+                  <div>
+                    <label className="fx-fl" htmlFor="pr">
+                      Pair
+                    </label>
+                    <div className="fx-inp">
+                      <select
+                        id="pr"
+                        value={form.pair}
+                        onChange={(e) => set("pair", parseInt(e.target.value, 10))}
+                      >
+                        {PLACEHOLDER_PAIRS.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name}
+                          </option>
+                        ))}
+                        {existing && !PLACEHOLDER_PAIRS.some((p) => p.id === existing.pair) && (
+                          <option value={existing.pair}>
+                            {existing.pair_name || `Pair #${existing.pair}`}
+                          </option>
+                        )}
+                      </select>
+                    </div>
+                    <p className="fx-hint">Placeholder list — pending a pairs endpoint.</p>
+                  </div>
                 </div>
-              </div>
 
-              <div className={`fx-bal ${balanceKnown ? "" : "cold"}`} style={{ marginTop: "16px" }}>
-                <div className="fx-balh">
-                  <b>Your balance</b>
-                  <span className={`fx-live ${balanceKnown ? "" : "stale"}`}>
-                    <i />
-                    <span>{balanceKnown ? "Across your connected exchanges" : "Not connected yet"}</span>
-                  </span>
-                </div>
-                <div className="fx-balgrid">
-                  <div className="fx-bg1">
-                    <span>Total</span>
-                    <b>{balanceKnown ? dollarFormat(totalBalance) : "—"}</b>
+                <div className="fx-fr" style={{ marginTop: "14px" }}>
+                  <div>
+                    <span className="fx-fl">Timeframe</span>
+                    <div className="fx-picks">
+                      {TIMEFRAMES.map((t) => (
+                        <button
+                          key={t.v}
+                          type="button"
+                          className={`fx-pk ${form.timeframe === t.v ? "on7" : ""}`}
+                          onClick={() => set("timeframe", t.v)}
+                        >
+                          {t.v}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="fx-hint">
+                      Your bot is called once per closed candle — about{" "}
+                      {tf.calls.toLocaleString("en-US")} calls a day.
+                    </p>
                   </div>
-                  <div className="fx-bg1">
-                    <span>Allocated to other trades</span>
-                    <b>{dollarFormat(otherAllocated)}</b>
-                  </div>
-                  <div className="fx-bg1">
-                    <span>Free to allocate</span>
-                    <b className="free4">{freeBeforeThis != null ? dollarFormat(freeBeforeThis) : "—"}</b>
-                  </div>
                 </div>
-                <div className="fx-balbar">
-                  <i className="o5" style={{ width: `${otherPct}%` }} />
-                </div>
-                <div className="fx-ballab">
-                  <span>
-                    <i className="k4" />
-                    Other trades
-                  </span>
-                  <span>
-                    <i className="k6" />
-                    Unallocated
-                  </span>
-                </div>
-                {!balanceKnown && (
-                  <p className="fx-warn2">
-                    <em>●</em>
-                    <span>
-                      No balance connected yet — connect an exchange under Exchanges to see what&rsquo;s free to
-                      allocate.
+
+                <div className={`fx-bal ${balanceKnown ? "" : "cold"}`} style={{ marginTop: "16px" }}>
+                  <div className="fx-balh">
+                    <b>Your balance</b>
+                    <span className={`fx-live ${balanceKnown ? "" : "stale"}`}>
+                      <i />
+                      <span>{balanceKnown ? "Across your connected exchanges" : "Not connected yet"}</span>
                     </span>
-                  </p>
-                )}
-              </div>
-            </section>
-
-            {/* 02 — allocation */}
-            <section className="fx-fsec">
-              <div className="fx-fh">
-                <span className="fx-fn">02</span>
-                <h3>How much to trade with</h3>
-              </div>
-              <p className="fx-fsub">
-                Capital set aside for this trade. Candleweb never commits more than this to it,
-                whatever your bot asks for.
-              </p>
-
-              <div className="fx-fr two2">
-                <div>
-                  <label className="fx-fl" htmlFor="alloc">
-                    Amount allocated <em>USDT</em>
-                  </label>
-                  <div className="fx-amt">
-                    <div className="fx-inp fx-amtw">
-                      <span className="cur4">$</span>
-                      <input
-                        id="alloc"
-                        type="text"
-                        inputMode="decimal"
-                        placeholder="0.00"
-                        value={form.allocated_amount}
-                        onChange={(e) =>
-                          set("allocated_amount", e.target.value.replace(/[^0-9.]/g, ""))
-                        }
-                      />
-                    </div>
                   </div>
-                  <p className="fx-hint">
-                    You can raise or lower it later without stopping the trade.
-                  </p>
-                </div>
-                <div>
-                  <span className="fx-fl">After allocating</span>
-                  <div className="fx-balgrid two4">
+                  <div className="fx-balgrid">
                     <div className="fx-bg1">
-                      <span>This trade</span>
-                      <b className="free4">{dollarFormat(alloc)}</b>
+                      <span>Total</span>
+                      <b>{balanceKnown ? dollarFormat(totalBalance) : "—"}</b>
                     </div>
                     <div className="fx-bg1">
-                      <span>Still free</span>
-                      <b>{stillFree != null ? dollarFormat(stillFree) : "—"}</b>
+                      <span>Allocated to other trades</span>
+                      <b>{dollarFormat(otherAllocated)}</b>
+                    </div>
+                    <div className="fx-bg1">
+                      <span>Free to allocate</span>
+                      <b className="free4">{freeBeforeThis != null ? dollarFormat(freeBeforeThis) : "—"}</b>
                     </div>
                   </div>
                   <div className="fx-balbar">
                     <i className="o5" style={{ width: `${otherPct}%` }} />
-                    <i className="t5" style={{ width: `${thisPct}%` }} />
                   </div>
                   <div className="fx-ballab">
                     <span>
@@ -729,435 +664,508 @@ const NewTradePage = () => {
                       Other trades
                     </span>
                     <span>
-                      <i className="k5" />
-                      This trade
-                    </span>
-                    <span>
                       <i className="k6" />
-                      Free
+                      Unallocated
                     </span>
                   </div>
+                  {!balanceKnown && (
+                    <p className="fx-warn2">
+                      <em>●</em>
+                      <span>
+                        No balance connected yet — connect an exchange under Exchanges to see what&rsquo;s free to
+                        allocate.
+                      </span>
+                    </p>
+                  )}
                 </div>
-              </div>
-            </section>
+              </section>
 
-            {/* 03 — indicators */}
-            <section className="fx-fsec">
-              <div className="fx-fh">
-                <span className="fx-fn">03</span>
-                <h3>What your bot sees</h3>
-              </div>
-              <p className="fx-fsub">
-                Candleweb computes these and sends them alongside the raw candles. Pick what your
-                strategy actually reads.
-              </p>
-
-              <div className="fx-picks">
-                {INDICATORS.map((ind) => (
-                  <button
-                    key={ind.key}
-                    type="button"
-                    className={`fx-pk ${form.indicators.includes(ind.key) ? "on7" : ""}`}
-                    onClick={() => toggleIndicator(ind.key)}
-                  >
-                    {ind.label}
-                  </button>
-                ))}
-              </div>
-              <p className="fx-hint">
-                Sent as <code>{form.indicators.join(", ") || "none"}</code>. Confirm the canonical
-                keys with the backend.
-              </p>
-
-              <div className="fx-fr two2" style={{ marginTop: "16px" }}>
-                <div>
-                  <label className="fx-fl" htmlFor="hist">
-                    Candle history sent
-                  </label>
-                  <div className="fx-inp">
-                    <select
-                      id="hist"
-                      value={form.candle_history_len}
-                      onChange={(e) => set("candle_history_len", parseInt(e.target.value, 10))}
-                    >
-                      {HISTORY_OPTIONS.map((n) => (
-                        <option key={n} value={n}>
-                          {n} candles
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <p className="fx-hint">
-                    How much context arrives with each call. More history means a bigger payload,
-                    not a better decision.
-                  </p>
+              {/* 02 — allocation */}
+              <section className="fx-fsec">
+                <div className="fx-fh">
+                  <span className="fx-fn">02</span>
+                  <h3>How much to trade with</h3>
                 </div>
-              </div>
-
-              {/* Only 1m carries real indicator numbers today — the candles
-                  themselves are right on every timeframe. Saying so here
-                  saves a support ticket about a column of dashes. */}
-              {indicatorValuesMissing && (
-                <p className="fx-epnote" style={{ marginTop: 14 }}>
-                  <b>Heads up.</b> On {form.timeframe} the candles your bot receives are correct,
-                  but the indicator <em>values</em> are not calculated yet — they arrive as{" "}
-                  <code>null</code>. Only <code>1m</code> has real indicator numbers today. Your bot
-                  can still read the candles and work them out itself.
+                <p className="fx-fsub">
+                  Capital set aside for this trade. Candleweb never commits more than this to it,
+                  whatever your bot asks for.
                 </p>
-              )}
 
-              {/* The connection details, straight off the trade response. On a
-                  trade that hasn't been saved yet there are no URLs to show —
-                  they only exist once the trade does. */}
-              {form.decider_type === "OWN_BOT" &&
-                !justCreated &&
-                (connectTrade && !isAiTrade ? (
-                  <ConnectBotPanel
-                    candlesUrl={connectTrade.candles_url}
-                    decisionUrl={connectTrade.decision_url}
-                    devKey={connectBot?.dev_key}
-                    botId={connectBotId}
-                    botName={connectBot?.name ?? connectTrade.bot_name ?? undefined}
-                    botPaused={connectBot?.status === "PAUSED"}
-                    heading="Connect your bot"
-                    intro="Your bot needs these three things, and nothing else. Paste them into an n8n HTTP Request node, a Make module, or your own code."
-                  />
-                ) : (
-                  <div className="fx-epbox">
-                    <p className="fx-epnote" style={{ marginTop: 0 }}>
-                      <b>Not yet.</b> Candleweb issues this trade&rsquo;s pull URL and decision URL
-                      when you save it — they are specific to the trade, so they cannot be shown in
-                      advance. Save, and they appear here with copy buttons alongside your
-                      bot&rsquo;s developer key.
+                <div className="fx-fr two2">
+                  <div>
+                    <label className="fx-fl" htmlFor="alloc">
+                      Amount allocated <em>USDT</em>
+                    </label>
+                    <div className="fx-amt">
+                      <div className="fx-inp fx-amtw">
+                        <span className="cur4">$</span>
+                        <input
+                          id="alloc"
+                          type="text"
+                          inputMode="decimal"
+                          placeholder="0.00"
+                          value={form.allocated_amount}
+                          onChange={(e) =>
+                            set("allocated_amount", e.target.value.replace(/[^0-9.]/g, ""))
+                          }
+                        />
+                      </div>
+                    </div>
+                    <p className="fx-hint">
+                      You can raise or lower it later without stopping the trade.
                     </p>
                   </div>
-                ))}
-
-              {form.decider_type === "CANDLE_AI" && (
-                <div className="fx-aibox">
-                  <b>CandleAI doesn&rsquo;t need an endpoint</b>
-                  <p>
-                    There&rsquo;s nothing to wire up. CandleAI reads the same candles and indicators you
-                    picked above and decides on every close. Your limits in section 05 still apply to it,
-                    exactly as they would to your own bot.
-                  </p>
-                </div>
-              )}
-            </section>
-
-            {/* 04 — decider */}
-            <section className="fx-fsec">
-              <div className="fx-fh">
-                <span className="fx-fn">04</span>
-                <h3>Who decides</h3>
-              </div>
-              <p className="fx-fsub">Either your own bot, or ours.</p>
-
-              <div className="fx-reach2">
-                <button
-                  type="button"
-                  className={`fx-rc2 ${form.decider_type === "OWN_BOT" ? "sel" : ""}`}
-                  onClick={() => set("decider_type", "OWN_BOT")}
-                >
-                  <span className="ck">✓</span>
-                  <span className="kind4">Your bot</span>
-                  <b>Own bot</b>
-                  <span>
-                    Candleweb sends the candle to your endpoint and waits for a decision.
-                  </span>
-                  <em>Assign one below</em>
-                </button>
-                <button
-                  type="button"
-                  className={`fx-rc2 ${form.decider_type === "CANDLE_AI" ? "sel" : ""}`}
-                  onClick={() => set("decider_type", "CANDLE_AI")}
-                >
-                  <span className="ck">✓</span>
-                  <span className="kind4">Built in</span>
-                  <b>CandleAI</b>
-                  <span>Our agent decides for you — no endpoint, no hosting.</span>
-                  <em>Included</em>
-                </button>
-              </div>
-
-              {form.decider_type === "OWN_BOT" && (
-                <div className="fx-fr" style={{ marginTop: "16px" }}>
                   <div>
-                    <label className="fx-fl" htmlFor="bot">
-                      Bot
+                    <span className="fx-fl">After allocating</span>
+                    <div className="fx-balgrid two4">
+                      <div className="fx-bg1">
+                        <span>This trade</span>
+                        <b className="free4">{dollarFormat(alloc)}</b>
+                      </div>
+                      <div className="fx-bg1">
+                        <span>Still free</span>
+                        <b>{stillFree != null ? dollarFormat(stillFree) : "—"}</b>
+                      </div>
+                    </div>
+                    <div className="fx-balbar">
+                      <i className="o5" style={{ width: `${otherPct}%` }} />
+                      <i className="t5" style={{ width: `${thisPct}%` }} />
+                    </div>
+                    <div className="fx-ballab">
+                      <span>
+                        <i className="k4" />
+                        Other trades
+                      </span>
+                      <span>
+                        <i className="k5" />
+                        This trade
+                      </span>
+                      <span>
+                        <i className="k6" />
+                        Free
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              {/* 03 — indicators */}
+              <section className="fx-fsec">
+                <div className="fx-fh">
+                  <span className="fx-fn">03</span>
+                  <h3>What your bot sees</h3>
+                </div>
+                <p className="fx-fsub">
+                  Candleweb computes these and sends them alongside the raw candles. Pick what your
+                  strategy actually reads.
+                </p>
+
+                <div className="fx-picks">
+                  {INDICATORS.map((ind) => (
+                    <button
+                      key={ind.key}
+                      type="button"
+                      className={`fx-pk ${form.indicators.includes(ind.key) ? "on7" : ""}`}
+                      onClick={() => toggleIndicator(ind.key)}
+                    >
+                      {ind.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="fx-hint">
+                  Sent as <code>{form.indicators.join(", ") || "none"}</code>. Confirm the canonical
+                  keys with the backend.
+                </p>
+
+                <div className="fx-fr two2" style={{ marginTop: "16px" }}>
+                  <div>
+                    <label className="fx-fl" htmlFor="hist">
+                      Candle history sent
                     </label>
                     <div className="fx-inp">
                       <select
-                        id="bot"
-                        value={form.bot ?? ""}
-                        onChange={(e) =>
-                          set("bot", e.target.value ? parseInt(e.target.value, 10) : null)
-                        }
+                        id="hist"
+                        value={form.candle_history_len}
+                        onChange={(e) => set("candle_history_len", parseInt(e.target.value, 10))}
                       >
-                        <option value="">Select a bot…</option>
-                        {botOptions.map((b) => (
-                          <option key={b.id} value={b.id}>
-                            {b.name}
+                        {HISTORY_OPTIONS.map((n) => (
+                          <option key={n} value={n}>
+                            {n} candles
                           </option>
                         ))}
-                        {existing?.bot &&
-                          !botOptions.some((b) => b.id === existing.bot) && (
-                            <option value={existing.bot}>
-                              {existing.bot_name || `Bot #${existing.bot}`}
-                            </option>
-                          )}
                       </select>
                     </div>
                     <p className="fx-hint">
-                      {bots.length === 0 ? (
-                        <>
-                          No bots connected yet.{" "}
-                          <a href="/dashboard/bots/new">Add one</a> — a trade can&rsquo;t start
-                          without a bot assigned, or switch to CandleAI above.
-                        </>
-                      ) : (
-                        "A trade can’t start without a bot assigned. Manage bots from My bots."
-                      )}
+                      How much context arrives with each call. More history means a bigger payload,
+                      not a better decision.
                     </p>
                   </div>
                 </div>
-              )}
-            </section>
 
-            {/* 05 — limits */}
-            <section className="fx-fsec">
-              <div className="fx-fh">
-                <span className="fx-fn">05</span>
-                <h3>Your limits</h3>
-              </div>
-              <p className="fx-fsub">
-                Every percentage is measured against this trade&rsquo;s{" "}
-                <b>{alloc > 0 ? dollarFormat(alloc) : "allocation"}</b>, not your whole balance.
-                Candleweb enforces them whatever the bot asks for.
-              </p>
-
-              <div className="fx-fr two2">
-                <div>
-                  <span className="fx-fl">Risk per trade</span>
-                  <div className="fx-sld">
-                    <div className="fx-sldtop">
-                      <span className={`fx-sldval ${form.risk_pct > 5 ? "hot4" : ""}`}>
-                        {form.risk_pct.toFixed(1)}%<em>of this allocation</em>
-                      </span>
-                    </div>
-                    <input
-                      type="range"
-                      min={RISK_STEPS[0]}
-                      max={RISK_STEPS[1]}
-                      step={0.5}
-                      value={form.risk_pct}
-                      style={
-                        {
-                          ["--p" as any]: `${((form.risk_pct - 0.5) / 9.5) * 100}%`,
-                        } as React.CSSProperties
-                      }
-                      onChange={(e) => set("risk_pct", parseFloat(e.target.value))}
-                    />
-                    <div className="fx-sldscale">
-                      <span>0.5%</span>
-                      <span>2.5%</span>
-                      <span>5%</span>
-                      <span>7.5%</span>
-                      <span>10%</span>
-                    </div>
-                  </div>
-                  <p className="fx-hint">The most a single losing trade can cost you.</p>
-                </div>
-                <div>
-                  <label className="fx-fl" htmlFor="sz">
-                    Max size per trade
-                  </label>
-                  <div className="fx-inp">
-                    <select
-                      id="sz"
-                      value={form.max_size_pct}
-                      onChange={(e) => set("max_size_pct", parseInt(e.target.value, 10))}
-                    >
-                      {[25, 50, 75, 100].map((n) => (
-                        <option key={n} value={n}>
-                          {n}% of allocation
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className={`fx-sldout ${capped ? "capped" : ""}`}>
-                    {alloc > 0 ? (
-                      capped ? (
-                        <>
-                          At {form.risk_pct.toFixed(1)}% risk on {dollarFormat(alloc)}, a typical{" "}
-                          {tf.stop}% stop on {form.timeframe} candles asks for a position of about{" "}
-                          <b>
-                            {dollarFormat(wantCash)} ({Math.round((wantCash / alloc) * 100)}%)
-                          </b>
-                          . Your {form.max_size_pct}% ceiling cuts it to{" "}
-                          <b>{dollarFormat(ceilingCash)}</b>. A bot that asks for more than the ceiling
-                          outright is refused instead, and the refusal is logged.
-                        </>
-                      ) : (
-                        <>
-                          At {form.risk_pct.toFixed(1)}% risk on {dollarFormat(alloc)}, a typical{" "}
-                          {tf.stop}% stop on {form.timeframe} candles works out to about{" "}
-                          <b>
-                            {dollarFormat(wantCash)} ({Math.round((wantCash / alloc) * 100)}%)
-                          </b>{" "}
-                          — inside your {form.max_size_pct}% ceiling of {dollarFormat(ceilingCash)}.
-                        </>
-                      )
-                    ) : (
-                      "Set an allocation above and this works out what a typical order comes to."
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="fx-fr two2" style={{ marginTop: "16px" }}>
-                <div>
-                  <label className="fx-fl" htmlFor="dir">
-                    Direction allowed
-                  </label>
-                  <div className="fx-inp">
-                    <select
-                      id="dir"
-                      value={form.direction}
-                      onChange={(e) => set("direction", e.target.value as TradeV2Direction)}
-                    >
-                      <option value="BOTH">Long &amp; short</option>
-                      <option value="LONG">Long only</option>
-                      <option value="SHORT">Short only</option>
-                    </select>
-                  </div>
-                  <p className="fx-hint">
-                    Decisions outside this are refused and logged, not silently dropped.
+                {/* Only 1m carries real indicator numbers today — the candles
+                    themselves are right on every timeframe. Saying so here
+                    saves a support ticket about a column of dashes. */}
+                {indicatorValuesMissing && (
+                  <p className="fx-epnote" style={{ marginTop: 14 }}>
+                    <b>Heads up.</b> On {form.timeframe} the candles your bot receives are correct,
+                    but the indicator <em>values</em> are not calculated yet — they arrive as{" "}
+                    <code>null</code>. Only <code>1m</code> has real indicator numbers today. Your bot
+                    can still read the candles and work them out itself.
                   </p>
-                </div>
-                <div>
-                  <span className="fx-fl">Stop behaviour</span>
-                  <div className="fx-sw">
-                    <div className="tx">
-                      <b>Trailing stop</b>
-                      <span>
-                        Follows price in your favour and never moves back. Off keeps the stop where
-                        it was set.
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      className={`fx-tg ${form.trailing_stop ? "" : "off4"}`}
-                      aria-pressed={form.trailing_stop}
-                      aria-label="Trailing stop"
-                      onClick={() => set("trailing_stop", !form.trailing_stop)}
+                )}
+
+                {/* The connection details, straight off the trade response. On a
+                    trade that hasn't been saved yet there are no URLs to show —
+                    they only exist once the trade does. */}
+                {form.decider_type === "OWN_BOT" &&
+                  (connectTrade && !isAiTrade ? (
+                    <ConnectBotPanel
+                      candlesUrl={connectTrade.candles_url}
+                      decisionUrl={connectTrade.decision_url}
+                      devKey={connectBot?.dev_key}
+                      botId={connectBotId}
+                      botName={connectBot?.name ?? connectTrade.bot_name ?? undefined}
+                      botPaused={connectBot?.status === "PAUSED"}
+                      heading="Connect your bot"
+                      intro="Your bot needs these three things, and nothing else. Paste them into an n8n HTTP Request node, a Make module, or your own code."
                     />
+                  ) : (
+                    <div className="fx-epbox">
+                      <p className="fx-epnote" style={{ marginTop: 0 }}>
+                        <b>Not yet.</b> Candleweb issues this trade&rsquo;s pull URL and decision URL
+                        when you save it — they are specific to the trade, so they cannot be shown in
+                        advance. Save, and they appear here with copy buttons alongside your
+                        bot&rsquo;s developer key.
+                      </p>
+                    </div>
+                  ))}
+
+                {form.decider_type === "CANDLE_AI" && (
+                  <div className="fx-aibox">
+                    <b>CandleAI doesn&rsquo;t need an endpoint</b>
+                    <p>
+                      There&rsquo;s nothing to wire up. CandleAI reads the same candles and indicators you
+                      picked above and decides on every close. Your limits in section 05 still apply to it,
+                      exactly as they would to your own bot.
+                    </p>
+                  </div>
+                )}
+              </section>
+
+              {/* 04 — decider */}
+              <section className="fx-fsec">
+                <div className="fx-fh">
+                  <span className="fx-fn">04</span>
+                  <h3>Who decides</h3>
+                </div>
+                <p className="fx-fsub">Either your own bot, or ours.</p>
+
+                <div className="fx-reach2">
+                  <button
+                    type="button"
+                    className={`fx-rc2 ${form.decider_type === "OWN_BOT" ? "sel" : ""}`}
+                    onClick={() => set("decider_type", "OWN_BOT")}
+                  >
+                    <span className="ck">✓</span>
+                    <span className="kind4">Your bot</span>
+                    <b>Own bot</b>
+                    <span>
+                      Candleweb sends the candle to your endpoint and waits for a decision.
+                    </span>
+                    <em>Assign one below</em>
+                  </button>
+                  <button
+                    type="button"
+                    className={`fx-rc2 ${form.decider_type === "CANDLE_AI" ? "sel" : ""}`}
+                    onClick={() => set("decider_type", "CANDLE_AI")}
+                  >
+                    <span className="ck">✓</span>
+                    <span className="kind4">Built in</span>
+                    <b>CandleAI</b>
+                    <span>Our agent decides for you — no endpoint, no hosting.</span>
+                    <em>Included</em>
+                  </button>
+                </div>
+
+                {form.decider_type === "OWN_BOT" && (
+                  <div className="fx-fr" style={{ marginTop: "16px" }}>
+                    <div>
+                      <label className="fx-fl" htmlFor="bot">
+                        Bot
+                      </label>
+                      <div className="fx-inp">
+                        <select
+                          id="bot"
+                          value={form.bot ?? ""}
+                          onChange={(e) =>
+                            set("bot", e.target.value ? parseInt(e.target.value, 10) : null)
+                          }
+                        >
+                          <option value="">Select a bot…</option>
+                          {botOptions.map((b) => (
+                            <option key={b.id} value={b.id}>
+                              {b.name}
+                            </option>
+                          ))}
+                          {existing?.bot &&
+                            !botOptions.some((b) => b.id === existing.bot) && (
+                              <option value={existing.bot}>
+                                {existing.bot_name || `Bot #${existing.bot}`}
+                              </option>
+                            )}
+                        </select>
+                      </div>
+                      <p className="fx-hint">
+                        {bots.length === 0 ? (
+                          <>
+                            No bots connected yet.{" "}
+                            <a href="/dashboard/bots/new">Add one</a> — a trade can&rsquo;t start
+                            without a bot assigned, or switch to CandleAI above.
+                          </>
+                        ) : (
+                          "A trade can’t start without a bot assigned. Manage bots from My bots."
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </section>
+
+              {/* 05 — limits */}
+              <section className="fx-fsec">
+                <div className="fx-fh">
+                  <span className="fx-fn">05</span>
+                  <h3>Your limits</h3>
+                </div>
+                <p className="fx-fsub">
+                  Every percentage is measured against this trade&rsquo;s{" "}
+                  <b>{alloc > 0 ? dollarFormat(alloc) : "allocation"}</b>, not your whole balance.
+                  Candleweb enforces them whatever the bot asks for.
+                </p>
+
+                <div className="fx-fr two2">
+                  <div>
+                    <span className="fx-fl">Risk per trade</span>
+                    <div className="fx-sld">
+                      <div className="fx-sldtop">
+                        <span className={`fx-sldval ${form.risk_pct > 5 ? "hot4" : ""}`}>
+                          {form.risk_pct.toFixed(1)}%<em>of this allocation</em>
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min={RISK_STEPS[0]}
+                        max={RISK_STEPS[1]}
+                        step={0.5}
+                        value={form.risk_pct}
+                        style={
+                          {
+                            ["--p" as any]: `${((form.risk_pct - 0.5) / 9.5) * 100}%`,
+                          } as React.CSSProperties
+                        }
+                        onChange={(e) => set("risk_pct", parseFloat(e.target.value))}
+                      />
+                      <div className="fx-sldscale">
+                        <span>0.5%</span>
+                        <span>2.5%</span>
+                        <span>5%</span>
+                        <span>7.5%</span>
+                        <span>10%</span>
+                      </div>
+                    </div>
+                    <p className="fx-hint">The most a single losing trade can cost you.</p>
+                  </div>
+                  <div>
+                    <label className="fx-fl" htmlFor="sz">
+                      Max size per trade
+                    </label>
+                    <div className="fx-inp">
+                      <select
+                        id="sz"
+                        value={form.max_size_pct}
+                        onChange={(e) => set("max_size_pct", parseInt(e.target.value, 10))}
+                      >
+                        {[25, 50, 75, 100].map((n) => (
+                          <option key={n} value={n}>
+                            {n}% of allocation
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className={`fx-sldout ${capped ? "capped" : ""}`}>
+                      {alloc > 0 ? (
+                        capped ? (
+                          <>
+                            At {form.risk_pct.toFixed(1)}% risk on {dollarFormat(alloc)}, a typical{" "}
+                            {tf.stop}% stop on {form.timeframe} candles asks for a position of about{" "}
+                            <b>
+                              {dollarFormat(wantCash)} ({Math.round((wantCash / alloc) * 100)}%)
+                            </b>
+                            . Your {form.max_size_pct}% ceiling cuts it to{" "}
+                            <b>{dollarFormat(ceilingCash)}</b>. A bot that asks for more than the ceiling
+                            outright is refused instead, and the refusal is logged.
+                          </>
+                        ) : (
+                          <>
+                            At {form.risk_pct.toFixed(1)}% risk on {dollarFormat(alloc)}, a typical{" "}
+                            {tf.stop}% stop on {form.timeframe} candles works out to about{" "}
+                            <b>
+                              {dollarFormat(wantCash)} ({Math.round((wantCash / alloc) * 100)}%)
+                            </b>{" "}
+                            — inside your {form.max_size_pct}% ceiling of {dollarFormat(ceilingCash)}.
+                          </>
+                        )
+                      ) : (
+                        "Set an allocation above and this works out what a typical order comes to."
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="fx-fr two2" style={{ marginTop: "16px" }}>
+                  <div>
+                    <label className="fx-fl" htmlFor="dir">
+                      Direction allowed
+                    </label>
+                    <div className="fx-inp">
+                      <select
+                        id="dir"
+                        value={form.direction}
+                        onChange={(e) => set("direction", e.target.value as TradeV2Direction)}
+                      >
+                        <option value="BOTH">Long &amp; short</option>
+                        <option value="LONG">Long only</option>
+                        <option value="SHORT">Short only</option>
+                      </select>
+                    </div>
+                    <p className="fx-hint">
+                      Decisions outside this are refused and logged, not silently dropped.
+                    </p>
+                  </div>
+                  <div>
+                    <span className="fx-fl">Stop behaviour</span>
+                    <div className="fx-sw">
+                      <div className="tx">
+                        <b>Trailing stop</b>
+                        <span>
+                          Follows price in your favour and never moves back. Off keeps the stop where
+                          it was set.
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        className={`fx-tg ${form.trailing_stop ? "" : "off4"}`}
+                        aria-pressed={form.trailing_stop}
+                        aria-label="Trailing stop"
+                        onClick={() => set("trailing_stop", !form.trailing_stop)}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section className="fx-fsec">
+                <div className="fx-rv2">
+                  <div className="rh2">
+                    <CheckIcon />
+                    <b>Before you start it</b>
+                  </div>
+                  <p>{summaryText}</p>
+                </div>
+
+                <div className="fx-actions">
+                  <button
+                    className="fx-cta ghost2"
+                    type="button"
+                    disabled={busy !== null}
+                    onClick={onSave}
+                  >
+                    {busy === "save" ? "Saving…" : editing ? "Save changes" : "Save as paused"}
+                  </button>
+                  <button
+                    className="fx-cta main2"
+                    type="button"
+                    disabled={busy !== null || missing.length > 0}
+                    onClick={onStart}
+                  >
+                    {busy === "start" ? "Starting…" : "Start trading"}
+                  </button>
+                </div>
+                <p className="fx-note3">
+                  {missing.length > 0 ? (
+                    <>
+                      <b>Before you can start:</b> {missing.join(", ")}. Saving as paused works now —
+                      the setup is kept, nothing runs.
+                    </>
+                  ) : (
+                    "Starting runs the same logic against live candles. Pause it any time from the trade list."
+                  )}
+                </p>
+              </section>
+            </form>
+
+            <aside className="fx-side2">
+              <div className="fx-meter">
+                <div className="fx-mh">
+                  <b>Setup strength</b>
+                  <span>{doneCount} of 5</span>
+                </div>
+                <div className="fx-seg">
+                  {sectionsDone.map((ok, i) => (
+                    <i key={i} className={ok ? "f" : i === sectionsDone.indexOf(false) ? "nx" : ""} />
+                  ))}
+                </div>
+                <p className="fx-mnote">
+                  Five things decide whether this trade behaves: the market, the money, the data, the
+                  decider and the limits. Work down the page.
+                </p>
+              </div>
+
+              <div className="fx-unlock" style={{ marginTop: "24px" }}>
+                <h4>This trade at a glance</h4>
+                <p className="us">What Candleweb will do once you start it.</p>
+                <div className="fx-ul got3">
+                  <i>✓</i>
+                  <div>
+                    <b>{pairName} · {form.timeframe}</b>
+                    <span>on {form.exchange_account ? accountName(form.exchange_account) : "no exchange account yet"}</span>
+                  </div>
+                </div>
+                <div className={`fx-ul ${alloc > 0 ? "got3" : ""}`}>
+                  <i>{alloc > 0 ? "✓" : "2"}</i>
+                  <div>
+                    <b>{alloc > 0 ? dollarFormat(alloc) : "No allocation yet"}</b>
+                    <span>
+                      risk {form.risk_pct.toFixed(1)}% · max order {form.max_size_pct}%
+                    </span>
+                  </div>
+                </div>
+                <div className={`fx-ul ${form.indicators.length ? "got3" : ""}`}>
+                  <i>{form.indicators.length ? "✓" : "3"}</i>
+                  <div>
+                    <b>{form.indicators.length} indicator{form.indicators.length === 1 ? "" : "s"}</b>
+                    <span>{form.candle_history_len} candles of history</span>
+                  </div>
+                </div>
+                <div
+                  className={`fx-ul ${form.decider_type === "CANDLE_AI" || form.bot ? "got3" : ""}`}
+                >
+                  <i>{form.decider_type === "CANDLE_AI" || form.bot ? "✓" : "4"}</i>
+                  <div>
+                    <b>
+                      {form.decider_type === "CANDLE_AI"
+                        ? "CandleAI decides"
+                        : form.bot
+                          ? `${botOptions.find((b) => b.id === form.bot)?.name || existing?.bot_name || `Bot #${form.bot}`} decides`
+                          : "No decider yet"}
+                    </b>
+                    <span>{DIRECTION_LABELS[form.direction]}</span>
                   </div>
                 </div>
               </div>
-            </section>
-
-            <section className="fx-fsec">
-              <div className="fx-rv2">
-                <div className="rh2">
-                  <CheckIcon />
-                  <b>Before you start it</b>
-                </div>
-                <p>{summaryText}</p>
-              </div>
-
-              <div className="fx-actions">
-                <button
-                  className="fx-cta ghost2"
-                  type="button"
-                  disabled={busy !== null}
-                  onClick={onSave}
-                >
-                  {busy === "save" ? "Saving…" : editing ? "Save changes" : "Save as paused"}
-                </button>
-                <button
-                  className="fx-cta main2"
-                  type="button"
-                  disabled={busy !== null || missing.length > 0}
-                  onClick={onStart}
-                >
-                  {busy === "start" ? "Starting…" : "Start trading"}
-                </button>
-              </div>
-              <p className="fx-note3">
-                {missing.length > 0 ? (
-                  <>
-                    <b>Before you can start:</b> {missing.join(", ")}. Saving as paused works now —
-                    the setup is kept, nothing runs.
-                  </>
-                ) : (
-                  "Starting runs the same logic against live candles. Pause it any time from the trade list."
-                )}
-              </p>
-            </section>
-          </form>
-
-          <aside className="fx-side2">
-            <div className="fx-meter">
-              <div className="fx-mh">
-                <b>Setup strength</b>
-                <span>{doneCount} of 5</span>
-              </div>
-              <div className="fx-seg">
-                {sectionsDone.map((ok, i) => (
-                  <i key={i} className={ok ? "f" : i === sectionsDone.indexOf(false) ? "nx" : ""} />
-                ))}
-              </div>
-              <p className="fx-mnote">
-                Five things decide whether this trade behaves: the market, the money, the data, the
-                decider and the limits. Work down the page.
-              </p>
-            </div>
-
-            <div className="fx-unlock" style={{ marginTop: "24px" }}>
-              <h4>This trade at a glance</h4>
-              <p className="us">What Candleweb will do once you start it.</p>
-              <div className="fx-ul got3">
-                <i>✓</i>
-                <div>
-                  <b>{pairName} · {form.timeframe}</b>
-                  <span>on {form.exchange_account ? accountName(form.exchange_account) : "no exchange account yet"}</span>
-                </div>
-              </div>
-              <div className={`fx-ul ${alloc > 0 ? "got3" : ""}`}>
-                <i>{alloc > 0 ? "✓" : "2"}</i>
-                <div>
-                  <b>{alloc > 0 ? dollarFormat(alloc) : "No allocation yet"}</b>
-                  <span>
-                    risk {form.risk_pct.toFixed(1)}% · max order {form.max_size_pct}%
-                  </span>
-                </div>
-              </div>
-              <div className={`fx-ul ${form.indicators.length ? "got3" : ""}`}>
-                <i>{form.indicators.length ? "✓" : "3"}</i>
-                <div>
-                  <b>{form.indicators.length} indicator{form.indicators.length === 1 ? "" : "s"}</b>
-                  <span>{form.candle_history_len} candles of history</span>
-                </div>
-              </div>
-              <div
-                className={`fx-ul ${form.decider_type === "CANDLE_AI" || form.bot ? "got3" : ""}`}
-              >
-                <i>{form.decider_type === "CANDLE_AI" || form.bot ? "✓" : "4"}</i>
-                <div>
-                  <b>
-                    {form.decider_type === "CANDLE_AI"
-                      ? "CandleAI decides"
-                      : form.bot
-                        ? `${botOptions.find((b) => b.id === form.bot)?.name || existing?.bot_name || `Bot #${form.bot}`} decides`
-                        : "No decider yet"}
-                  </b>
-                  <span>{DIRECTION_LABELS[form.direction]}</span>
-                </div>
-              </div>
-            </div>
-          </aside>
-        </div>
+            </aside>
+          </div>
+        )}
       </DashboardShell>
     </>
   );

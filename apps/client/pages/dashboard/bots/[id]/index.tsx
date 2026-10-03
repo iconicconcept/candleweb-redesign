@@ -22,6 +22,7 @@ import {
   NOT_MEASURED,
   connectionState,
   dailyReplyBars,
+  recentReplyDots,
   failedLabel,
   failureStreakParts,
   isUnavailable,
@@ -136,7 +137,7 @@ const BotDetailPage = () => {
       ? { value: null, caption: NOT_MEASURED }
       : failureStreakParts(health.days_without_failure, health.last_failure_at);
   const bars = dailyReplyBars(health?.daily_replies);
-  const busiestDay = bars.reduce((m, b) => Math.max(m, b.decisions), 0);
+  const dots = recentReplyDots(health?.daily_replies);
 
   return (
     <>
@@ -272,11 +273,9 @@ const BotDetailPage = () => {
               <span className="fx-preview">
                 <i>◔</i> P&amp;L and open positions land when the backend exposes them
               </span>
-              . What we <b>can</b> tell you: this bot has answered{" "}
-              <b>{health ? health.decisions_total.toLocaleString() : "—"}</b> time
-              {health?.decisions_total === 1 ? "" : "s"} in total,{" "}
-              <b>{health ? health.decisions_7d.toLocaleString() : "—"}</b> of them this week, and it
-              auto-pauses after <b>{bot.auto_pause_after_n_fails || "—"}</b> failures.
+
+              . Answered <b>{health ? health.decisions_total.toLocaleString() : "—"}</b> times in
+              all, <b>{health ? health.decisions_7d.toLocaleString() : "—"}</b> this week.
             </p>
 
             {/* review readiness — the design's trade-count meter, streaks and
@@ -307,9 +306,8 @@ const BotDetailPage = () => {
                       ))}
                     </div>
                     <p className="fx-mnote">
-                      Needs bot decision history to count trades against the current prompt — once it
-                      exists, review can compare this prompt against its results (see
-                      BACKEND_API_REQUESTS.md §1.5).
+                      Counting trades against the current prompt needs closed-trade history, which
+                      is not available yet.
                     </p>
                   </div>
                   <div className="fx-streaks2">
@@ -328,16 +326,33 @@ const BotDetailPage = () => {
                           <i>{streak.caption}</i>
                         </>
                       )}
-                      <span className="why3">
+                      <span
+                        className="why3"
+                        title={
+                          streak.value == null
+                            ? unavailableReason(health?.unavailable, "days_without_failure")
+                            : undefined
+                        }
+                      >
                         {health == null
-                          ? "reading…"
+                          ? "Reading…"
                           : streak.value == null
-                            ? unavailableReason(health.unavailable, "days_without_failure") ??
-                              "Nothing in the last 30 days to measure."
+                            ? "Nothing handed to it yet."
                             : health.last_failure_at
                               ? `Last miss ${whenLabel(health.last_failure_at)}.`
-                              : "No missed candles on record."}
+                              : "No misses on record."}
                       </span>
+                      {dots.length > 0 && (
+                        <div className="fx-dots2">
+                          {dots.map((d) => (
+                            <em
+                              key={d.date}
+                              className={d.cls}
+                              title={`${d.date} — ${d.decisions} decision${d.decisions === 1 ? "" : "s"}`}
+                            />
+                          ))}
+                        </div>
+                      )}
                     </div>
                     <div className="fx-stk2">
                       <span>Suggestions applied</span>
@@ -349,7 +364,10 @@ const BotDetailPage = () => {
                 <div>
                   <div className="fx-unlock">
                     <h4>This bot&rsquo;s milestones</h4>
-                    <p className="us">Each one opens something real.</p>
+                    <p className="us">
+                      Each one opens something real. The counts need closed-trade history, which is
+                      not available yet.
+                    </p>
                     <div className={`fx-ul ${bot.prompt ? "got3" : ""}`}>
                       <i>{bot.prompt ? "✓" : "1"}</i>
                       <div>
@@ -361,28 +379,25 @@ const BotDetailPage = () => {
                       <i>2</i>
                       <div>
                         <b>First trade closed</b>
-                        <span>Needs bot decision history</span>
                       </div>
                     </div>
                     <div className="fx-ul">
                       <i>3</i>
                       <div>
                         <b>100 trades</b>
-                        <span>Needs bot decision history</span>
                       </div>
                     </div>
                     <div className="fx-ul">
                       <i>4</i>
                       <div>
                         <b>30 clean days</b>
-                        <span>Needs bot decision history</span>
                       </div>
                     </div>
                     <div className="fx-ul">
-                      <i>5</i>
+                      <i>&#128274;</i>
                       <div>
                         <b>Shareable record</b>
-                        <span>At 250 closed trades — needs bot decision history</span>
+                        <span>At 250 closed trades</span>
                       </div>
                     </div>
                   </div>
@@ -489,39 +504,31 @@ const BotDetailPage = () => {
                       ))}
                     </div>
                     <div className="fx-uplab">
-                      <span>{bars[0].date}</span>
-                      <span>
-                        {busiestDay > 0 ? `busiest day ${busiestDay}` : "no replies in 30 days"}
-                      </span>
-                      <span>{bars[bars.length - 1].date}</span>
+                      <span>30 days ago</span>
+                      <span>each bar = one day&rsquo;s replies</span>
+                      <span>today</span>
                     </div>
                   </>
                 )}
 
                 <p className="fx-hint" style={{ marginTop: "14px" }}>
-                  One answer is owed per candle shown — not per request, and a candle still
-                  inside the timeout is pending, not failed. <b>Silence counts as a failure; a hold
-                  does not.</b>
-                  {health?.reply_timeout_seconds != null && (
+                  {/* The template carries no paragraph here. Only two things
+                      earn a line: a timeout the backend clamped away from
+                      what the user set, and the pauses caveat — and the
+                      caveat is a tooltip, not a sentence. */}
+                  <b>Silence is a failure; a hold is not.</b>
+                  {timeoutDiffers(health, bot.reply_timeout_s) && (
                     <>
                       {" "}
-                      Timeout in use: <b>{health.reply_timeout_seconds}s</b>
-                      {timeoutDiffers(health, bot.reply_timeout_s) && (
-                        <>
-                          {" "}
-                          — not the <b>{bot.reply_timeout_s}s</b> you set, because the timeout is
-                          clamped to between 5 seconds and 6 hours
-                        </>
-                      )}
-                      .
+                      Timeout in use is <b>{health?.reply_timeout_seconds}s</b>, not the{" "}
+                      <b>{bot.reply_timeout_s}s</b> you set — it is clamped to 5s–6h.
                     </>
                   )}
-                  {health?.first_seen && <> First seen {whenLabel(health.first_seen)}.</>}
                   {pausesCaveat(health?.unavailable) && (
                     <>
                       {" "}
                       <span title={pausesCaveat(health?.unavailable)} style={{ cursor: "help" }}>
-                        Time spent paused before this release still counts against uptime (?)
+                        Older pauses still count against uptime (?)
                       </span>
                     </>
                   )}
@@ -640,8 +647,8 @@ const BotDetailPage = () => {
                     row in full. No order is placed from a decision: this is
                     the record of what the bot answered, nothing more. */}
                 <div className="fx-sh">
-                  <h2>Decisions</h2>
-                  <span className="fx-src">what this bot answered</span>
+                  <h2>Recent decisions</h2>
+                  <span className="fx-src">newest first</span>
                 </div>
                 <DecisionsFeed
                   api={axiosToken}
