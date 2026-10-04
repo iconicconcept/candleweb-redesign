@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
 import useSiteTheme from "../../lib/hooks/useSiteTheme";
 import useUserStore from "../../lib/hooks/useUserStore";
+import { imageUri } from "../../utils/constants";
 import { useHydration } from "../../lib/hooks/useHydration";
 import { signInPath } from "../../lib/authRedirect";
 import BrandLogo from "./BrandLogo";
@@ -96,6 +97,18 @@ const NAV_LINKS: { label: string; href: string; key: PublicNavKey }[] = [
   // { label: "About", href: "/about", key: "about" },
 ];
 
+/** First photo field the profile actually carries; a bare path is Cloudinary's. */
+const avatarUrl = (user: any): string | null => {
+  const raw =
+    user?.profile_picture ||
+    user?.profile_image ||
+    user?.avatar ||
+    user?.image ||
+    user?.picture;
+  if (!raw || typeof raw !== "string") return null;
+  return raw.startsWith("http") ? raw : imageUri + raw;
+};
+
 /**
  * Signed-in replacement for the "Log in" + CTA pair.
  *
@@ -103,7 +116,15 @@ const NAV_LINKS: { label: string; href: string; key: PublicNavKey }[] = [
  * cannot know about it. The caller only renders this once `useHydration()` is
  * true, which keeps the first client paint identical to the SSR markup.
  */
-function AccountMenu({ name, onSignOut }: { name: string; onSignOut: () => void }) {
+function AccountMenu({
+  name,
+  photo,
+  onSignOut,
+}: {
+  name: string;
+  photo: string | null;
+  onSignOut: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
 
@@ -121,13 +142,11 @@ function AccountMenu({ name, onSignOut }: { name: string; onSignOut: () => void 
     };
   }, [open]);
 
-  const initials =
-    (name || "")
-      .split(/[\s_@.]+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((w) => w[0]?.toUpperCase())
-      .join("") || "ME";
+  /* A photo if the account has one, otherwise a person glyph. Never a text
+     placeholder: before `/user/profile/` resolves there is no name to make
+     initials from, which is where the stray "ME" came from. */
+  const [imgOk, setImgOk] = useState(true);
+  const showPhoto = !!photo && imgOk;
 
   return (
     <div className="pub-acct" ref={boxRef}>
@@ -139,7 +158,15 @@ function AccountMenu({ name, onSignOut }: { name: string; onSignOut: () => void 
         aria-label={`Account menu for ${name || "your account"}`}
         onClick={() => setOpen((v) => !v)}
       >
-        <span aria-hidden="true">{initials}</span>
+        {showPhoto ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img src={photo as string} alt="" onError={() => setImgOk(false)} />
+        ) : (
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="8.2" r="3.6" />
+            <path d="M4.8 20c.6-3.7 3.5-5.8 7.2-5.8s6.6 2.1 7.2 5.8" />
+          </svg>
+        )}
       </button>
       {open && (
         <div className="pub-acctpop" role="menu">
@@ -183,6 +210,7 @@ export default function PublicHeader({
   const { user, removeUser } = useUserStore((state: any) => state);
   const signedIn = hydrated && !!user && Object.keys(user).length > 0;
   const accountName = user?.username || user?.first_name || user?.email || "";
+  const accountPhoto = avatarUrl(user);
 
   const signOut = () => {
     removeUser();
@@ -288,7 +316,7 @@ export default function PublicHeader({
           <div className="pub-nav-end">
             <ThemeToggle className="pub-theme" onToggle={toggleTheme} />
             {signedIn ? (
-              <AccountMenu name={accountName} onSignOut={signOut} />
+              <AccountMenu name={accountName} photo={accountPhoto} onSignOut={signOut} />
             ) : (
               <>
                 {onLogin ? (

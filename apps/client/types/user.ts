@@ -33,6 +33,17 @@ export interface User {
   first_name?: string;
   last_name?: string;
   phone?: string;
+
+  /**
+   * Profile photo. `GET /user/profile/` does not return one today, so these are
+   * the shapes we accept if it starts to — a full URL or a Cloudinary path.
+   * Until then the UI falls back to a person glyph.
+   */
+  profile_picture?: string | null;
+  profile_image?: string | null;
+  avatar?: string | null;
+  image?: string | null;
+  picture?: string | null;
 }
 
 export interface UserExchange {
