@@ -8548,8 +8548,10 @@ button.fx-pay9:disabled {
    because a real rationale is a paragraph and the row opens in full. */
 .fx-ev .q {
   margin-top: 8px;
-  font-family: var(--fx-mono);
-  font-size: 11px;
+  /* A bot's rationale is prose, not data — it reads as the body text it is.
+     12.5px matches .fx-ev p; sans at 11px sat noticeably smaller than mono did. */
+  font-family: "Outfit", sans-serif;
+  font-size: 12.5px;
   color: var(--fx-t2);
   line-height: 1.65;
   padding-left: 11px;
