@@ -594,6 +594,10 @@
   width: 100%;
   justify-content: center;
 }
+/* "Learn more" stacked under the primary action */
+.ac-c-buy .pub-btn + .pub-btn {
+  margin-top: 10px;
+}
 
 /* tutors */
 .ac-tutors {

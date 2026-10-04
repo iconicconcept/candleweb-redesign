@@ -67,34 +67,8 @@ const toSessions = (course: any) => {
   });
 };
 
-/* The API often returns no `benefits` at all (the dashboard course page has
-   carried its own default list for the same reason). Rather than drop the
-   section the design calls for, fall back to what the Academy gives every
-   cohort. */
-const DEFAULT_BENEFITS = [
-  {
-    label: "Live classes, with recordings",
-    detail:
-      "Classes run at a fixed time each week and every one is recorded, so a missed session does not put you behind.",
-  },
-  {
-    label: "You build every week",
-    detail:
-      "Every module ends in something that runs. The last weeks are spent on a project you keep.",
-  },
-  {
-    label: "An AI tutor on call",
-    detail:
-      "Enrolment switches on a personal AI tutor for projects, lessons and coursework, paid for with the credits you earn.",
-  },
-  {
-    label: "A route to internships",
-    detail:
-      "Top performers get access to internship slots with our partners, and introductions to people already doing the work.",
-  },
-];
-
-/** `benefits` is either a list of strings or of {label, description}. */
+/** A benefit is either a bare string or a row from the API
+    ({id, title, description}); older payloads used {label, detail}. */
 const toBenefits = (course: any) => {
   const rows = Array.isArray(course?.benefits) ? course.benefits : [];
   return rows
@@ -176,8 +150,7 @@ const CourseDetailPage = () => {
   const partial = !detail && !!listed;
 
   const sessions = useMemo(() => toSessions(course), [course]);
-  const fromApi = useMemo(() => toBenefits(course), [course]);
-  const benefits = fromApi.length > 0 ? fromApi : DEFAULT_BENEFITS;
+  const benefits = useMemo(() => toBenefits(course), [course]);
   const lecturers = useMemo(
     () => (Array.isArray(course?.lecturers) ? course.lecturers : []),
     [course],
@@ -544,18 +517,35 @@ const CourseDetailPage = () => {
                 </section>
 
                 {/* ---- course benefits ---- */}
-                {benefits.length > 0 && (
+                {/* Whatever the course actually carries, never a stand-in list:
+                    inventing benefits on a page someone buys from is worse than
+                    showing none. `partial` means the detail call 403'd, so they
+                    exist but we can't read them yet. */}
+                {(benefits.length > 0 || partial) && (
                   <section className="ac-cd-block" aria-labelledby="ben-h">
-
                     <h2 id="ben-h">Course benefits.</h2>
-                    <div className="ac-runs">
-                      {benefits.map((b: any, i: number) => (
-                        <div key={i}>
-                          <h3>{b.label}</h3>
-                          {b.detail && <p>{b.detail}</p>}
-                        </div>
-                      ))}
-                    </div>
+                    {benefits.length > 0 ? (
+                      <div className="ac-runs">
+                        {benefits.map((b: any, i: number) => (
+                          <div key={i}>
+                            <h3>{b.label}</h3>
+                            {b.detail && <p>{b.detail}</p>}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="ac-cd-empty">
+                        What this course includes isn&rsquo;t public yet.{" "}
+                        <button
+                          type="button"
+                          className="ac-linkbtn"
+                          onClick={() => googleAuth(returnTo)}
+                        >
+                          Sign in
+                        </button>{" "}
+                        to read it.
+                      </p>
+                    )}
                   </section>
                 )}
 

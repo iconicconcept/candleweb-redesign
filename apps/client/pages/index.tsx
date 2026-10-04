@@ -69,6 +69,9 @@ export default function Home() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState(0);
   const [activeStep, setActiveStep] = useState(0);
+  /* The address typed in the closing "Get started" box is carried to /register
+     and seeded into its email field, so nobody types it twice. */
+  const [accessEmail, setAccessEmail] = useState("");
 
   useEffect(() => {
     const reveal = new IntersectionObserver(
@@ -626,15 +629,25 @@ export default function Home() {
               className="landing-form landing-rise"
               onSubmit={(event) => {
                 event.preventDefault();
-                router.push("/register");
+                /* type="email" + required means the browser has already
+                   rejected an empty or malformed address by this point. */
+                const value = accessEmail.trim();
+                router.push(
+                  value
+                    ? `/register?email=${encodeURIComponent(value)}`
+                    : "/register",
+                );
               }}
             >
               <label htmlFor="landing-email">Email</label>
               <input
                 id="landing-email"
                 type="email"
+                autoComplete="email"
                 placeholder="you@example.com"
                 required
+                value={accessEmail}
+                onChange={(event) => setAccessEmail(event.target.value)}
               />
               <label htmlFor="landing-tool">
                 What did you build your bot with?
@@ -657,7 +670,7 @@ export default function Home() {
           </section>
         </div>
 
-        <PublicFooter description="Trading infrastructure for people who build their own bots. Built in Abuja, Nigeria." />
+        <PublicFooter description="Trading infrastructure for people who build their own bots. Nigeria." />
       </main>
     </>
   );

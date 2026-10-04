@@ -1107,6 +1107,21 @@ const SubscriptionPage = () => {
                       {freePlan?.entitlements.bot_review_unlock_closed_trades ?? 20} trades on the same
                       prompt. Paper counts. The first review is free, and it does not need a paid plan.
                     </p>
+                    {/* Packs need no plan, no bot and no closed trade — reviews can be
+                        stocked up before there is anything to review. */}
+                    {reviewPacks.length > 0 && (
+                      <>
+                        <p className="fx-mnote">
+                          Want more than the free one? Packs can be bought now, before you have a
+                          single trade to review, and reviews you buy never expire.
+                        </p>
+                        <ReviewPacks
+                          packs={reviewPacks}
+                          disabled={busy}
+                          onBuy={(pack) => openPay({ kind: "reviews", pack })}
+                        />
+                      </>
+                    )}
                   </div>
                   <div className="fx-streaks2">
                     <div className="fx-stk2">
@@ -1119,8 +1134,19 @@ const SubscriptionPage = () => {
                       <b style={reviews?.balance ? undefined : { color: "var(--fx-t3)" }}>
                         {reviews ? reviews.balance : 0}
                       </b>
-                      <i>of {freePlan?.entitlements.bot_reviews_per_month ?? 1} free</i>
-                      <Dots total={freePlan?.entitlements.bot_reviews_per_month ?? 1} on={reviews?.balance ?? 0} />
+                      {/* a bought pack can take the balance past the free allowance */}
+                      <i>
+                        {reviews && reviews.balance > (freePlan?.entitlements.bot_reviews_per_month ?? 1)
+                          ? "bought — they never expire"
+                          : `of ${freePlan?.entitlements.bot_reviews_per_month ?? 1} free`}
+                      </i>
+                      <Dots
+                        total={Math.min(
+                          12,
+                          Math.max(freePlan?.entitlements.bot_reviews_per_month ?? 1, reviews?.balance ?? 0),
+                        )}
+                        on={reviews?.balance ?? 0}
+                      />
                     </div>
                   </div>
                 </div>

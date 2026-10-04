@@ -120,11 +120,11 @@ const Footer = (props: IFooterProps) => {
                   Academy
                 </li>
               </Link>
-              <Link href="/about">
+              {/* <Link href="/about">
                 <li className="footer__company--item text-xs inter text-gray-400 duration-[1500ms] ease-in-out hover:text-primary cursor-pointer mb-3">
                   About us
                 </li>
-              </Link>
+              </Link> */}
 
               <li className="footer__company--item text-xs inter text-gray-400 duration-[1500ms] ease-in-out hover:text-primary cursor-pointer mb-3" onClick={() => {
 

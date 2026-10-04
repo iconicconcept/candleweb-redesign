@@ -132,10 +132,13 @@ const fail = (err: any, thunkApi: { rejectWithValue: (v: string) => any }) => {
 
 type PlanChoice = { api: AxiosInstance; plan: string; cycle: SubCycle };
 
-/** POST /subscribe/ — free plan starts now (`subscription`), paid returns `checkout_url` */
+/** POST /subscribe/ — free plan starts now (`subscription`), paid returns `checkout_url`.
+    `auto_renew` is sent explicitly rather than left to the server default: the page
+    promises a renewal date, offers "Cancel plan" and can undo it with /resume/, all of
+    which only make sense on a renewing subscription. */
 const subscribe = createAsyncThunk("subscriptionV2/subscribe", async (p: PlanChoice, thunkApi) => {
   try {
-    return await post(p.api, "subscribe/", { plan: p.plan, cycle: p.cycle });
+    return await post(p.api, "subscribe/", { plan: p.plan, cycle: p.cycle, auto_renew: true });
   } catch (err: any) {
     return fail(err, thunkApi);
   }

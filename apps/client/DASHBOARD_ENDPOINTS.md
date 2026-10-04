@@ -24,14 +24,14 @@ uses them). Service `services/subscriptionV2Service.ts`, slice `subscriptionV2`.
 | ✅ | `GET /subscription_v2/me/reviews/` | review chip, ring, streak |
 | ✅ | `GET /subscription_v2/me/invoices/` | billing history; an `open`/`failed` invoice shows a "Pay … due" button |
 | ✅ | `GET /subscription_v2/me/payment-methods/` | "Paying with" label |
-| ✅ | `POST /subscription_v2/subscribe/` | free plan starts inline; paid → redirect to `checkout_url` |
+| ✅ | `POST /subscription_v2/subscribe/` | free plan starts inline; paid → redirect to `checkout_url`. Sends `auto_renew: true` explicitly (2026-10-04) rather than relying on the server default — the page shows a renewal date and offers cancel/resume, which assume a renewing subscription. Confirm the backend default matches. |
 | ✅ | `POST /subscription_v2/change-plan/` | upgrade → `checkout_url`; downgrade → `scheduled` + `effective_at` toast |
 | ✅ | `POST /subscription_v2/cancel/` · `/resume/` | cancel dialog; "undo cancellation" button while `cancel_at_period_end` |
 | ✅ | `POST /subscription_v2/me/invoices/{number}/pay/` | pay an outstanding invoice |
 | ❓ | checkout return URL | on return the page polls `/me/` (6× / 3s) if the query has `status`, `tx_ref`, `transaction_id` or `checkout`. Confirm what Flutterwave's `redirect_url` points at and which params it carries. |
 | ⛔ | crypto payment | subscribe/change-plan take no payment method and only return a Flutterwave checkout, so "Pay with crypto" is shown disabled ("Soon"). |
 | ✅ (2026-09-30) | `GET /subscription_v2/review-packs/` | public; top-up strip in the "Bot reviews" card (active view), sorted by quantity, "save N%" from `unit_amount` vs the dearest pack |
-| ✅ (2026-09-30) | `POST /subscription_v2/reviews/purchase/` | `{pack, callback_url}` via the pay dialog → Flutterwave `checkout_url`. On return the page polls `/me/reviews/` + `/me/invoices/` and only confirms once the top-up invoice is `paid` or the balance rises by the pack size. Never gated on `unlock_closed_trades`. Not offered on the "no plan yet" view (not in that mockup), though the API allows it. |
+| ✅ (2026-09-30) | `POST /subscription_v2/reviews/purchase/` | `{pack, callback_url}` via the pay dialog → Flutterwave `checkout_url`. On return the page polls `/me/reviews/` + `/me/invoices/` and only confirms once the top-up invoice is `paid` or the balance rises by the pack size. Never gated on `unlock_closed_trades`. Now offered on the "no plan yet" view too (2026-10-04) — under the "First bot review" meter, since the endpoint needs no plan, bot or closed trade. That view's "Reviews available" line switches from "of N free" to "bought — they never expire" once a pack takes the balance past the free allowance. |
 | ⛔ | invoice download | "Download invoices" link not built — no PDF endpoint. |
 | ⛔ | closed-trades count | "First bot review · N of 20 trades" meter shows 0 filled; no closed-trade count per prompt. |
 

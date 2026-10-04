@@ -76,7 +76,7 @@ export const useRefreshToken = () => {
       dispatch(setBalance(""));
 
       // Redirect to the tutor page as a logged-out user so they see Login/Signup
-      // instead of just showing a toast while keeping the Pay Now button visible.
+      // instead of just showing a toast while keeping the Enroll Now button visible.
       const currentPath = router.pathname;
       const isTutorPage = currentPath.startsWith("/tutor");
       if (isTutorPage) {

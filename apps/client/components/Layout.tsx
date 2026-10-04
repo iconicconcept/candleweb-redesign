@@ -62,7 +62,12 @@ const Layout = ({ children }: Props) => {
       </Head>
       <GoogleAnalytics gaId="G-Z3EMQKEN56" />
       <div
-        className="main__body relative overflow-hidden min-h-screen !max-w-[100vw]"
+        /* No `overflow-hidden` here: that utility beat the `.main__body
+           { overflow: clip }` rule in globals.css (same specificity, later in
+           the bundle), which made this a scroll container and stopped the
+           sticky PublicHeader from sticking to the viewport. `clip` still
+           guards horizontal overflow without creating a scrollport. */
+        className="main__body relative min-h-screen !max-w-[100vw]"
         data-chrome={isPublicChrome ? "public" : isDashboard ? "dashboard" : undefined}
       >
         {/* The legacy header is only for pages that haven't been redesigned

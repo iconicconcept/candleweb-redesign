@@ -283,9 +283,15 @@ export default function CourseFocus() {
     // to read "500 LMN Credits", a leftover from an earlier naming scheme.
     { label: "500 AI credits", icon: "⭐" },
   ];
+  /* The API returns {id, title, description}; older payloads used {label}.
+     Reading only `label` rendered an empty row for every real benefit. */
   const displayBenefits =
     course?.benefits && course.benefits.length > 0
-      ? course.benefits.map((b: any) => (typeof b === "string" ? { label: b, icon: "⭐" } : b))
+      ? course.benefits.map((b: any) =>
+          typeof b === "string"
+            ? { label: b, icon: "⭐" }
+            : { ...b, label: b?.label || b?.title || "" },
+        )
       : defaultBenefits;
 
   const thumbnailSrc = course?.thumbnail

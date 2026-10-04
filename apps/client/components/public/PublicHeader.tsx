@@ -89,7 +89,7 @@ const NAV_LINKS: { label: string; href: string; key: PublicNavKey }[] = [
   { label: "Pricing", href: "/pricing", key: "pricing" },
   { label: "Docs", href: "/docs", key: "docs" },
   { label: "Blog", href: "/blog", key: "blog" },
-  { label: "About", href: "/about", key: "about" },
+  // { label: "About", href: "/about", key: "about" },
 ];
 
 export default function PublicHeader({

@@ -315,9 +315,13 @@ const AcademyCourses = () => {
                 </div>
 
                 <div className="ac-c-body">
-                  <span className="ac-c-cat">{course.category || "Course"}</span>
+                  <span className="ac-c-cat">
+                    {course.category || "Course"}
+                  </span>
                   <h3>
-                    <Link href={`/tutor/course/${course.id}`}>{course.title}</Link>
+                    <Link href={`/tutor/course/${course.id}`}>
+                      {course.title}
+                    </Link>
                   </h3>
                   <p>{course.description}</p>
                   {course.features?.length > 0 && (
@@ -334,7 +338,9 @@ const AcademyCourses = () => {
                   )}
                   <div className="ac-c-meta">
                     {course.duration && <span>{course.duration}</span>}
-                    {course.lessons ? <span>{course.lessons} hours</span> : null}
+                    {course.lessons ? (
+                      <span>{course.lessons} hours</span>
+                    ) : null}
                     <span>{course.current_enrollment_count ?? 0} enrolled</span>
                     {course.certification && (
                       <span>{course.certification}</span>
@@ -361,7 +367,21 @@ const AcademyCourses = () => {
                           handlePayment(course);
                         }}
                       >
-                        {purchased ? "Go to dashboard" : "Pay now"} <span>→</span>
+                        {purchased ? "Go to dashboard" : "Enroll Now"}{" "}
+                        <span>→</span>
+                      </button>
+                      {/* The whole card is already a link to the course, but
+                          the buy column swallows clicks, so this gives that
+                          same destination an explicit control. */}
+                      <button
+                        type="button"
+                        className="pub-btn pub-btn-glass"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openCourse(course);
+                        }}
+                      >
+                        Learn more
                       </button>
                     </>
                   ) : (
@@ -389,7 +409,9 @@ const AcademyCourses = () => {
       </div>
 
       {!isLoading && filtered.length > 3 && (
-        <div style={{ display: "flex", justifyContent: "center", marginTop: 34 }}>
+        <div
+          style={{ display: "flex", justifyContent: "center", marginTop: 34 }}
+        >
           <button
             type="button"
             className="pub-btn pub-btn-glass"

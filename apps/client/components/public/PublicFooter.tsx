@@ -25,7 +25,7 @@ const HREFS: Record<string, string> = {
   Academy: "/tutor",
   Docs: "/docs",
   "API reference": "/docs",
-  About: "/about",
+  // About: "/about",
   Blog: "/blog",
   Terms: "/terms",
   Privacy: "/privacy",

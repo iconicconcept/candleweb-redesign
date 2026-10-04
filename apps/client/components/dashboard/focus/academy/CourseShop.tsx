@@ -23,8 +23,12 @@ export default function CourseShop({ excludeIds }: Props) {
   const router = useRouter();
   const axiosToken = useAxiosAuth();
   const { user } = useUserStore();
-  const { courses, isLoading } = useSelector((state: RootState) => state.courses);
-  const { isInitiating, isVerifying } = useSelector((state: RootState) => state.payment);
+  const { courses, isLoading } = useSelector(
+    (state: RootState) => state.courses,
+  );
+  const { isInitiating, isVerifying } = useSelector(
+    (state: RootState) => state.payment,
+  );
 
   const [showNameDialog, setShowNameDialog] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState<any>(null);
@@ -38,7 +42,12 @@ export default function CourseShop({ excludeIds }: Props) {
   const excludeSet = new Set(excludeIds.map(String));
   const shop = courses.filter((c: any) => !excludeSet.has(String(c.id)));
 
-  const initiate = async (course: any, firstName: string, lastName: string, phone: string) => {
+  const initiate = async (
+    course: any,
+    firstName: string,
+    lastName: string,
+    phone: string,
+  ) => {
     try {
       const payload: any = {
         course_id: course.id,
@@ -48,7 +57,9 @@ export default function CourseShop({ excludeIds }: Props) {
         phone,
         callback_url: `${window.location.origin}/tutor/verify`,
       };
-      const resultAction = await dispatch(paymentService.initiatePayment(payload));
+      const resultAction = await dispatch(
+        paymentService.initiatePayment(payload),
+      );
       if (paymentService.initiatePayment.fulfilled.match(resultAction)) {
         const data = resultAction.payload?.data;
         if (data?.requires_payment === false) {
@@ -73,11 +84,18 @@ export default function CourseShop({ excludeIds }: Props) {
     const phone = user.phone || "";
     setIsCheckingProfile(true);
     try {
-      const result = await dispatch(tutorService.checkStudentProfile(axiosToken));
+      const result = await dispatch(
+        tutorService.checkStudentProfile(axiosToken),
+      );
       if (tutorService.checkStudentProfile.fulfilled.match(result)) {
         const profile = result.payload?.data;
         if (profile?.has_profile && !profile?.needs_names) {
-          await initiate(course, profile.first_name, profile.last_name, profile.phone);
+          await initiate(
+            course,
+            profile.first_name,
+            profile.last_name,
+            profile.phone,
+          );
           return;
         }
       }
@@ -134,7 +152,7 @@ export default function CourseShop({ excludeIds }: Props) {
                   disabled={busy}
                   onClick={() => (open ? buy(course) : undefined)}
                 >
-                  {open ? "Pay with Paystack" : "Join the waitlist"}
+                  {open ? "Enroll now" : "Join the waitlist"}
                 </button>
               </div>
             </div>
@@ -151,7 +169,11 @@ export default function CourseShop({ excludeIds }: Props) {
         labelledBy="shop-profile-title"
         footer={
           <>
-            <button className="fx-cta ghost2" type="button" onClick={() => setShowNameDialog(false)}>
+            <button
+              className="fx-cta ghost2"
+              type="button"
+              onClick={() => setShowNameDialog(false)}
+            >
               Cancel
             </button>
             <button
@@ -168,7 +190,12 @@ export default function CourseShop({ excludeIds }: Props) {
                   return;
                 }
                 setShowNameDialog(false);
-                await initiate(selectedCourse, form.firstName.trim(), form.lastName.trim(), form.phone.trim());
+                await initiate(
+                  selectedCourse,
+                  form.firstName.trim(),
+                  form.lastName.trim(),
+                  form.phone.trim(),
+                );
               }}
             >
               Proceed to pay
@@ -185,7 +212,9 @@ export default function CourseShop({ excludeIds }: Props) {
               id="shop-first"
               type="text"
               value={form.firstName}
-              onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, firstName: e.target.value }))
+              }
             />
           </div>
         </div>
@@ -198,7 +227,9 @@ export default function CourseShop({ excludeIds }: Props) {
               id="shop-last"
               type="text"
               value={form.lastName}
-              onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, lastName: e.target.value }))
+              }
             />
           </div>
         </div>
@@ -211,7 +242,9 @@ export default function CourseShop({ excludeIds }: Props) {
               id="shop-phone"
               type="tel"
               value={form.phone}
-              onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, phone: e.target.value }))
+              }
             />
           </div>
         </div>
