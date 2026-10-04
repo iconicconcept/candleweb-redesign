@@ -7,7 +7,6 @@ import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "../../../redux/store";
 import courseService from "../../../services/courseService";
 import tutorService from "../../../services/tutorService";
-import { signInPath } from "../../../lib/authRedirect";
 import useCourseEnrolment from "../../../lib/hooks/useCourseEnrolment";
 import PublicHeader from "../../../components/public/PublicHeader";
 import PublicFooter from "../../../components/public/PublicFooter";
@@ -145,13 +144,11 @@ const CourseDetailPage = () => {
     () => (courses || []).find((c: any) => String(c.id) === String(id)) || null,
     [courses, id],
   );
+  /* The public featured list carries the title, price, facts and cover, so the
+     page can render from it while `GET /tutor/courses/{id}/` is still in flight
+     — or never answers, since it 403s for a signed-out visitor. The sections
+     that only exist on the detail response simply stay hidden in that case. */
   const course = detail ?? listed;
-  /* The public featured list usually resolves before the detail call, so there
-     is a window with a course to show but no syllabus/benefits/lecturers yet.
-     That is "pending", not "not public" — telling someone to sign in while the
-     request is still in flight is just wrong. */
-  const detailPending = loading && !detail;
-  const partial = !loading && !detail && !!listed;
 
   const sessions = useMemo(() => toSessions(course), [course]);
   const benefits = useMemo(() => toBenefits(course), [course]);

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { setIsSuccessful } from "../../redux/slices/authSlice";
 import { useDispatch } from "react-redux";
 import { setExchangeRecord } from "../../redux/slices/exchangeSlice";
@@ -10,14 +10,24 @@ import { setBalance } from "../../redux/slices/userSlice";
 import { AppDispatch } from "../../redux/store";
 import useUserStore from "../../lib/hooks/useUserStore";
 
+/* "keypress" is deprecated and never fires for most keys; "visibilitychange"
+   and "focus" catch coming back to the tab, and touch/wheel cover reading on a
+   phone or scrolling a chart without moving the pointer. */
 const events = [
-    "load",
     "mousemove",
     "mousedown",
     "click",
     "scroll",
-    "keypress",
+    "wheel",
+    "keydown",
+    "touchstart",
+    "focus",
 ];
+
+/* Thirty minutes of genuinely no interaction. Reading a page counts as
+   activity through scroll/pointer/focus, so this should only fire on a tab
+   someone has walked away from. */
+const IDLE_MS = 30 * 60 * 1000;
 
 
 type Props = {
@@ -27,39 +37,36 @@ type Props = {
 
 
 const AutoLogout: React.FC<Props> = ({ children }) => {
-    var timer: any;
     const dispatch = useDispatch<AppDispatch>()
     const { removeUser } = useUserStore((state) => state);
+    /* A ref, not a local `var`: that was re-created on every render, and the
+       cleanup removed a different function reference than the one added, so
+       every dashboard page mount piled on another set of listeners that no
+       longer had a handle on the timer they were supposed to reset. */
+    const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const logoutRef = useRef<() => void>(() => {});
 
-    // this function sets the timer that logs out the user after 10 secs
-    const handleLogoutTimer = () => {
-        timer = setTimeout(() => {
-            // clears any pending timer.
-            resetTimer();
-            // Listener clean up. Removes the existing event listener from the window
-            Object.values(events).forEach((item) => {
-                window.removeEventListener(item, resetTimer);
-            });
-            // logs out user
-            logoutAction();
-        }, 600000); // 120000 = 2 minutes
-    };
-
-    // this resets the timer if it exists.
-    const resetTimer = () => {
-        if (timer) clearTimeout(timer);
-    };
-
-    // when component mounts, it adds an event listeners to the window
-    // each time any of the event is triggered, i.e on mouse move, click, scroll, keypress etc, the timer to logout user after 10 secs of inactivity resets.
-    // However, if none of the event is triggered within 10 secs, that is app is inactive, the app automatically logs out.
     useEffect(() => {
-        Object.values(events).forEach((item) => {
-            window.addEventListener(item, () => {
-                resetTimer();
-                handleLogoutTimer();
-            });
-        });
+        const clear = () => {
+            if (timerRef.current) clearTimeout(timerRef.current);
+            timerRef.current = null;
+        };
+        const start = () => {
+            clear();
+            timerRef.current = setTimeout(() => logoutRef.current(), IDLE_MS);
+        };
+        /* One named handler, so it can actually be removed again. */
+        const onActivity = () => start();
+
+        events.forEach((item) =>
+            window.addEventListener(item, onActivity, { passive: true }),
+        );
+        start();
+
+        return () => {
+            events.forEach((item) => window.removeEventListener(item, onActivity));
+            clear();
+        };
     }, []);
 
     // logs out user by clearing out auth token in localStorage and redirecting url to /signin page.
@@ -81,6 +88,7 @@ const AutoLogout: React.FC<Props> = ({ children }) => {
         dispatch(setBalance(""))
         window.location.pathname = "/register";
     };
+    logoutRef.current = logoutAction;
 
     return (<>
         {children}

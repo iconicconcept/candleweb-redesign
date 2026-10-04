@@ -260,21 +260,11 @@ export default function PublicHeader({
                 {link.label}
               </Link>
             ))}
-            {signedIn ? (
-              <>
-                {/* mobile menu only — this container doubles as the desktop
-                    nav pill, where these would duplicate the Academy link */}
-                <Link href="/dashboard" className="pub-m-nav" onClick={closeMenu}>
-                  Dashboard
-                </Link>
-                <Link href="/dashboard/tutor" className="pub-m-nav" onClick={closeMenu}>
-                  Academy
-                </Link>
-                <button className="pub-m-login" onClick={signOut}>
-                  Sign out
-                </button>
-              </>
-            ) : onLogin ? (
+            {/* Nothing for signed-in users here: .pub-nav-end (and with it the
+                account menu) stays visible on mobile, so Dashboard / Academy /
+                Sign out live there on both sizes rather than being repeated in
+                this list — which is also the desktop nav pill. */}
+            {signedIn ? null : onLogin ? (
               <button
                 className="pub-m-login"
                 onClick={() => {

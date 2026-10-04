@@ -75,8 +75,13 @@ axiosApi.interceptors.response.use(
       return Promise.reject(error);
     }
 
+    /* 401 only. 403 means "signed in, but not allowed to do this" — plenty of
+       endpoints answer it for ordinary reasons (not enrolled in a course, a
+       plan limit, a gated detail view). Refreshing on 403 meant an ordinary
+       permission response could end in a wiped session and "Session expired"
+       while the user was sitting on a working page. */
     const status = error.response?.status;
-    if ((status === 401 || status === 403) && !originalRequest._retry) {
+    if (status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });

@@ -35,16 +35,30 @@ export const useRefreshToken = () => {
   const { user, setUser, removeUser } = useUserStore((state) => state);
 
   const refreshToken = async () => {
+    let response: Response;
     try {
-      const response = await fetch(`${BASE_URL}/user/refresh/get/token/`, {
+      response = await fetch(`${BASE_URL}/user/refresh/get/token/`, {
         method: "GET",
         credentials: "include", // This is equivalent to withCredentials: true in axios
       });
+    } catch {
+      /* The network dropped, or the request was blocked. That says nothing
+         about whether the session is still good, so leave it alone and let the
+         caller fail — tearing the user out of a working page over one failed
+         request is the worse outcome. */
+      return;
+    }
 
-      if (!response.ok) {
-        // console.log("Failed to refresh token");
-        throw new Error("Failed to refresh token");
+    /* Only the server actually rejecting the refresh cookie means the session
+       is over. A 500 or a gateway error is a server problem, not an expiry. */
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        endSession();
       }
+      return;
+    }
+
+    try {
 
       const data = await response.json();
 
@@ -57,7 +71,14 @@ export const useRefreshToken = () => {
       return {
         access_token: data.access_token,
       };
-    } catch (err) {
+    } catch {
+      /* Malformed body from an otherwise-OK response. Nothing to act on. */
+      return;
+    }
+  };
+
+  /* Only called when the server has actually rejected the refresh cookie. */
+  const endSession = () => {
       // Clear all user state first
       removeUser();
       dispatch(setIsSuccessful(false));
@@ -86,8 +107,6 @@ export const useRefreshToken = () => {
         router.push("/register");
       }
       error("Session expired. Please log in again.", "expired");
-      return;
-    }
   };
 
   return refreshToken;
