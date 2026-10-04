@@ -129,6 +129,12 @@
 .pub-nav-mid .pub-m-login {
   display: none;
 }
+/* Signed-in shortcuts belong to the mobile menu only. .pub-nav-mid is also the
+   desktop nav pill, so without this they render beside Blog — repeating the
+   Academy link that is already in NAV_LINKS. */
+.pub-nav-mid .pub-m-nav {
+  display: none;
+}
 .pub-nav-end {
   display: flex;
   align-items: center;
@@ -439,6 +445,9 @@
     background: var(--pub-s2);
     overflow-y: auto;
     overscroll-behavior: contain;
+  }
+  .pub-nav-mid.is-open .pub-m-nav {
+    display: block;
   }
   .pub-nav-mid.is-open a,
   .pub-nav-mid.is-open .pub-m-login {

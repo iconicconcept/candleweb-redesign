@@ -262,10 +262,12 @@ export default function PublicHeader({
             ))}
             {signedIn ? (
               <>
-                <Link href="/dashboard" onClick={closeMenu}>
+                {/* mobile menu only — this container doubles as the desktop
+                    nav pill, where these would duplicate the Academy link */}
+                <Link href="/dashboard" className="pub-m-nav" onClick={closeMenu}>
                   Dashboard
                 </Link>
-                <Link href="/dashboard/tutor" onClick={closeMenu}>
+                <Link href="/dashboard/tutor" className="pub-m-nav" onClick={closeMenu}>
                   Academy
                 </Link>
                 <button className="pub-m-login" onClick={signOut}>

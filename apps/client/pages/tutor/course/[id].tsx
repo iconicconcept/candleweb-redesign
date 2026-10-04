@@ -146,7 +146,12 @@ const CourseDetailPage = () => {
     [courses, id],
   );
   const course = detail ?? listed;
-  const partial = !detail && !!listed;
+  /* The public featured list usually resolves before the detail call, so there
+     is a window with a course to show but no syllabus/benefits/lecturers yet.
+     That is "pending", not "not public" — telling someone to sign in while the
+     request is still in flight is just wrong. */
+  const detailPending = loading && !detail;
+  const partial = !loading && !detail && !!listed;
 
   const sessions = useMemo(() => toSessions(course), [course]);
   const benefits = useMemo(() => toBenefits(course), [course]);
@@ -374,7 +379,7 @@ const CourseDetailPage = () => {
             </div>
           )}
 
-          {!loading && course && (
+          {course && (
             <>
               {/* ---- header: what it is, what it costs, and the button ---- */}
               <header className="ac-cd-hero">
@@ -443,7 +448,11 @@ const CourseDetailPage = () => {
               </header>
 
               <div className="ac-cd-body">
-                {/* ---- what you'll be learning ---- */}
+                {/* ---- what you'll be learning ----
+                    Only once the detail call has actually answered. While it is
+                    gated (403 for a signed-out visitor) we show nothing here
+                    rather than a placeholder asking them to sign in. */}
+                {(sessions.length > 0 || !!detail) && (
                 <section className="ac-cd-block" aria-labelledby="syl-h">
                   <h2 id="syl-h">What you&rsquo;ll be learning.</h2>
 
@@ -495,55 +504,27 @@ const CourseDetailPage = () => {
                     </>
                   ) : (
                     <p className="ac-cd-empty">
-                      {partial ? (
-                        <>
-                          The week-by-week syllabus for this course isn&rsquo;t public yet.{" "}
-                          <button
-                            type="button"
-                            className="ac-linkbtn"
-                            onClick={() => router.push(signInPath(returnTo))}
-                          >
-                            Sign in
-                          </button>{" "}
-                          to read it.
-                        </>
-                      ) : (
-                        "The syllabus is published once this cohort is scheduled. Enrol and it comes to you with the dates."
-                      )}
+                      The syllabus is published once this cohort is scheduled. Enrol and it
+                      comes to you with the dates.
                     </p>
                   )}
                 </section>
+                )}
 
-                {/* ---- course benefits ---- */}
-                {/* Whatever the course actually carries, never a stand-in list:
-                    inventing benefits on a page someone buys from is worse than
-                    showing none. `partial` means the detail call 403'd, so they
-                    exist but we can't read them yet. */}
-                {(benefits.length > 0 || partial) && (
+                {/* ---- course benefits ----
+                    Only what the course actually carries: never a stand-in
+                    list, and nothing at all while the detail call is gated. */}
+                {benefits.length > 0 && (
                   <section className="ac-cd-block" aria-labelledby="ben-h">
                     <h2 id="ben-h">Course benefits.</h2>
-                    {benefits.length > 0 ? (
-                      <div className="ac-runs">
-                        {benefits.map((b: any, i: number) => (
-                          <div key={i}>
-                            <h3>{b.label}</h3>
-                            {b.detail && <p>{b.detail}</p>}
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="ac-cd-empty">
-                        What this course includes isn&rsquo;t public yet.{" "}
-                        <button
-                          type="button"
-                          className="ac-linkbtn"
-                          onClick={() => router.push(signInPath(returnTo))}
-                        >
-                          Sign in
-                        </button>{" "}
-                        to read it.
-                      </p>
-                    )}
+                    <div className="ac-runs">
+                      {benefits.map((b: any, i: number) => (
+                        <div key={i}>
+                          <h3>{b.label}</h3>
+                          {b.detail && <p>{b.detail}</p>}
+                        </div>
+                      ))}
+                    </div>
                   </section>
                 )}
 

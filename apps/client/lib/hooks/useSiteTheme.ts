@@ -1,43 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
-
-const STORAGE_KEY = "cw-site-theme";
-export type SiteTheme = "light" | "dark";
-
-/** Light is the default for the public marketing pages — only an explicit
- *  "dark" preference flips it. */
-const readAttr = (): SiteTheme =>
-  typeof document !== "undefined" && document.documentElement.dataset.siteTheme === "dark"
-    ? "dark"
-    : "light";
-
 /**
- * Light/dark toggle for the public marketing pages (home, about, blog,
- * academy, CandleAI, docs, legal). Independent of the dashboard toggle
- * (`useDashboardTheme`): its own `<html data-site-theme>` attribute and its
- * own localStorage key, applied pre-paint by the inline script in
- * `_document`. Only `[data-site-theme="light"]` rules add light styling —
- * the shipped dark styling is untouched.
+ * Kept as its own module so the public-page call sites don't have to change.
+ * The landing pages and the dashboard now share one preference — see
+ * `useAppTheme`, which is the real implementation.
  */
-export default function useSiteTheme() {
-  const [theme, setThemeState] = useState<SiteTheme>("light");
+import useAppTheme, { AppTheme } from "./useAppTheme";
 
-  useEffect(() => {
-    setThemeState(readAttr());
-  }, []);
+export type SiteTheme = AppTheme;
 
-  const setTheme = useCallback((next: SiteTheme) => {
-    try {
-      localStorage.setItem(STORAGE_KEY, next);
-    } catch {
-      /* private mode / storage disabled — the attribute still applies for this session */
-    }
-    document.documentElement.dataset.siteTheme = next;
-    setThemeState(next);
-  }, []);
-
-  const toggle = useCallback(() => {
-    setTheme(readAttr() === "dark" ? "light" : "dark");
-  }, [setTheme]);
-
-  return { theme, toggle, setTheme };
-}
+export default useAppTheme;
