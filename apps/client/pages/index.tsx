@@ -670,7 +670,7 @@ export default function Home() {
           </section>
         </div>
 
-        <PublicFooter description="Trading infrastructure for people who build their own bots. Nigeria." />
+        <PublicFooter description="Trading infrastructure for people who build their own bots." />
       </main>
     </>
   );

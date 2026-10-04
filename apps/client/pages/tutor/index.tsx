@@ -7,7 +7,7 @@ import { resetPaymentStatus } from "../../redux/slices/paymentSlice";
 import tutorService from "../../services/tutorService";
 import useAxiosAuth from "../../lib/hooks/useAxiosAuth";
 import useUserStore from "../../lib/hooks/useUserStore";
-import useGoogleAuth from "../../lib/hooks/useGoogleAuth";
+import { signUpPath } from "../../lib/authRedirect";
 import { isAuthorizationHeaderSet } from "../../utils/check_auth";
 
 import PublicHeader from "../../components/public/PublicHeader";
@@ -30,7 +30,6 @@ export default function TutorPage() {
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
   const axiosToken = useAxiosAuth();
-  const { googleAuth } = useGoogleAuth();
   const { user } = useUserStore();
   const isLoggedIn = Object.keys(user).length > 0;
   const { lastPaymentStatus } = useSelector((state: RootState) => state.payment);
@@ -86,7 +85,7 @@ export default function TutorPage() {
 
   const startLearning = () => {
     if (!isLoggedIn) {
-      googleAuth("/tutor#courses");
+      router.push(signUpPath("/tutor#courses"));
       return;
     }
     if (purchasedCourseIds.length > 0) {
@@ -138,7 +137,6 @@ export default function TutorPage() {
         <PublicHeader
           active="academy"
           cta={{ label: "Start Learning", onClick: startLearning }}
-          onLogin={() => googleAuth("/tutor#courses")}
         />
 
         <AcademyHero />

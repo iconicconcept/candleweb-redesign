@@ -463,18 +463,10 @@ const BotSettingsPage = () => {
                     <span className="fx-fn">03</span>
                     <h3>Prompt</h3>
                   </div>
-                  {/* the design's review counter ("Editing this restarts the review
-                      counter…" / "13 of 20 trades collected on the current version") needs
-                      prompt versioning: BACKEND_API_REQUESTS §1.23 */}
                   <p className="fx-fsub">
                     Bot review reads this alongside every decision. Results before and after an
                     edit are only comparable if you know when it changed — note it in the version
                     field.
-                  </p>
-                  <p className="fx-hint" style={{ margin: "0 0 16px" }}>
-                    <span className="fx-preview">
-                      <i>◔</i> Review counter needs the prompt version endpoint (§1.23)
-                    </span>
                   </p>
                   <div className="fx-fr two2" style={{ marginBottom: "16px" }}>
                     <div>
@@ -538,10 +530,7 @@ const BotSettingsPage = () => {
                       day: "numeric",
                       month: "short",
                     })}{" "}
-                    · {form.prompt.length.toLocaleString()} characters ·{" "}
-                    <span className="fx-preview">
-                      <i>◔</i> Version history needs the prompt version endpoint (§1.23)
-                    </span>
+                    · {form.prompt.length.toLocaleString()} characters
                   </p>
                 </section>
 
@@ -686,7 +675,7 @@ const BotSettingsPage = () => {
               <aside className="fx-side2">
                 <div className="fx-unlock">
                   <h4>Before you change the prompt</h4>
-                  <p className="us">Three things worth knowing.</p>
+                  <p className="us">Two things worth knowing.</p>
                   <div className="fx-ul got3">
                     <i>✓</i>
                     <div>
@@ -699,16 +688,6 @@ const BotSettingsPage = () => {
                     <div>
                       <b>Your developer key stays the same</b>
                       <span>It never changes unless you reset it</span>
-                    </div>
-                  </div>
-                  <div className="fx-ul">
-                    <i>3</i>
-                    <div>
-                      <b>Old version archived</b>
-                      <span>You can compare them later</span>
-                      <span className="fx-preview">
-                        <i>◔</i> Needs the prompt version endpoint (§1.23)
-                      </span>
                     </div>
                   </div>
                   <p className="fx-tip2">

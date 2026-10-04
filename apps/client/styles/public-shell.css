@@ -141,6 +141,107 @@
   width: 48px;
   height: 48px;
 }
+
+/* ---- signed-in account menu (replaces Log in + CTA) ---- */
+.pub-acct {
+  position: relative;
+}
+.pub-avatar {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 99px;
+  border: 1px solid var(--pub-line2);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--pub-text);
+  font: 600 13px "IBM Plex Mono", ui-monospace, monospace;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.pub-avatar:hover {
+  transform: translateY(-1px);
+  border-color: var(--pub-teal-2);
+}
+.pub-acctpop {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 60;
+  min-width: 212px;
+  padding: 7px;
+  border-radius: 16px;
+  border: 1px solid var(--pub-line2);
+  background: rgba(14, 14, 18, 0.97);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.5);
+  animation: pubAcctIn 0.18s ease both;
+}
+@keyframes pubAcctIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.pub-acctwho {
+  margin: 0;
+  padding: 9px 11px 10px;
+  border-bottom: 1px solid var(--pub-line);
+}
+.pub-acctwho b {
+  display: block;
+  font: 600 13.5px "Outfit", sans-serif;
+  color: var(--pub-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pub-acctwho span {
+  display: block;
+  margin-top: 2px;
+  font: 10px "IBM Plex Mono", ui-monospace, monospace;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--pub-dim);
+}
+.pub-acctpop a,
+.pub-acctpop button {
+  display: block;
+  width: 100%;
+  margin-top: 3px;
+  padding: 10px 11px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  text-align: left;
+  color: var(--pub-muted);
+  font: 500 13.5px "Outfit", sans-serif;
+  cursor: pointer;
+  transition: 0.16s;
+}
+.pub-acctpop a:hover,
+.pub-acctpop button:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--pub-text);
+}
+.pub-acctout {
+  margin-top: 5px !important;
+  border-top: 1px solid var(--pub-line) !important;
+  border-radius: 0 0 10px 10px !important;
+  color: #ff8b8b !important;
+}
+:root[data-site-theme="light"] .pub-acctpop {
+  background: rgba(255, 255, 255, 0.98);
+}
+:root[data-site-theme="light"] .pub-avatar {
+  background: #ffffff;
+}
 .pub-btn {
   display: inline-flex;
   align-items: center;

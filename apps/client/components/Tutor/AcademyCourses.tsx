@@ -11,8 +11,8 @@ import tutorService from "../../services/tutorService";
 import { resetPaymentStatus } from "../../redux/slices/paymentSlice";
 import useUserStore from "../../lib/hooks/useUserStore";
 import useAxiosAuth from "../../lib/hooks/useAxiosAuth";
-import useGoogleAuth from "../../lib/hooks/useGoogleAuth";
 import { imageUri } from "../../utils/constants";
+import { signUpPath } from "../../lib/authRedirect";
 import Loader from "../Loader";
 import { Written } from "../public/Written";
 
@@ -29,7 +29,6 @@ const AcademyCourses = () => {
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
   const axiosToken = useAxiosAuth();
-  const { googleAuth } = useGoogleAuth();
   const { user } = useUserStore();
   const isLoggedIn = Object.keys(user).length > 0;
 
@@ -112,7 +111,7 @@ const AcademyCourses = () => {
         const paymentData = resultAction.payload?.data;
         if (paymentData?.requires_payment === false) {
           toast.success("You're enrolled! Taking you to your dashboard.");
-          router.push("/dashboard");
+          router.push("/dashboard/tutor");
           return;
         }
         if (paymentData?.requires_payment && paymentData?.authorization_url) {
@@ -131,11 +130,11 @@ const AcademyCourses = () => {
 
   const handlePayment = async (course: any) => {
     if (!isLoggedIn) {
-      googleAuth("/tutor#courses");
+      router.push(signUpPath("/tutor#courses"));
       return;
     }
     if (purchasedCourseIds.includes(course.id)) {
-      router.push("/dashboard");
+      router.push("/dashboard/tutor");
       return;
     }
 

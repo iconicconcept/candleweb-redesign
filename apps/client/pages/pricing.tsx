@@ -6,12 +6,12 @@ import { useRouter } from "next/router";
 import { AppDispatch, RootState } from "../redux/store";
 import subscriptionV2Service from "../services/subscriptionV2Service";
 import useUserStore from "../lib/hooks/useUserStore";
-import useGoogleAuth from "../lib/hooks/useGoogleAuth";
 import PublicHeader from "../components/public/PublicHeader";
 import PublicFooter from "../components/public/PublicFooter";
 import { Written, useRevealOnScroll } from "../components/public/Written";
 import { PlanV2 } from "../types/subscriptionV2";
 import { validateEmailAddress } from "../utils/emailValidate";
+import { signUpPath } from "../lib/authRedirect";
 
 /**
  * Public pricing page, built from candleweb-pricing.html.
@@ -72,7 +72,6 @@ const PricingPage = () => {
   useRevealOnScroll();
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
-  const { googleAuth } = useGoogleAuth();
   const { user } = useUserStore();
   const isLoggedIn = Object.keys(user).length > 0;
 
@@ -232,7 +231,7 @@ const PricingPage = () => {
     // rather than running a second payment flow from a marketing page.
     const dest = code === "paper" ? "/dashboard" : "/dashboard/subscription";
     if (!isLoggedIn) {
-      googleAuth(dest);
+      router.push(signUpPath(dest));
       return;
     }
     router.push(dest);
@@ -284,7 +283,6 @@ const PricingPage = () => {
         <PublicHeader
           active="pricing"
           cta={{ label: "Start free", onClick: () => choose("paper") }}
-          onLogin={() => googleAuth("/dashboard")}
         />
 
         {/* ================= hero ================= */}

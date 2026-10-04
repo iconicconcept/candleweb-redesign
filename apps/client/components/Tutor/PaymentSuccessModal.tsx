@@ -69,7 +69,7 @@ const PaymentSuccessModal: React.FC<PaymentSuccessModalProps> = ({ isOpen, onClo
 
             <div className="flex flex-col gap-3 w-full">
               <button
-                onClick={() => router.push('/dashboard')}
+                onClick={() => router.push('/dashboard/tutor')}
                 className="w-full px-10 py-3 bg-primary hover:bg-primary/90 text-black font-bold rounded-full transition-all duration-300 transform hover:scale-105 shadow-[0_4px_15px_rgba(39,236,176,0.3)]"
               >
                 GO TO DASHBOARD

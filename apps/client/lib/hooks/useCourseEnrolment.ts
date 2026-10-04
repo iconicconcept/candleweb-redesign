@@ -7,7 +7,7 @@ import paymentService from "../../services/paymentService";
 import tutorService from "../../services/tutorService";
 import useUserStore from "./useUserStore";
 import useAxiosAuth from "./useAxiosAuth";
-import useGoogleAuth from "./useGoogleAuth";
+import { signUpPath } from "../authRedirect";
 
 /**
  * Enrolling in a course: sign in, make sure we have a name and phone for the
@@ -33,7 +33,6 @@ const useCourseEnrolment = (returnTo: string) => {
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
   const axiosToken = useAxiosAuth();
-  const { googleAuth } = useGoogleAuth();
   const { user } = useUserStore();
   const isLoggedIn = Object.keys(user).length > 0;
 
@@ -92,7 +91,7 @@ const useCourseEnrolment = (returnTo: string) => {
         // A free or already-covered course never reaches Paystack.
         if (paymentData?.requires_payment === false) {
           toast.success("You're enrolled! Taking you to your dashboard.");
-          router.push("/dashboard");
+          router.push("/dashboard/tutor");
           return;
         }
         if (paymentData?.requires_payment && paymentData?.authorization_url) {
@@ -111,11 +110,11 @@ const useCourseEnrolment = (returnTo: string) => {
    *  missing details. An already-purchased course goes to the dashboard. */
   const enrol = async (course: any) => {
     if (!isLoggedIn) {
-      googleAuth(returnTo);
+      router.push(signUpPath(returnTo));
       return;
     }
     if (hasPurchased(course.id)) {
-      router.push("/dashboard");
+      router.push("/dashboard/tutor");
       return;
     }
 

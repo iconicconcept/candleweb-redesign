@@ -12,7 +12,10 @@ import { loginUser } from "../../utils/loginUser";
 import { validateEmailAddress } from "../../utils/emailValidate";
 import { error } from "../alert/Toast";
 import BrandLogo from "../public/BrandLogo";
-import DashboardEntryLoader from "./DashboardEntryLoader";
+/* The walking flag-bearer loader is parked for now — the plain candle-ring
+   Loader is used instead. Restore both lines below to bring it back. */
+// import DashboardEntryLoader from "./DashboardEntryLoader";
+import Loader from "../Loader";
 import type { RegisterProps } from "../../pages/auth/register";
 /* eslint-disable react/no-unescaped-entities */
 
@@ -239,7 +242,8 @@ export default function AuthPanel({ initialMode }: { initialMode: Mode }) {
 
   return (
     <div className="auth-page">
-      {busy && <DashboardEntryLoader />}
+      {/* {busy && <DashboardEntryLoader />} */}
+      {busy && <Loader />}
       <div className="auth-aura">
         <b className="b1" />
         <b className="b2" />

@@ -1,18 +1,19 @@
+import { useRouter } from "next/router";
 import { useSelector } from "react-redux";
 import { RootState } from "../../redux/store";
 import useUserStore from "../../lib/hooks/useUserStore";
-import useGoogleAuth from "../../lib/hooks/useGoogleAuth";
+import { signUpPath } from "../../lib/authRedirect";
 import { Written } from "../public/Written";
 
 const AcademyCta = () => {
   const { courses } = useSelector((state: RootState) => state.courses);
   const { user } = useUserStore();
   const isLoggedIn = Object.keys(user).length > 0;
-  const { googleAuth } = useGoogleAuth();
+  const router = useRouter();
 
   const goToCourses = () => {
     if (!isLoggedIn) {
-      googleAuth("/tutor#courses");
+      router.push(signUpPath("/tutor#courses"));
       return;
     }
     document

@@ -7,7 +7,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "../../../redux/store";
 import courseService from "../../../services/courseService";
 import tutorService from "../../../services/tutorService";
-import useGoogleAuth from "../../../lib/hooks/useGoogleAuth";
+import { signInPath } from "../../../lib/authRedirect";
 import useCourseEnrolment from "../../../lib/hooks/useCourseEnrolment";
 import PublicHeader from "../../../components/public/PublicHeader";
 import PublicFooter from "../../../components/public/PublicFooter";
@@ -83,7 +83,6 @@ const toBenefits = (course: any) => {
 const CourseDetailPage = () => {
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
-  const { googleAuth } = useGoogleAuth();
 
   const id = typeof router.query.id === "string" ? router.query.id : null;
   const returnTo = id ? `/tutor/course/${id}` : "/tutor#courses";
@@ -347,7 +346,6 @@ const CourseDetailPage = () => {
         <PublicHeader
           active="academy"
           cta={{ label: "Start Learning", href: "/tutor#courses" }}
-          onLogin={() => googleAuth(returnTo)}
         />
 
         <div className="landing-wrap">
@@ -503,7 +501,7 @@ const CourseDetailPage = () => {
                           <button
                             type="button"
                             className="ac-linkbtn"
-                            onClick={() => googleAuth(returnTo)}
+                            onClick={() => router.push(signInPath(returnTo))}
                           >
                             Sign in
                           </button>{" "}
@@ -539,7 +537,7 @@ const CourseDetailPage = () => {
                         <button
                           type="button"
                           className="ac-linkbtn"
-                          onClick={() => googleAuth(returnTo)}
+                          onClick={() => router.push(signInPath(returnTo))}
                         >
                           Sign in
                         </button>{" "}

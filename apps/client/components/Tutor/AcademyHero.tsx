@@ -1,10 +1,11 @@
 import Image from "next/image";
+import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "../../redux/store";
 import courseService from "../../services/courseService";
 import useUserStore from "../../lib/hooks/useUserStore";
-import useGoogleAuth from "../../lib/hooks/useGoogleAuth";
+import { signUpPath } from "../../lib/authRedirect";
 import { imageUri } from "../../utils/constants";
 
 const PLAY_STORE_URL =
@@ -33,7 +34,7 @@ const AcademyHero = () => {
   );
   const { user } = useUserStore();
   const isLoggedIn = Object.keys(user).length > 0;
-  const { googleAuth } = useGoogleAuth();
+  const router = useRouter();
 
   const [slide, setSlide] = useState(0);
 
@@ -54,7 +55,7 @@ const AcademyHero = () => {
 
   const startLearning = () => {
     if (!isLoggedIn) {
-      googleAuth("/tutor#courses");
+      router.push(signUpPath("/tutor#courses"));
       return;
     }
     if (purchasedCourseIds.length > 0) {
