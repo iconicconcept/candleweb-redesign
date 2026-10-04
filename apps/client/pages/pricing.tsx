@@ -1057,14 +1057,12 @@ const Rails = () => {
     });
     (
       [
-        ["0%", "#0E9C78", "0"],
-        ["45%", "#0E9C78", ".4"],
-        ["100%", "#31E0B0", ".6"],
+        ["0%", "pr-s0", "0"],
+        ["45%", "pr-s1", ".4"],
+        ["100%", "pr-s2", ".6"],
       ] as const
-    ).forEach(([offset, color, opacity]) =>
-      rail.appendChild(
-        make("stop", { offset, "stop-color": color, "stop-opacity": opacity }),
-      ),
+    ).forEach(([offset, cls, opacity]) =>
+      rail.appendChild(make("stop", { offset, class: cls, "stop-opacity": opacity })),
     );
     defs.appendChild(rail);
 
@@ -1127,17 +1125,17 @@ const Rails = () => {
       const lane = Math.random() < 0.5 ? 0 : 1;
       const id = `pr-p${uid++}`;
       const g = make("linearGradient", { id, gradientUnits: "userSpaceOnUse", y1: 0, y2: 0 });
-      g.appendChild(make("stop", { offset: "0%", "stop-color": "#31E0B0", "stop-opacity": "0" }));
-      g.appendChild(make("stop", { offset: "65%", "stop-color": "#31E0B0", "stop-opacity": ".4" }));
-      g.appendChild(make("stop", { offset: "100%", "stop-color": "#7EF0D2", "stop-opacity": ".95" }));
+      g.appendChild(make("stop", { offset: "0%", class: "pr-p0", "stop-opacity": "0" }));
+      g.appendChild(make("stop", { offset: "65%", class: "pr-p1", "stop-opacity": ".4" }));
+      g.appendChild(make("stop", { offset: "100%", class: "pr-p2", "stop-opacity": ".95" }));
       defs.appendChild(g);
       const tail = make("line", {
         "stroke-width": 1.8,
         "stroke-linecap": "round",
         stroke: `url(#${id})`,
       });
-      const soft = make("circle", { r: 9, fill: "#31E0B0" });
-      const dot = make("circle", { r: 2.6, fill: "#7EF0D2" });
+      const soft = make("circle", { r: 9, class: "pr-soft" });
+      const dot = make("circle", { r: 2.6, class: "pr-dot" });
       glow.appendChild(soft);
       tails.appendChild(tail);
       dots.appendChild(dot);
@@ -1159,7 +1157,7 @@ const Rails = () => {
         cy: y,
         r: 3,
         fill: "none",
-        stroke: "#31E0B0",
+        class: "pr-ring",
         "stroke-width": 1,
       });
       glow.appendChild(ring);

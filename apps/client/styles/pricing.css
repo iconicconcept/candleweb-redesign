@@ -1321,3 +1321,176 @@
   font-size: 12.5px;
   line-height: 1.5;
 }
+
+/* the rails are painted from these, so the theme toggle repaints them */
+.pricing-stage {
+  --pr-rail-a: #0e9c78;
+  --pr-rail-b: #31e0b0;
+  --pr-rail-c: #7ef0d2;
+}
+.pr-rails .pr-s0,
+.pr-rails .pr-s1 {
+  stop-color: var(--pr-rail-a);
+}
+.pr-rails .pr-s2,
+.pr-rails .pr-p0,
+.pr-rails .pr-p1 {
+  stop-color: var(--pr-rail-b);
+}
+.pr-rails .pr-p2 {
+  stop-color: var(--pr-rail-c);
+}
+.pr-rails .pr-soft {
+  fill: var(--pr-rail-b);
+}
+.pr-rails .pr-dot {
+  fill: var(--pr-rail-c);
+}
+.pr-rails .pr-ring {
+  stroke: var(--pr-rail-b);
+}
+
+/* ============================================================================
+   LIGHT THEME — additive, only under :root[data-site-theme="light"] (the
+   default). Nothing above is changed; this re-colours. Same palette as the
+   other landing pages so the toggle reads consistently across the site.
+   ========================================================================== */
+:root[data-site-theme="light"] .pricing-stage {
+  --pr-bg: #f6f7f5;
+  --pr-s1: #ffffff;
+  --pr-s2: #f4f5f2;
+  --pr-s3: #eceee9;
+  --pr-line: rgba(16, 22, 18, 0.1);
+  --pr-line2: rgba(16, 22, 18, 0.18);
+  --pr-text: #14161a;
+  --pr-muted: #45484d;
+  --pr-dim: #63666b;
+  --pr-teal: #10a37f;
+  --pr-teal2: #0b8f6a;
+  --pr-deep: #0b7d5f;
+  --pr-amber: #ffb93d;
+  --pr-rose: #b4283f;
+  /* --pr-amber2 stays light gold: it fills the volume meter. The three places
+     it is used as TEXT get a readable gold of their own, further down. */
+  --pr-rail-a: #0b7d5f;
+  --pr-rail-b: #10a37f;
+  --pr-rail-c: #0b8f6a;
+
+  background: linear-gradient(180deg, #ffffff, #f6f7f5 50%, #f1f2ef);
+}
+
+/* surfaces that were built from white-alpha need the opposite ink */
+:root[data-site-theme="light"] .pr-grid {
+  background-image: linear-gradient(rgba(16, 22, 18, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(16, 22, 18, 0.045) 1px, transparent 1px);
+}
+:root[data-site-theme="light"] .pr-aura .b1 {
+  opacity: 0.14;
+}
+:root[data-site-theme="light"] .pr-aura .b2 {
+  opacity: 0.12;
+}
+:root[data-site-theme="light"] .pr-aura .b3 {
+  opacity: 0.1;
+}
+:root[data-site-theme="light"] .pr-band {
+  background: linear-gradient(180deg, rgba(16, 22, 18, 0.022), rgba(16, 22, 18, 0.004));
+}
+:root[data-site-theme="light"] .pr-eyebrow {
+  background: rgba(16, 22, 18, 0.035);
+}
+:root[data-site-theme="light"] .pr-sw {
+  background: rgba(16, 22, 18, 0.035);
+}
+:root[data-site-theme="light"] .pr-sw button[aria-pressed="true"] {
+  background: rgba(16, 22, 18, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+:root[data-site-theme="light"] .pr-plan.lead {
+  background: linear-gradient(180deg, rgba(255, 185, 61, 0.16), rgba(255, 185, 61, 0.03) 44%, var(--pr-s1));
+  box-shadow: 0 24px 60px rgba(16, 22, 18, 0.1);
+}
+:root[data-site-theme="light"] .pr-plan.fit {
+  box-shadow: 0 0 0 1px rgba(16, 163, 127, 0.22), 0 24px 60px rgba(11, 125, 95, 0.16);
+}
+:root[data-site-theme="light"] .pr-seg button {
+  background: rgba(16, 22, 18, 0.03);
+}
+:root[data-site-theme="light"] .pr-seg button[aria-pressed="true"] {
+  border-color: rgba(16, 163, 127, 0.55);
+  background: rgba(16, 163, 127, 0.1);
+}
+:root[data-site-theme="light"] .pricing-stage input[type="range"].pr-range {
+  background: linear-gradient(
+    90deg,
+    var(--pr-deep) 0%,
+    var(--pr-teal) var(--p, 20%),
+    rgba(16, 22, 18, 0.12) var(--p, 20%)
+  );
+}
+:root[data-site-theme="light"] .pricing-stage input[type="range"].pr-range::-webkit-slider-thumb {
+  border-color: #ffffff;
+  box-shadow: 0 0 0 1px rgba(16, 163, 127, 0.5), 0 4px 16px rgba(16, 163, 127, 0.35);
+}
+:root[data-site-theme="light"] .pricing-stage input[type="range"].pr-range::-moz-range-thumb {
+  border-color: #ffffff;
+}
+:root[data-site-theme="light"] .pr-out {
+  background: linear-gradient(160deg, rgba(16, 163, 127, 0.12), rgba(255, 185, 61, 0.06) 60%, rgba(16, 22, 18, 0.015));
+}
+:root[data-site-theme="light"] .pr-segs i {
+  background: rgba(16, 22, 18, 0.1);
+}
+:root[data-site-theme="light"] .pr-tip {
+  background: rgba(16, 22, 18, 0.035);
+}
+:root[data-site-theme="light"] .pr-cmp thead th {
+  background: #f0f1ee;
+}
+:root[data-site-theme="light"] .pr-cmp th,
+:root[data-site-theme="light"] .pr-cmp td {
+  border-bottom-color: rgba(16, 22, 18, 0.07);
+}
+:root[data-site-theme="light"] .pr-cmp tbody td.lead {
+  background: rgba(255, 185, 61, 0.07);
+}
+:root[data-site-theme="light"] .pr-top,
+:root[data-site-theme="light"] .pr-method {
+  background: rgba(16, 22, 18, 0.025);
+}
+:root[data-site-theme="light"] .pr-top:hover {
+  background: rgba(16, 163, 127, 0.07);
+}
+:root[data-site-theme="light"] .pr-method .mi {
+  background: rgba(16, 22, 18, 0.04);
+}
+:root[data-site-theme="light"] .pr-cta {
+  background: linear-gradient(150deg, rgba(16, 163, 127, 0.12), rgba(255, 185, 61, 0.12) 58%, rgba(16, 22, 18, 0.015));
+}
+:root[data-site-theme="light"] .pr-ctabox {
+  background: rgba(255, 255, 255, 0.82);
+}
+:root[data-site-theme="light"] .pr-ctabox input {
+  background: rgba(16, 22, 18, 0.035);
+}
+:root[data-site-theme="light"] .pr-ctabox input::placeholder {
+  color: #8b8e92;
+}
+:root[data-site-theme="light"] .pr-ctabox input:focus {
+  background: rgba(16, 163, 127, 0.06);
+}
+
+/* pale gold is unreadable on a light surface, so the three places amber is
+   used as TEXT get a darker gold. The meter fill keeps the pale one. */
+:root[data-site-theme="light"] .pr-leadflag,
+:root[data-site-theme="light"] .pr-mh b.over,
+:root[data-site-theme="light"] .pr-cmp thead th.lead {
+  color: #8a5500;
+}
+:root[data-site-theme="light"] .pr-leadflag {
+  background: rgba(255, 185, 61, 0.16);
+  border-color: rgba(190, 125, 10, 0.4);
+}
+:root[data-site-theme="light"] .pr-segs.over i.f {
+  background: linear-gradient(180deg, var(--pr-amber), #e09a16);
+}
