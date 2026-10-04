@@ -29,6 +29,7 @@ const Layout = ({ children }: Props) => {
     "privacy",
     "login",
     "register",
+    "pricing",
   ].includes(path);
   const isDashboard = path === "dashboard";
 
@@ -64,18 +65,11 @@ const Layout = ({ children }: Props) => {
         className="main__body relative overflow-hidden min-h-screen !max-w-[100vw]"
         data-chrome={isPublicChrome ? "public" : isDashboard ? "dashboard" : undefined}
       >
-        {/* {(!path.includes("dashboard") && !path.includes("register") && !path.includes("tutor")) && ( */}
-        {path !== "" &&
-          path !== "about" &&
-          !path.includes("dashboard") &&
-          !path.includes("register") &&
-          !path.includes("tutor") &&
-          !path.includes("blog") &&
-          !path.includes("candleai") &&
-          !path.includes("privacy") &&
-          !path.includes("terms") &&
-          !path.includes("login") &&
-          !path.includes("docs") && (
+        {/* The legacy header is only for pages that haven't been redesigned
+            yet. This used to repeat the isPublicChrome list as a chain of
+            !path.includes(...) checks, so a page added to one list and not
+            the other rendered BOTH headers. */}
+        {!isPublicChrome && !isDashboard && (
             <Header
               route={path}
               Icon={CgMenuRight}

@@ -11,6 +11,7 @@ import PublicHeader from "../components/public/PublicHeader";
 import PublicFooter from "../components/public/PublicFooter";
 import { Written, useRevealOnScroll } from "../components/public/Written";
 import { PlanV2 } from "../types/subscriptionV2";
+import { validateEmailAddress } from "../utils/emailValidate";
 
 /**
  * Public pricing page, built from candleweb-pricing.html.
@@ -204,6 +205,25 @@ const PricingPage = () => {
   const touch = <T,>(set: (v: T) => void) => (v: T) => {
     setTouched(true);
     set(v);
+  };
+
+  /* ---------------- the closing "start free" box ---------------- */
+  const [email, setEmail] = useState("");
+  const [emailError, setEmailError] = useState("");
+
+  /* The address typed here is carried to /register and seeded into its email
+     field, so nobody types it twice. */
+  const startFree = () => {
+    const value = email.trim();
+    if (!validateEmailAddress(value)) {
+      setEmailError(
+        value
+          ? "That email address is missing something. Check it and try again."
+          : "Enter your email so we know where to send your account link.",
+      );
+      return;
+    }
+    router.push(`/register?email=${encodeURIComponent(value)}`);
   };
 
   /* ---------------- choosing a plan ---------------- */
@@ -929,18 +949,39 @@ const PricingPage = () => {
                 market in a few minutes.
               </p>
             </div>
-            <div className="pr-ctabox landing-rise rise-right">
-              <p>
-                Paper is free forever. You pick a paid plan only when you want to trade with real
-                money.
-              </p>
-              <button type="button" className="pub-btn pub-btn-amber" onClick={() => choose("paper")}>
-                Create a free account <span>→</span>
+            <form
+              className="pr-ctabox landing-rise rise-right"
+              onSubmit={(e) => {
+                e.preventDefault();
+                startFree();
+              }}
+            >
+              <label htmlFor="pr-email">Email</label>
+              <input
+                id="pr-email"
+                type="email"
+                autoComplete="email"
+                placeholder="you@example.com"
+                value={email}
+                aria-invalid={emailError ? true : undefined}
+                aria-describedby={emailError ? "pr-email-err" : undefined}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (emailError) setEmailError("");
+                }}
+              />
+              {emailError && (
+                <p className="pr-ctaerr" id="pr-email-err" role="alert">
+                  {emailError}
+                </p>
+              )}
+              <button type="submit" className="pub-btn pub-btn-amber">
+                Create free account <span>→</span>
               </button>
               <p className="pr-ctafine">
-                Your keys, your exchange. Candleweb never holds your funds.
+                Free forever on Paper. You pick a paid plan only when you want to trade live.
               </p>
-            </div>
+            </form>
           </section>
         </div>
 

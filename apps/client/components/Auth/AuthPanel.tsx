@@ -75,6 +75,16 @@ export default function AuthPanel({ initialMode }: { initialMode: Mode }) {
     if (router.query.tab === "login") setMode("login");
   }, [router.query.tab]);
 
+  /* Arriving from a "create your account" box elsewhere on the site (the
+     pricing page's closing panel), where the address was already typed.
+     Only seeds the field — anything typed here afterwards wins. */
+  useEffect(() => {
+    const prefill = typeof router.query.email === "string" ? router.query.email : "";
+    if (!prefill) return;
+    setSignupForm((form) => (form.email ? form : { ...form, email: prefill }));
+    setLoginForm((form) => (form.email ? form : { ...form, email: prefill }));
+  }, [router.query.email]);
+
   const goDashboard = () => router.push(redirect || "/dashboard");
 
   const finishWithWallet = (walletAddress: string, signMessage: string) =>

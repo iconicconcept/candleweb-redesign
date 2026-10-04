@@ -1199,7 +1199,7 @@
   margin: 15px 0 0;
   color: var(--pr-dim);
   font-family: var(--pr-mono);
-  font-size: 10.5px;
+  font-size: 7.5px;
   line-height: 1.75;
 }
 
@@ -1289,4 +1289,41 @@
   background-size: 64px 64px;
   -webkit-mask-image: radial-gradient(120% 60% at 50% 0%, #000 20%, transparent 70%);
   mask-image: radial-gradient(120% 60% at 50% 0%, #000 20%, transparent 70%);
+}
+
+/* the closing box takes an email and carries it to /register */
+.pr-ctabox label {
+  display: block;
+  margin: 0 0 8px;
+  color: var(--pr-muted);
+  font-size: 13.5px;
+}
+.pr-ctabox input {
+  width: 100%;
+  margin-bottom: 16px;
+  padding: 13px 15px;
+  border: 1px solid var(--pr-line2);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--pr-text);
+  font-family: inherit;
+  font-size: 15px;
+  transition: border-color 0.2s, background 0.2s;
+}
+.pr-ctabox input::placeholder {
+  color: #6b6b63;
+}
+.pr-ctabox input:focus {
+  outline: none;
+  border-color: rgba(49, 224, 176, 0.6);
+  background: rgba(49, 224, 176, 0.05);
+}
+.pr-ctabox input[aria-invalid="true"] {
+  border-color: rgba(255, 107, 133, 0.6);
+}
+.pr-ctaerr {
+  margin: -10px 0 14px;
+  color: var(--pr-rose);
+  font-size: 12.5px;
+  line-height: 1.5;
 }
