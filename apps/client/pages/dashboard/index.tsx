@@ -45,7 +45,7 @@ const DashboardPage = () => {
   const axiosToken = useAxiosAuth();
   const { user } = useUserStore((state) => state);
 
-  const { bots, botsLoaded, trades, tradesLoaded } = useSelector(
+  const { bots, botsLoaded, botsError, trades, tradesLoaded, tradesError } = useSelector(
     (state: RootState) => state.tradingV2,
   );
   const { balance } = useSelector((state: RootState) => state.user);
@@ -120,6 +120,16 @@ const DashboardPage = () => {
   const maxSizePct = trades.length ? Math.max(...trades.map((t) => t.max_size_pct || 0)) : null;
 
   const loaded = botsLoaded && tradesLoaded;
+  /* Neither loaded nor loading: the fetch came back an error. Without this the
+     page sat on "Loading your dashboard…" indefinitely, which is what an
+     expired session looked like from the outside. */
+  const loadFailed = !loaded && !!(botsError || tradesError);
+
+  const retry = () => {
+    fetchedRef.current = false;
+    dispatch(tradingV2Service.listBots(axiosToken));
+    dispatch(tradingV2Service.listTrades(axiosToken));
+  };
   const isEmpty =
     loaded && bots.length === 0 && trades.length === 0 && exchangeRecord.length === 0;
 
@@ -149,10 +159,25 @@ const DashboardPage = () => {
           subtitle="Your balance, the trades running against it and the bots deciding for them."
         />
 
-        {!loaded && (
+        {!loaded && !loadFailed && (
           <p className="fx-hint" style={{ padding: "28px 4px" }}>
             Loading your dashboard…
           </p>
+        )}
+
+        {loadFailed && (
+          <section className="fx-sec rv">
+            <div className="fx-sh">
+              <h2>We couldn&rsquo;t load your dashboard</h2>
+            </div>
+            <p className="fx-hint" style={{ padding: "4px 4px 14px" }}>
+              {botsError || tradesError} Nothing has changed on your account — this is
+              only what this page could read just now.
+            </p>
+            <button type="button" className="fx-mini go" onClick={retry}>
+              Try again
+            </button>
+          </section>
         )}
 
         {loaded && isEmpty && (

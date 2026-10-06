@@ -3565,9 +3565,49 @@ button.fx-me[aria-expanded="true"] {
   letter-spacing: -0.02em;
   text-transform: capitalize;
 }
+/* The button is a <Link>, i.e. an inline <a>: `width: 100%` did nothing to it
+   and the `0` side padding was taken literally, so "CONNECT" sat squeezed
+   against both borders of a pill only as wide as its own text. */
 .fx-av .fx-mini {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
-  padding: 9px 0;
+  padding: 10px 12px;
+}
+
+/* exchange wordmarks (components/.../ExchangeLogo). Every logo we ship is a
+   wide wordmark, so these are tiles sized to the artwork rather than the square
+   initials badge they replace — and they sit on white, because the marks are
+   drawn for a light background. */
+.xlogo-row,
+.xlogo-card {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  background: #ffffff;
+  border: 1px solid var(--fx-line);
+  overflow: hidden;
+}
+.xlogo-row img,
+.xlogo-card img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.xlogo-row {
+  width: 62px;
+  height: 34px;
+  border-radius: 10px;
+  padding: 4px 7px;
+}
+.xlogo-card {
+  width: 100%;
+  max-width: 116px;
+  height: 36px;
+  border-radius: 10px;
+  padding: 5px 8px;
+  margin: 0 auto 12px;
 }
 
 /* yellow-card fund panel */

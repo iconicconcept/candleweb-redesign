@@ -9,13 +9,13 @@ import userService from "../../services/userService";
 import tradingV2Service from "../../services/tradingV2Service";
 import useAxiosAuth from "../../lib/hooks/useAxiosAuth";
 import { isAuthorizationHeaderSet } from "../../utils/check_auth";
-import { getFirstAndLastLetter } from "../../utils/constants";
 import { success, error } from "../../components/alert/Toast";
 import { setBalance } from "../../redux/slices/userSlice";
 import DashboardShell from "../../components/dashboard/focus/DashboardShell";
 import TopBar from "../../components/dashboard/focus/TopBar";
 import Dialog from "../../components/dashboard/focus/Dialog";
 import ExchangesEmpty from "../../components/dashboard/focus/exchanges/ExchangesEmpty";
+import ExchangeLogo from "../../components/dashboard/focus/exchanges/ExchangeLogo";
 import {
   WarnIcon,
   PlusIcon,
@@ -212,9 +212,7 @@ const DashboardExchangesPage = () => {
                 const running = tradesFor(rec.id);
                 return (
                   <div className="fx-xrow" key={rec.id}>
-                    <span className="xl2">
-                      {getFirstAndLastLetter(exchangeName(rec.supported_exchange_id))}
-                    </span>
+                    <ExchangeLogo name={exchangeName(rec.supported_exchange_id)} />
                     <div className="xn2">
                       <b>{exchangeName(rec.supported_exchange_id)}</b>
                       <span>key {maskString(rec.API_KEY ?? "")}</span>
@@ -371,7 +369,7 @@ const DashboardExchangesPage = () => {
             <div className="fx-avail">
               {exchanges.map((x: ExchangeProp) => (
                 <div className="fx-av" key={x.id}>
-                  <span className="xl2">{getFirstAndLastLetter(x.name)}</span>
+                  <ExchangeLogo name={x.name} variant="card" />
                   <b>{x.name}</b>
                   <Link className="fx-mini" href={`/dashboard/exchanges/new?exchange=${x.id}`}>
                     {connectedIds.has(String(x.id)) ? "Add account" : "Connect"}

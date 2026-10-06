@@ -81,3 +81,14 @@ export const needsPassphrase = (key: string) => key === "kucoin";
 /* backend row for a design exchange, by name */
 export const backendFor = (exchanges: ExchangeProp[], key: string) =>
   exchanges.find((x) => x.name?.trim().toLowerCase() === key) ?? null;
+
+/* The reverse of `backendFor`: a backend row's name back to its design entry,
+   and so to the logo file in /public. The API returns names unevenly cased
+   ("binance", "KuCoin"), so the match is on a normalised name. Anything the
+   catalogue doesn't know — a new exchange the backend adds before the design
+   does — returns null, and callers fall back to initials. */
+export const designFor = (name?: string | number | null) => {
+  if (name == null || name === "") return null;
+  const n = String(name).trim().toLowerCase();
+  return DESIGN_EXCHANGES.find((d) => d.key === n || d.name.toLowerCase() === n) ?? null;
+};

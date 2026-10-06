@@ -7,18 +7,28 @@ interface TradingV2State {
   trades: TradeV2[];
   tradesLoaded: boolean;
   tradesLoading: boolean;
+  /* Why a separate flag and not `loaded` on failure: a failed list is not an
+     empty one. Pages key their "nothing here yet, let's set you up" state off
+     `loaded && length === 0`, so marking a rejected fetch as loaded would greet
+     someone with bots and trades as a new user. Leaving both false was the
+     other half of the problem — the page then showed its loading line forever.
+     The error is its own state. */
+  tradesError: string | null;
   bots: BotV2[];
   botsLoaded: boolean;
   botsLoading: boolean;
+  botsError: string | null;
 }
 
 const initialState: TradingV2State = {
   trades: [],
   tradesLoaded: false,
   tradesLoading: false,
+  tradesError: null,
   bots: [],
   botsLoaded: false,
   botsLoading: false,
+  botsError: null,
 };
 
 export const tradingV2Slice = createSlice({
@@ -28,6 +38,7 @@ export const tradingV2Slice = createSlice({
     setTradesV2: (state, action: PayloadAction<TradeV2[]>) => {
       state.trades = action.payload;
       state.tradesLoaded = true;
+      state.tradesError = null;
     },
     upsertTradeV2: (state, action: PayloadAction<TradeV2>) => {
       const i = state.trades.findIndex((t) => t.id === action.payload.id);
@@ -40,6 +51,7 @@ export const tradingV2Slice = createSlice({
     setBotsV2: (state, action: PayloadAction<BotV2[]>) => {
       state.bots = action.payload;
       state.botsLoaded = true;
+      state.botsError = null;
     },
     upsertBotV2: (state, action: PayloadAction<BotV2>) => {
       const i = state.bots.findIndex((b) => b.id === action.payload.id);
@@ -61,21 +73,25 @@ export const tradingV2Slice = createSlice({
     builder
       .addCase(tradingV2Service.listTrades.pending, (state) => {
         state.tradesLoading = true;
+        state.tradesError = null;
       })
       .addCase(tradingV2Service.listTrades.fulfilled, (state) => {
         state.tradesLoading = false;
       })
-      .addCase(tradingV2Service.listTrades.rejected, (state) => {
+      .addCase(tradingV2Service.listTrades.rejected, (state, action) => {
         state.tradesLoading = false;
+        state.tradesError = (action.payload as string) || "Could not load your trades.";
       })
       .addCase(tradingV2Service.listBots.pending, (state) => {
         state.botsLoading = true;
+        state.botsError = null;
       })
       .addCase(tradingV2Service.listBots.fulfilled, (state) => {
         state.botsLoading = false;
       })
-      .addCase(tradingV2Service.listBots.rejected, (state) => {
+      .addCase(tradingV2Service.listBots.rejected, (state, action) => {
         state.botsLoading = false;
+        state.botsError = (action.payload as string) || "Could not load your bots.";
       });
   },
 });

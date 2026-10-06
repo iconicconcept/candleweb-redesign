@@ -983,7 +983,7 @@ const PricingPage = () => {
           </section>
         </div>
 
-        <PublicFooter description="Candleweb — infrastructure for agentic trading. Plan fees pay for the platform only; your funds stay on your own exchange." />
+        <PublicFooter />
       </main>
     </>
   );

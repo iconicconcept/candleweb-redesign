@@ -14,6 +14,7 @@ import useUserStore from "../../lib/hooks/useUserStore";
 import useEthereum from "../../lib/hooks/useEthereum";
 import { isAuthorizationHeaderSet } from "../../utils/check_auth";
 import { getFirstAndLastLetter } from "../../utils/constants";
+import ExchangeLogo from "../../components/dashboard/focus/exchanges/ExchangeLogo";
 import { maskEmailUsername } from "../../utils/emailValidate";
 import { success, error, warning } from "../../components/alert/Toast";
 import { setExchangeRecord } from "../../redux/slices/exchangeSlice";
@@ -482,9 +483,7 @@ export default function SettingsDashboard() {
             ) : (
               exchangeRecord.map((rec) => (
                 <div className="fx-xrow" key={rec.id}>
-                  <span className="xl2">
-                    {getFirstAndLastLetter(exchangeName(rec.supported_exchange_id))}
-                  </span>
+                  <ExchangeLogo name={exchangeName(rec.supported_exchange_id)} />
                   <div className="xn2">
                     <b>{exchangeName(rec.supported_exchange_id)}</b>
                     <span>{maskString(rec.API_KEY ?? "")}</span>

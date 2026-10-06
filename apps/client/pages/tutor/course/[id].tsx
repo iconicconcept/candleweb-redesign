@@ -632,7 +632,7 @@ const CourseDetailPage = () => {
           )}
         </div>
 
-        <PublicFooter description="Candleweb Academy — cohort-based programmes in AI automation, personal finance and crypto trading. Built in Africa." />
+        <PublicFooter />
 
         {/* ---- small screens: a bar that names the course ---- */}
         {course && (

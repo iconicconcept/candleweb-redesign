@@ -175,7 +175,7 @@ export default function TutorPage() {
           <AcademyCta />
         </div>
 
-        <PublicFooter description="Candleweb Academy — cohort-based programmes in AI automation, personal finance and crypto trading. Built in Africa." />
+        <PublicFooter />
       </main>
     </>
   );

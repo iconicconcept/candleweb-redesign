@@ -9,6 +9,7 @@ import useGoogleAuth from "../../lib/hooks/useGoogleAuth";
 import useSiteTheme from "../../lib/hooks/useSiteTheme";
 import authService from "../../services/authService";
 import { loginUser } from "../../utils/loginUser";
+import { safeReturnTo } from "../../lib/authRedirect";
 import { validateEmailAddress } from "../../utils/emailValidate";
 import { error } from "../alert/Toast";
 import BrandLogo from "../public/BrandLogo";
@@ -68,8 +69,12 @@ export default function AuthPanel({ initialMode }: { initialMode: Mode }) {
     password: "",
   });
 
-  const redirect =
-    typeof router.query.redirect === "string" ? router.query.redirect : "";
+  /* Sanitised: a bare `/` (the header's "Log in" on the homepage used to send
+     one) or an auth path would bounce a successful login back where it started,
+     which reads as a login that silently failed. */
+  const redirect = safeReturnTo(
+    typeof router.query.redirect === "string" ? router.query.redirect : "",
+  );
   const referral =
     typeof router.query.referral === "string" ? router.query.referral : "";
 

@@ -26,6 +26,7 @@ import {
 import { setBalance } from "../../redux/slices/userSlice";
 import { AppDispatch } from "../../redux/store";
 import { uri } from "../axiosApi";
+import { signInPath } from "../authRedirect";
 
 const BASE_URL = uri;
 
@@ -37,7 +38,7 @@ export const useRefreshToken = () => {
   const refreshToken = async () => {
     let response: Response;
     try {
-      response = await fetch(`${BASE_URL}/user/refresh/get/token/`, {
+      response = await fetch(`${BASE_URL}user/refresh/get/token/`, {
         method: "GET",
         credentials: "include", // This is equivalent to withCredentials: true in axios
       });
@@ -50,9 +51,16 @@ export const useRefreshToken = () => {
     }
 
     /* Only the server actually rejecting the refresh cookie means the session
-       is over. A 500 or a gateway error is a server problem, not an expiry. */
+       is over. A 500 or a gateway error is a server problem, not an expiry.
+       This endpoint reads nothing but that cookie, so ANY 4xx from it is a
+       rejected cookie — and the answer to a missing or expired one is in fact
+       400 {"status":"error","message":"Refresh token not found."}, not 401.
+       Matching on 401/403 alone meant a genuinely expired session was read as
+       "server problem, leave it alone": the persisted user survived in
+       localStorage, so the public header kept showing the account menu and the
+       dashboard let the user in to a page whose every request then 401'd. */
     if (!response.ok) {
-      if (response.status === 401 || response.status === 403) {
+      if (response.status >= 400 && response.status < 500) {
         endSession();
       }
       return;
@@ -96,15 +104,20 @@ export const useRefreshToken = () => {
       dispatch(setCurrentPlan({}));
       dispatch(setBalance(""));
 
-      // Redirect to the tutor page as a logged-out user so they see Login/Signup
-      // instead of just showing a toast while keeping the Enroll Now button visible.
+      /* Only move someone whose page has nothing left to show. The dashboard
+         is signed-in-only, so it goes to the login page — carrying the page
+         they were on, so logging back in returns them to it. The Academy drops
+         to its public form (TutorHeader then shows Login/Signup instead of
+         keeping the Enroll Now button). Every other public page stays put: the
+         header has already swapped back to logged-out, and throwing a reader
+         off the homepage over an expired cookie is the worse outcome. It was
+         also pushing to /register — the wrong page for someone who plainly has
+         an account. */
       const currentPath = router.pathname;
-      const isTutorPage = currentPath.startsWith("/tutor");
-      if (isTutorPage) {
-        // Stay on tutor page — TutorHeader will now show Login/Signup buttons
+      if (currentPath.startsWith("/dashboard")) {
+        router.replace(signInPath(router.asPath));
+      } else if (currentPath.startsWith("/tutor")) {
         router.replace("/tutor");
-      } else {
-        router.push("/register");
       }
       error("Session expired. Please log in again.", "expired");
   };
