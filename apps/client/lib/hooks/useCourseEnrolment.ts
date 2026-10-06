@@ -10,8 +10,13 @@ import useAxiosAuth from "./useAxiosAuth";
 import { signUpPath } from "../authRedirect";
 
 /**
- * Enrolling in a course: sign in, make sure we have a name and phone for the
- * receipt, then hand over to Paystack.
+ * Enrolling in a course: sign in, pick how to pay, make sure we have a name and
+ * phone for the receipt, then hand over to the card processor.
+ *
+ * The payment-method step matches the dashboard, which has always asked before
+ * a subscription or a review purchase. Courses skipped the question entirely
+ * and went straight to checkout; now every payment on the site asks it. Crypto
+ * is shown and disabled — see components/public/PaymentMethodModal.
  *
  * The same three steps the Academy course cards run. They are here so the
  * public course-detail page can offer the identical path rather than inventing
@@ -41,6 +46,8 @@ const useCourseEnrolment = (returnTo: string) => {
   );
 
   const [checkingProfile, setCheckingProfile] = useState(false);
+  /** Set while the visitor is choosing card or crypto. */
+  const [methodFor, setMethodFor] = useState<any>(null);
   /** Set when we still need a name/phone before we can take payment. */
   const [profileFor, setProfileFor] = useState<any>(null);
   const [profileDraft, setProfileDraft] = useState<EnrolmentProfile>({
@@ -106,8 +113,8 @@ const useCourseEnrolment = (returnTo: string) => {
     }
   };
 
-  /** The button. Signs in first if needed, then either pays or asks for the
-   *  missing details. An already-purchased course goes to the dashboard. */
+  /** The button. Signs in first if needed, then asks how they want to pay.
+   *  An already-purchased course goes to the dashboard instead. */
   const enrol = async (course: any) => {
     if (!isLoggedIn) {
       router.push(signUpPath(returnTo));
@@ -117,7 +124,11 @@ const useCourseEnrolment = (returnTo: string) => {
       router.push("/dashboard/tutor");
       return;
     }
+    setMethodFor(course);
+  };
 
+  /** Card chosen. Now either pay, or ask for the details we are missing. */
+  const beginEnrolment = async (course: any) => {
     const firstName = user.first_name || "";
     const lastName = user.last_name || "";
     const phone = user.phone || "";
@@ -152,6 +163,14 @@ const useCourseEnrolment = (returnTo: string) => {
     }
   };
 
+  /** Called by the payment-method dialog. */
+  const confirmMethod = () => {
+    const course = methodFor;
+    if (!course) return;
+    setMethodFor(null);
+    beginEnrolment(course);
+  };
+
   /** Called by the profile dialog once the visitor has filled it in. */
   const submitProfile = (profile: EnrolmentProfile) => {
     if (!profileFor) return;
@@ -171,6 +190,10 @@ const useCourseEnrolment = (returnTo: string) => {
     isLoggedIn,
     hasPurchased,
     busy: checkingProfile || isInitiating || isVerifying,
+    /** The course awaiting a payment method, or null. */
+    methodFor,
+    confirmMethod,
+    closeMethod: () => setMethodFor(null),
     /** The course awaiting a name/phone, or null. */
     profileFor,
     profileDraft,

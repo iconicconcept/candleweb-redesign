@@ -15,6 +15,7 @@ import { imageUri } from "../../utils/constants";
 import { signUpPath } from "../../lib/authRedirect";
 import Loader from "../Loader";
 import { Written } from "../public/Written";
+import PaymentMethodModal from "../public/PaymentMethodModal";
 
 declare let window: any;
 
@@ -49,6 +50,9 @@ const AcademyCourses = () => {
 
   // Name prompt modal state
   const [showNameModal, setShowNameModal] = useState(false);
+  /* Asked before anything is charged, same as the dashboard does for plans
+     and reviews — this listing used to go straight to the card processor. */
+  const [methodCourse, setMethodCourse] = useState<any>(null);
   const [selectedCourse, setSelectedCourse] = useState<any>(null);
   const [tempFirstName, setTempFirstName] = useState("");
   const [tempLastName, setTempLastName] = useState("");
@@ -137,7 +141,11 @@ const AcademyCourses = () => {
       router.push("/dashboard/tutor");
       return;
     }
+    setMethodCourse(course);
+  };
 
+  /** Card chosen — carry on to the profile check and the processor. */
+  const beginPayment = async (course: any) => {
     const firstName = user.first_name || "";
     const lastName = user.last_name || "";
     const phone = user.phone || "";
@@ -419,6 +427,26 @@ const AcademyCourses = () => {
             {showAll ? "Show fewer" : `Show all ${filtered.length} courses`}
           </button>
         </div>
+      )}
+
+      {methodCourse && (
+        <PaymentMethodModal
+          summary={`${methodCourse.title} · ${
+            Number(methodCourse.base_price ?? methodCourse.price ?? 0) > 0
+              ? `₦${Number(
+                  methodCourse.base_price ?? methodCourse.price ?? 0,
+                ).toLocaleString()} one-time`
+              : "free"
+          }`}
+          note="You'll finish on the processor's secure checkout, then come back here. Your place on the course is confirmed once the payment is."
+          busy={isCheckingProfile}
+          onCancel={() => setMethodCourse(null)}
+          onContinue={() => {
+            const course = methodCourse;
+            setMethodCourse(null);
+            beginPayment(course);
+          }}
+        />
       )}
 
       {showNameModal && selectedCourse && (

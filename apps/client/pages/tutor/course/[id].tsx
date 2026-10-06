@@ -11,6 +11,7 @@ import useCourseEnrolment from "../../../lib/hooks/useCourseEnrolment";
 import PublicHeader from "../../../components/public/PublicHeader";
 import PublicFooter from "../../../components/public/PublicFooter";
 import CourseProfileModal from "../../../components/Tutor/CourseProfileModal";
+import PaymentMethodModal from "../../../components/public/PaymentMethodModal";
 import Loader from "../../../components/Loader";
 import { imageUri } from "../../../utils/constants";
 import { FAQ } from "../../../types/tutor";
@@ -658,6 +659,18 @@ const CourseDetailPage = () => {
           </div>
         )}
       </main>
+
+      {enrolment.methodFor && (
+        <PaymentMethodModal
+          summary={`${enrolment.methodFor.title} · ${
+            price > 0 ? `₦${price.toLocaleString()} one-time` : "free"
+          }`}
+          note="You'll finish on the processor's secure checkout, then come back here. Your place on the course is confirmed once the payment is."
+          busy={enrolment.busy}
+          onCancel={enrolment.closeMethod}
+          onContinue={enrolment.confirmMethod}
+        />
+      )}
 
       {enrolment.profileFor && (
         <CourseProfileModal

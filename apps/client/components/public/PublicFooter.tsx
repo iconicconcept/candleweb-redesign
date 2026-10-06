@@ -23,7 +23,10 @@ const HREFS: Record<string, string> = {
   Academy: "/tutor",
   Docs: "/docs",
   "API reference": "/docs",
-  // About: "/about",
+  /* Commented out when About came off the nav pill — but the page is still
+     there and the footer still lists it, so the link just went to "#". The
+     footer is where someone looks for it once it has left the nav. */
+  About: "/about",
   Blog: "/blog",
   Terms: "/terms",
   Privacy: "/privacy",

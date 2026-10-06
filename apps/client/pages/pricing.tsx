@@ -12,6 +12,10 @@ import { Written, useRevealOnScroll } from "../components/public/Written";
 import { PlanV2 } from "../types/subscriptionV2";
 import { validateEmailAddress } from "../utils/emailValidate";
 import { signUpPath } from "../lib/authRedirect";
+import useAxiosAuth from "../lib/hooks/useAxiosAuth";
+import PaymentMethodModal from "../components/public/PaymentMethodModal";
+import { writePending } from "../lib/subscriptionPending";
+import { error as toastError, success as toastSuccess } from "../components/alert/Toast";
 
 /**
  * Public pricing page, built from candleweb-pricing.html.
@@ -21,8 +25,13 @@ import { signUpPath } from "../lib/authRedirect";
  * prices, feature lists, included volume and the overage rate are the
  * backend's, so this page cannot drift from what checkout actually charges.
  *
- * Choosing a plan hands over to the real subscription flow on the dashboard
- * rather than reimplementing checkout here.
+ * Choosing a plan starts checkout here. It used to bounce to
+ * /dashboard/subscription, which read as the page refusing to sell: you picked
+ * a plan on the pricing page and landed somewhere else with nothing happening.
+ * The money still moves through the same `subscriptionV2Service` calls the
+ * dashboard uses, and the processor still returns to the dashboard — that is
+ * where the plan lives and where the result is verified — so there is one
+ * checkout, started from two places, not two checkouts.
  */
 
 type Cycle = "monthly" | "annual";
@@ -77,8 +86,13 @@ const PricingPage = () => {
 
   const { plans, reviewPacks } = useSelector((state: RootState) => state.subscriptionV2);
 
+  const axiosToken = useAxiosAuth();
+
   const [cycle, setCycle] = useState<Cycle>("monthly");
   const [cur, setCur] = useState<Currency>("NGN");
+  /** The plan waiting on "card or crypto", or null. */
+  const [payFor, setPayFor] = useState<PlanV2 | null>(null);
+  const [paying, setPaying] = useState(false);
 
   useEffect(() => {
     dispatch(subscriptionV2Service.listPlans());
@@ -226,15 +240,63 @@ const PricingPage = () => {
   };
 
   /* ---------------- choosing a plan ---------------- */
+
+  /* Signing in is the one thing that still has to happen elsewhere — there is
+     no anonymous checkout. Coming back to /pricing rather than the dashboard
+     means the plan they picked is still in front of them. */
   const choose = (code: string) => {
-    // Checkout lives on the dashboard, on subscription_v2. Send people there
-    // rather than running a second payment flow from a marketing page.
-    const dest = code === "paper" ? "/dashboard" : "/dashboard/subscription";
+    const plan = byCode[code];
     if (!isLoggedIn) {
-      router.push(signUpPath(dest));
+      router.push(signUpPath("/pricing"));
       return;
     }
-    router.push(dest);
+    if (!plan) {
+      router.push("/dashboard/subscription");
+      return;
+    }
+    /* The free plan takes no money, so it asks no payment question. */
+    if (plan.is_free) {
+      startPlan(plan, true);
+      return;
+    }
+    setPayFor(plan);
+  };
+
+  const startPlan = async (plan: PlanV2, free = false) => {
+    setPaying(true);
+    const res: any = await dispatch(
+      subscriptionV2Service.subscribe({
+        api: axiosToken,
+        plan: plan.code,
+        cycle: free ? "monthly" : cycle,
+      }),
+    );
+    if (res.meta.requestStatus !== "fulfilled") {
+      setPaying(false);
+      setPayFor(null);
+      toastError(
+        typeof res.payload === "string" ? res.payload : "We couldn't start that checkout.",
+        "plan",
+      );
+      return;
+    }
+    const body = res.payload ?? {};
+    if (body.checkout_url) {
+      /* The dashboard reads this when the processor sends them back, so the
+         result is confirmed against the API rather than trusted from a
+         redirect. Leaving the page: `paying` stays on. */
+      writePending({ kind: "plan", plan: plan.code });
+      window.location.assign(body.checkout_url);
+      return;
+    }
+    setPaying(false);
+    setPayFor(null);
+    toastSuccess(
+      free
+        ? `You're on ${plan.name}. Add a bot and it starts trading on paper — nothing at risk.`
+        : `You're on ${plan.name}.`,
+    );
+    router.push(free ? "/dashboard" : "/dashboard/subscription");
   };
 
   const fee = perMonth(fitPlan, cur, cycle);
@@ -985,6 +1047,16 @@ const PricingPage = () => {
 
         <PublicFooter />
       </main>
+
+      {payFor && (
+        <PaymentMethodModal
+          summary={`${payFor.name} · ${perMonth(payFor, cur, cycle) === 0 ? "free" : `${money(perMonth(payFor, cur, cycle), cur)} ${cycle === "annual" ? "a year" : "a month"}`}`}
+          note="You'll finish on the processor's secure checkout, then land on your subscription page. Your plan changes once the payment is confirmed — your trading funds stay on your own exchange."
+          busy={paying}
+          onCancel={() => setPayFor(null)}
+          onContinue={() => startPlan(payFor)}
+        />
+      )}
     </>
   );
 };

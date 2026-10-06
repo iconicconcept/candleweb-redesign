@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "../../redux/store";
 import subscriptionV2Service from "../../services/subscriptionV2Service";
+import { Pending, writePending, readPending, clearPending } from "../../lib/subscriptionPending";
 import tradingV2Service from "../../services/tradingV2Service";
 import useAxiosAuth from "../../lib/hooks/useAxiosAuth";
 import useUserStore from "../../lib/hooks/useUserStore";
@@ -303,43 +304,6 @@ function ReviewPacks({
 /* ------------------------------------------------------------------ *
  * the page
  * ------------------------------------------------------------------ */
-
-/* what a checkout we sent the user to was for — survives the round trip */
-type Pending =
-  | { kind: "plan"; plan: string }
-  | { kind: "invoice"; number: string }
-  /* `before` is the balance when they left, so a late webhook still reads as new reviews */
-  | { kind: "reviews"; quantity: number; number: string | null; before: number };
-const PENDING_KEY = "cw-sub-pending";
-const writePending = (p: Pending) => {
-  try {
-    sessionStorage.setItem(PENDING_KEY, JSON.stringify({ ...p, at: Date.now() }));
-  } catch {
-    /* private mode — the query-string check still runs */
-  }
-};
-const readPending = (): Pending | null => {
-  try {
-    const raw = sessionStorage.getItem(PENDING_KEY);
-    if (!raw) return null;
-    const p = JSON.parse(raw);
-    /* a checkout abandoned hours ago isn't what this visit is about */
-    if (!p?.at || Date.now() - p.at > 2 * 60 * 60 * 1000) {
-      sessionStorage.removeItem(PENDING_KEY);
-      return null;
-    }
-    return p as Pending;
-  } catch {
-    return null;
-  }
-};
-const clearPending = () => {
-  try {
-    sessionStorage.removeItem(PENDING_KEY);
-  } catch {
-    /* ignore */
-  }
-};
 
 /* the design's small "→" explainer links */
 const explain = (msg: string) => toast(msg, { duration: 6500, style: { maxWidth: 460 } });

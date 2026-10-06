@@ -9,7 +9,8 @@ import tutorService from "../../../../services/tutorService";
 import useUserStore from "../../../../lib/hooks/useUserStore";
 import useAxiosAuth from "../../../../lib/hooks/useAxiosAuth";
 import Dialog from "../Dialog";
-import { CheckIcon } from "../icons";
+import { CheckIcon, CardStackIcon } from "../icons";
+import PayMethodChoice from "../PayMethodChoice";
 
 declare let window: any;
 
@@ -34,6 +35,9 @@ export default function CourseShop({ excludeIds }: Props) {
   const [selectedCourse, setSelectedCourse] = useState<any>(null);
   const [form, setForm] = useState({ firstName: "", lastName: "", phone: "" });
   const [isCheckingProfile, setIsCheckingProfile] = useState(false);
+  /* The shop went straight to the processor. Subscriptions and reviews have
+     always asked first, so courses do too. */
+  const [methodCourse, setMethodCourse] = useState<any>(null);
 
   useEffect(() => {
     dispatch(courseService.getCourses());
@@ -78,7 +82,10 @@ export default function CourseShop({ excludeIds }: Props) {
     }
   };
 
-  const buy = async (course: any) => {
+  const buy = (course: any) => setMethodCourse(course);
+
+  /** Card chosen — on to the profile check and the processor. */
+  const beginBuy = async (course: any) => {
     const firstName = user.first_name || "";
     const lastName = user.last_name || "";
     const phone = user.phone || "";
@@ -159,6 +166,45 @@ export default function CourseShop({ excludeIds }: Props) {
           );
         })}
       </div>
+
+      <Dialog
+        open={!!methodCourse}
+        onClose={() => !busy && setMethodCourse(null)}
+        icon={<CardStackIcon />}
+        title="How would you like to pay?"
+        subtitle={
+          methodCourse
+            ? `${methodCourse.title} · ₦${Number(methodCourse.price ?? 0).toLocaleString()} one-time`
+            : ""
+        }
+        labelledBy="shop-pay-title"
+        footer={
+          <>
+            <button
+              className="fx-cta ghost2"
+              type="button"
+              disabled={busy}
+              onClick={() => setMethodCourse(null)}
+            >
+              Not now
+            </button>
+            <button
+              className="fx-cta main2"
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                const course = methodCourse;
+                setMethodCourse(null);
+                if (course) beginBuy(course);
+              }}
+            >
+              {busy ? "Opening checkout…" : "Continue"}
+            </button>
+          </>
+        }
+      >
+        <PayMethodChoice what="Your place on the course is confirmed once the payment is." />
+      </Dialog>
 
       <Dialog
         open={showNameDialog}
