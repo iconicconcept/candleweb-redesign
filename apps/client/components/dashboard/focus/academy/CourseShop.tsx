@@ -76,6 +76,18 @@ export default function CourseShop({ excludeIds }: Props) {
         } else {
           toast.error("Unable to get a payment link. Please try again.");
         }
+      } else {
+        /* `initiatePayment` reports failure with `rejectWithValue`, so the
+           dispatch resolves rather than throwing and the catch below never
+           runs. Without this branch a refusal from the server closed the
+           profile dialog and did absolutely nothing — which is what
+           "I completed my details and was never taken to the payment page"
+           looked like from the outside. The server's own reason is the useful
+           part, so it is what gets shown. */
+        toast.error(
+          (resultAction.payload as string) ||
+            "We couldn't start that payment. Please try again.",
+        );
       }
     } catch (err) {
       toast.error("An unexpected error occurred. Please try again.");
