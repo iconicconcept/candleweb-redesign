@@ -33,7 +33,7 @@ export default function CourseShop({ excludeIds }: Props) {
 
   const [showNameDialog, setShowNameDialog] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState<any>(null);
-  const [form, setForm] = useState({ firstName: "", lastName: "", phone: "" });
+  const [form, setForm] = useState({ firstName: "", lastName: "", phone: "", referral: "" });
   const [isCheckingProfile, setIsCheckingProfile] = useState(false);
   /* The shop went straight to the processor. Subscriptions and reviews have
      always asked first, so courses do too. */
@@ -51,6 +51,7 @@ export default function CourseShop({ excludeIds }: Props) {
     firstName: string,
     lastName: string,
     phone: string,
+    referralUsername?: string,
   ) => {
     try {
       const payload: any = {
@@ -61,6 +62,11 @@ export default function CourseShop({ excludeIds }: Props) {
         phone,
         callback_url: `${window.location.origin}/tutor/verify`,
       };
+      /* Only sent when there is one — the API treats an empty string as a
+         username to look up, not as "no referrer". */
+      if (referralUsername && referralUsername.trim()) {
+        payload.referrer_username = referralUsername.trim();
+      }
       const resultAction = await dispatch(
         paymentService.initiatePayment(payload),
       );
@@ -119,11 +125,11 @@ export default function CourseShop({ excludeIds }: Props) {
         }
       }
       setSelectedCourse(course);
-      setForm({ firstName, lastName, phone });
+      setForm((f) => ({ ...f, firstName, lastName, phone }));
       setShowNameDialog(true);
     } catch {
       setSelectedCourse(course);
-      setForm({ firstName, lastName, phone });
+      setForm((f) => ({ ...f, firstName, lastName, phone }));
       setShowNameDialog(true);
     } finally {
       setIsCheckingProfile(false);
@@ -253,6 +259,7 @@ export default function CourseShop({ excludeIds }: Props) {
                   form.firstName.trim(),
                   form.lastName.trim(),
                   form.phone.trim(),
+                  form.referral,
                 );
               }}
             >
@@ -305,6 +312,23 @@ export default function CourseShop({ excludeIds }: Props) {
               }
             />
           </div>
+        </div>
+        <div className="fx-fld">
+          <label className="fx-fl" htmlFor="shop-ref">
+            Referral username <em>&mdash; optional</em>
+          </label>
+          <div className="fx-inp">
+            <input
+              id="shop-ref"
+              type="text"
+              placeholder="@"
+              value={form.referral}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, referral: e.target.value }))
+              }
+            />
+          </div>
+          <p className="fx-hint">The Candleweb username of whoever sent you here.</p>
         </div>
       </Dialog>
     </>
