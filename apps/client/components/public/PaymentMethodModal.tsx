@@ -3,12 +3,14 @@ import { useEffect } from "react";
 /**
  * "How would you like to pay?" for the market-facing pages.
  *
- * The dashboard asks this before every subscription and review purchase; the
- * public pages took money without ever asking, so a course enrolment and a
- * plan jumped straight to the card processor. This is the same question in the
- * public pages' own dialog shell — the dashboard's version is built on
- * `.fx-*` tokens that only exist inside `.fx-root`, so it cannot be reused
- * here without the colours falling back to transparent.
+ * Built to match the dashboard's version of this dialog (the one on
+ * /dashboard/subscription) — same badge, mono summary line, full-bleed footer
+ * and split buttons. It cannot reuse that one: those styles read `--fx-*`
+ * tokens that only exist inside `.fx-root`, and nothing public has it.
+ *
+ * It also carries none of the `--pub-*` tokens, on purpose. The dialog is dark
+ * whatever the site theme is, and `--pub-text` flips to near-black under
+ * `data-site-theme="light"` — which is how "Not now" came to be invisible.
  *
  * Crypto is deliberately present and deliberately disabled: people ask whether
  * they can pay in USDT, and an option marked "Soon" answers that better than
@@ -73,58 +75,66 @@ export default function PaymentMethodModal({
       onClick={(e) => e.target === e.currentTarget && !busy && onCancel()}
     >
       <div
-        className="ac-cd-dlg"
+        className="ac-cd-dlg ac-pm-dlg"
         role="dialog"
         aria-modal="true"
         aria-labelledby="pay-method-title"
       >
         <button
           type="button"
-          className="ac-cd-x"
+          className="ac-pm-x"
           onClick={onCancel}
           disabled={busy}
           aria-label="Close"
         >
           &times;
         </button>
-        <h2 id="pay-method-title">How would you like to pay?</h2>
-        <p className="ac-cd-dsub">{summary}</p>
 
-        <div className="ac-pm-list">
-          {/* Not a radio group: there is one choice to make today, and a
-              disabled second option. Marking the live one `aria-pressed` keeps
-              it honest for a screen reader without implying a choice that
-              cannot yet be made. */}
-          <button type="button" className="ac-pm on" aria-pressed="true">
-            <span className="ac-pm-i">
-              <CardGlyph />
-            </span>
-            <span className="ac-pm-t">
-              <b>Pay with card</b>
-              <span>In naira. Card, bank transfer or USSD.</span>
-            </span>
-            <span className="ac-pm-c" aria-hidden="true">
-              <Tick />
-            </span>
-          </button>
-          <button type="button" className="ac-pm" disabled aria-disabled="true">
-            <span className="ac-pm-i">
-              <CoinGlyph />
-            </span>
-            <span className="ac-pm-t">
-              <b>Pay with crypto</b>
-              <span>USDT or USDC, from any wallet or exchange.</span>
-            </span>
-            <span className="ac-pm-soon">Soon</span>
-          </button>
+        <div className="ac-pm-h">
+          <span className="ac-pm-badge" aria-hidden="true">
+            <CardGlyph />
+          </span>
+          <h2 id="pay-method-title">How would you like to pay?</h2>
+          <p className="ac-pm-sub">{summary}</p>
         </div>
 
-        <p className="ac-pm-note">{note}</p>
+        <div className="ac-pm-b">
+          <div className="ac-pm-list">
+            {/* Not a radio group: there is one choice to make today, and a
+                disabled second option. Marking the live one `aria-pressed`
+                keeps it honest for a screen reader without implying a choice
+                that cannot yet be made. */}
+            <button type="button" className="ac-pm on" aria-pressed="true">
+              <span className="ac-pm-i">
+                <CardGlyph />
+              </span>
+              <span className="ac-pm-t">
+                <b>Pay with card</b>
+                <span>In naira. Card, bank transfer or USSD.</span>
+              </span>
+              <span className="ac-pm-c" aria-hidden="true">
+                <Tick />
+              </span>
+            </button>
+            <button type="button" className="ac-pm" disabled aria-disabled="true">
+              <span className="ac-pm-i">
+                <CoinGlyph />
+              </span>
+              <span className="ac-pm-t">
+                <b>Pay with crypto</b>
+                <span>USDT or USDC, from any wallet or exchange.</span>
+              </span>
+              <span className="ac-pm-soon">Soon</span>
+            </button>
+          </div>
 
-        <div className="ac-cd-dacts">
+          <p className="ac-pm-note">{note}</p>
+        </div>
+
+        <div className="ac-pm-f">
           <button
             type="button"
-            className="pub-btn pub-btn-glass"
+            className="ac-pm-btn ghost"
             onClick={onCancel}
             disabled={busy}
           >
@@ -132,11 +142,11 @@ export default function PaymentMethodModal({
           </button>
           <button
             type="button"
-            className="pub-btn pub-btn-amber"
+            className="ac-pm-btn go"
             onClick={onContinue}
             disabled={busy}
           >
-            {busy ? "Opening checkout…" : continueLabel} <span>→</span>
+            {busy ? "Opening checkout…" : continueLabel}
           </button>
         </div>
       </div>
