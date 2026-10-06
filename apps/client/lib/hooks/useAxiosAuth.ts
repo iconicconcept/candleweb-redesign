@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import { useRefreshToken } from "./useRefreshToken";
 import axios, { AxiosInstance } from "axios";
 import useUserStore from "./useUserStore";
-import { uri } from "../axiosApi";
+import { uri, isExpiredToken } from "../axiosApi";
 
 /**
  * The authenticated axios instance used by the dashboard.
@@ -82,10 +82,11 @@ const useAxiosAuth = () => {
       (response) => response,
       async (err) => {
         const prevRequest = err.config;
-        /* 401 only — never 403. A 403 is a permission answer ("not enrolled",
-           "plan limit", "not public"), not an expired token, and treating it
-           as one logged people out mid-session. */
-        if (err.response?.status === 401 && prevRequest && !prevRequest._retry) {
+        /* Not 401 only: this API answers 403 for an expired access token as
+           well as for ordinary permission denials, so the body is what tells
+           them apart — see `isExpiredToken`. Treating every 403 as an expiry
+           is what once logged people out mid-session over a plan limit. */
+        if (isExpiredToken(err) && prevRequest && !prevRequest._retry) {
           prevRequest._retry = true;
           const newToken = await refreshRef.current();
 

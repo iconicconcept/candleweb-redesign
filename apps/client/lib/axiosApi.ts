@@ -66,6 +66,34 @@ axiosApi.interceptors.request.use((config) => {
   return config;
 });
 
+/**
+ * Is this failure "your access token is no good", as opposed to "you are signed
+ * in but may not do this"?
+ *
+ * The API answers **403** for an expired or invalid access token — not 401 —
+ * and it answers 403 for ordinary permission denials as well. Only the body
+ * separates them: an auth failure says "Invalid or expired token provided.",
+ * while a permission answer says something else entirely.
+ *
+ * Matching on 401 alone meant an expired token was never refreshed. The
+ * dashboard hid it, because most of what it shows is either already in redux
+ * or served by public endpoints; the first call that genuinely needed auth —
+ * starting a course payment — was where it surfaced, as "Invalid or expired
+ * token provided." on an account whose session was otherwise fine.
+ *
+ * Deliberately narrow: refreshing on *any* 403 is what previously wiped a
+ * session and showed "Session expired" to someone sitting on a working page,
+ * because a plan limit or an unenrolled course answers 403 too.
+ */
+export const isExpiredToken = (error: any) => {
+  const status = error?.response?.status;
+  if (status === 401) return true;
+  if (status !== 403) return false;
+  const body = error?.response?.data;
+  const message = typeof body === "string" ? body : String(body?.message ?? "");
+  return /invalid or expired token/i.test(message);
+};
+
 axiosApi.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -75,13 +103,7 @@ axiosApi.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    /* 401 only. 403 means "signed in, but not allowed to do this" — plenty of
-       endpoints answer it for ordinary reasons (not enrolled in a course, a
-       plan limit, a gated detail view). Refreshing on 403 meant an ordinary
-       permission response could end in a wiped session and "Session expired"
-       while the user was sitting on a working page. */
-    const status = error.response?.status;
-    if (status === 401 && !originalRequest._retry) {
+    if (isExpiredToken(error) && !originalRequest._retry) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
