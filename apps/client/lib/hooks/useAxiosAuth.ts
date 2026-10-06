@@ -13,8 +13,28 @@ import { uri } from "../axiosApi";
  * interceptors inside a `useEffect` keyed on `user`. The effect only ran on the
  * renders where `user` changed, so every instance handed out after that had no
  * interceptors at all — which is why an expired access token was never
- * refreshed: the 401 simply fell through. The instance is now created once and
- * kept, so the interceptors stay attached to the object callers actually use.
+ * refreshed: the 401 simply fell through. The instance is kept across renders
+ * so the interceptors stay attached to the object callers actually use.
+ *
+ * It is rebuilt when — and only when — the access token changes, because the
+ * instance's identity is what the dashboard's fetch effects are keyed on:
+ * nearly every page does
+ *
+ *     useEffect(() => {
+ *       if (!isAuthorizationHeaderSet(axiosToken)) return;
+ *       ...fetch...
+ *     }, [axiosToken, dispatch]);
+ *
+ * The persisted user store is not readable on the first client render — it
+ * rehydrates from localStorage a render later, which is what `useHydration`
+ * exists to wait for — so on a full page load that guard is false the first
+ * time round. With a permanently stable instance both deps were constant, the
+ * effect never ran again once the token arrived, and the page sat on its
+ * loading state forever. Soft navigation hid it: by then the store had
+ * rehydrated, so the guard passed on the first try. Changing identity with the
+ * token makes the effects re-run exactly when there is finally a token to
+ * fetch with. The interceptor effect below is keyed on the same instance, so a
+ * replacement is always fully wired before anyone uses it.
  */
 const useAxiosAuth = () => {
   const { user } = useUserStore((state) => state);
@@ -25,8 +45,11 @@ const useAxiosAuth = () => {
   const refreshRef = useRef(refreshToken);
   refreshRef.current = refreshToken;
 
+  const token = user?.access_token;
   const instanceRef = useRef<AxiosInstance>();
-  if (!instanceRef.current) {
+  const tokenRef = useRef<string | undefined>();
+  if (!instanceRef.current || tokenRef.current !== token) {
+    tokenRef.current = token;
     instanceRef.current = axios.create({
       baseURL: uri,
       headers: {
@@ -40,7 +63,7 @@ const useAxiosAuth = () => {
 
   /* Callers read `defaults.headers.Authorization` (see utils/check_auth) and
      key effects off it, so it has to track the live token. */
-  axiosApi.defaults.headers["Authorization"] = `Bearer ${user.access_token}`;
+  axiosApi.defaults.headers["Authorization"] = `Bearer ${token}`;
 
   useEffect(() => {
     const requestInterceptor = axiosApi.interceptors.request.use(

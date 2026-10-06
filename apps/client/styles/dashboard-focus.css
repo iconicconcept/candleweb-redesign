@@ -3591,9 +3591,23 @@ button.fx-me[aria-expanded="true"] {
 }
 .xlogo-row img,
 .xlogo-card img {
+  /* Tailwind's preflight sets `img { height: auto }`, and it wins over a
+     `height: 100%` here — so the image took its aspect-ratio height (a 2.6:1
+     wordmark came out 37px tall in a 26px box), overflowed the tile and was
+     cropped by `overflow: hidden`. Constraining it instead is what `height:
+     auto` respects: the logo scales down until it fits both ways, keeps its
+     proportions, and the parent's `place-items: center` centres what is left.
+
+     The cap is in pixels, not `100%`: every one of these tiles is 26px of
+     content (36px tall less 5px of padding each side, or 34 less 4), but a
+     percentage max-height resolved to `none` against the card tile's grid
+     area and left the logo overflowing again. */
   display: block;
-  width: 100%;
-  height: 100%;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 26px;
+  object-fit: contain;
 }
 .xlogo-row {
   width: 62px;
@@ -3700,7 +3714,8 @@ button.fx-me[aria-expanded="true"] {
   font-size: 13.5px;
 }
 .fx-sw > .fx-preview {
-  flex: 0 0 auto;
+  flex: 0 1 auto;
+  min-width: 0;
   margin-top: 2px;
 }
 .fx-ul .fx-preview {
@@ -4798,6 +4813,14 @@ button.fx-me[aria-expanded="true"] {
 /* preview ribbon — sections whose data isn't wired to a backend yet */
 .fx-preview {
   display: inline-flex;
+  /* Some of these labels are a whole sentence ("Needs a review-alerts field on
+     the bot API (§1.22)"). As a nowrap inline-flex the pill took its max-content
+     width — 344px in uppercase mono — and, being unshrinkable, made the page
+     itself 373px wide on a 360px phone, which is where the bot settings page's
+     horizontal scroll came from. The 100% cap lets the label shrink and wrap
+     inside the pill — the icon stays on the first line, since only the text
+     run shrinks. */
+  max-width: 100%;
   align-items: center;
   gap: 7px;
   font-family: var(--fx-mono);
@@ -5538,6 +5561,9 @@ button.fx-me[aria-expanded="true"] {
   gap: 13px;
   padding: 14px 0;
   border-bottom: 1px solid var(--fx-line);
+  /* a control too wide to sit beside the label drops under it rather than
+     stretching the row */
+  flex-wrap: wrap;
 }
 .fx-sw:last-of-type {
   border-bottom: 0;
@@ -7557,10 +7583,28 @@ a.nm4:hover {
   padding: 5px 8px;
   overflow: hidden;
 }
+.fx-xp .xlogo {
+  display: grid;
+  place-items: center;
+}
 .fx-xp .xlogo img {
+  /* Tailwind's preflight sets `img { height: auto }`, and it wins over a
+     `height: 100%` here — so the image took its aspect-ratio height (a 2.6:1
+     wordmark came out 37px tall in a 26px box), overflowed the tile and was
+     cropped by `overflow: hidden`. Constraining it instead is what `height:
+     auto` respects: the logo scales down until it fits both ways, keeps its
+     proportions, and the parent's `place-items: center` centres what is left.
+
+     The cap is in pixels, not `100%`: every one of these tiles is 26px of
+     content (36px tall less 5px of padding each side, or 34 less 4), but a
+     percentage max-height resolved to `none` against the card tile's grid
+     area and left the logo overflowing again. */
   display: block;
-  width: 100%;
-  height: 100%;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 26px;
+  object-fit: contain;
 }
 .fx-xp .xs {
   margin-top: 0;
@@ -8050,10 +8094,28 @@ a.nm4:hover {
   padding: 5px 8px;
   overflow: hidden;
 }
+.fx-ch .xlogo {
+  display: grid;
+  place-items: center;
+}
 .fx-ch .xlogo img {
+  /* Tailwind's preflight sets `img { height: auto }`, and it wins over a
+     `height: 100%` here — so the image took its aspect-ratio height (a 2.6:1
+     wordmark came out 37px tall in a 26px box), overflowed the tile and was
+     cropped by `overflow: hidden`. Constraining it instead is what `height:
+     auto` respects: the logo scales down until it fits both ways, keeps its
+     proportions, and the parent's `place-items: center` centres what is left.
+
+     The cap is in pixels, not `100%`: every one of these tiles is 26px of
+     content (36px tall less 5px of padding each side, or 34 less 4), but a
+     percentage max-height resolved to `none` against the card tile's grid
+     area and left the logo overflowing again. */
   display: block;
-  width: 100%;
-  height: 100%;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 26px;
+  object-fit: contain;
 }
 .fx-ch .ck {
   position: absolute;
