@@ -208,6 +208,7 @@
   flex-wrap: wrap;
   gap: 10px;
   margin-top: clamp(26px, 3.6vw, 38px);
+  margin-bottom: 25px;
 }
 .pr-sw {
   display: inline-flex;
@@ -216,6 +217,24 @@
   border: 1px solid var(--pr-line);
   border-radius: 99px;
   background: rgba(255, 255, 255, 0.04);
+}
+/* Center each group when the layout wraps on mobile */
+@media (max-width: 480px) {
+  /* .pr-toggles {
+    justify-content: center;
+    background-color: yellow;
+    padding-bottom: -10px;
+  } */
+
+  /* .pr-toggles > .pr-sw {
+    margin-inline: auto;
+  } */
+
+  .pr-toggles > .pr-save {
+    flex: 0 0 100%;
+    text-align: center;
+    background-color: yellow;
+  }
 }
 .pr-sw button {
   padding: 9px 18px;
@@ -261,7 +280,7 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: stretch;
   gap: 14px;
-  margin-top: clamp(24px, 3vw, 34px);
+  margin-top: -30px;
 }
 @media (max-width: 980px) {
   .pr-plans {
