@@ -371,6 +371,15 @@
   border-color: rgba(49, 224, 176, 0.8);
   background: rgba(49, 224, 176, 0.14);
 }
+/* matches .auth-gbtn:disabled — both are gated by the sign-up terms box */
+.auth-wbtn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.auth-wbtn:disabled:hover {
+  border-color: rgba(49, 224, 176, 0.42);
+  background: rgba(49, 224, 176, 0.08);
+}
 .auth-wbtn svg {
   width: 18px;
   height: 18px;
@@ -593,6 +602,94 @@
   border-bottom: 1px solid var(--au-line2);
 }
 
+/* ---- sign-up terms agreement ----
+   Required consent, so it reads as a control rather than fine print: the
+   whole row is a bordered field that lights up teal once ticked. */
+.auth-agree {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--au-line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  transition:
+    border-color 0.2s,
+    background 0.2s;
+}
+.auth-agree:hover {
+  border-color: var(--au-line2);
+}
+.auth-agree.is-on {
+  border-color: rgba(49, 224, 176, 0.45);
+  background: rgba(49, 224, 176, 0.06);
+}
+/* The real checkbox stays in the DOM — it carries the semantics, the keyboard
+   behaviour and the focus target the "please agree" error reaches for. It is
+   only hidden from sight, never from the accessibility tree, so no
+   display:none or visibility:hidden here. */
+.auth-agree input {
+  position: absolute;
+  top: 13px;
+  left: 15px;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.auth-agree .bx {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--au-line2);
+  border-radius: 5px;
+  color: #04140f;
+  cursor: pointer;
+  transition:
+    background 0.18s,
+    border-color 0.18s;
+}
+.auth-agree .bx svg {
+  width: 12px;
+  height: 12px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.auth-agree.is-on .bx {
+  border-color: transparent;
+  background: var(--au-teal);
+}
+.auth-agree.is-on .bx svg {
+  opacity: 1;
+}
+/* input precedes .bx in the markup, so the keyboard ring can be drawn on the
+   visible box */
+.auth-agree input:focus-visible ~ .bx {
+  outline: 2px solid var(--au-teal);
+  outline-offset: 2px;
+}
+.auth-agree .tx {
+  margin: 0;
+  color: var(--au-muted);
+  font-size: 12.5px;
+  line-height: 1.6;
+  cursor: pointer;
+}
+.auth-agree .tx a {
+  color: var(--au-teal2);
+  border-bottom: 1px solid var(--au-line2);
+  cursor: pointer;
+}
+.auth-agree .tx a:hover {
+  border-bottom-color: var(--au-teal);
+}
+
 .auth-pane {
   display: none;
 }
@@ -722,4 +819,14 @@
 }
 :root[data-site-theme="light"] .auth-fld input::placeholder {
   color: #9a9d9f;
+}
+:root[data-site-theme="light"] .auth-agree {
+  background: rgba(16, 22, 18, 0.025);
+}
+:root[data-site-theme="light"] .auth-agree.is-on {
+  border-color: rgba(16, 163, 127, 0.45);
+  background: rgba(16, 163, 127, 0.07);
+}
+:root[data-site-theme="light"] .auth-agree.is-on .bx {
+  color: #ffffff;
 }

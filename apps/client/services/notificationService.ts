@@ -22,7 +22,14 @@ const getNotifications = createAsyncThunk(
       return data;
     } catch (err: any) {
       const e = err as AxiosError;
-      return thunkApi.rejectWithValue((e.response?.data as any).message);
+      /* `.data.message` was read without a guard, so a network error (no
+         `response` at all) threw a TypeError *inside* the catch and the
+         thunk rejected with that instead of a message. Harmless when this
+         ran once a page; the bell now polls it, so a dropped connection hit
+         it every few seconds. */
+      return thunkApi.rejectWithValue(
+        (e.response?.data as any)?.message ?? e.message ?? "Couldn't load notifications.",
+      );
     }
   }
 );

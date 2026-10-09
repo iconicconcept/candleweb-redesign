@@ -112,7 +112,11 @@ export default function DashboardShell({ active, children }: Props) {
         <div className="fx-app">
           <aside className="fx-rail">
             <div className="fx-rail-in">
-              <Link href="/dashboard" className="fx-mark-link" aria-label="Candleweb">
+              {/* Out to the public site, not back to the Overview — the rail's
+                  first icon directly below already goes to /dashboard, so the
+                  mark was a duplicate of it. "Bring your bot" is the home page
+                  (see NAV_LINKS in components/public/PublicHeader.tsx). */}
+              <Link href="/" className="fx-mark-link" aria-label="Candleweb — main site">
                 <Image src={"/favicon.ico"} alt="Candleweb" width={26} height={26} />
               </Link>
               {RAIL.map((item) => (

@@ -250,16 +250,39 @@ export default function PublicHeader({
 
   // Lock the page while the mobile menu is open — no scrolling the background,
   // no content bleeding through.
+  //
+  // `overflow: hidden` has to go on <html> as well as <body>: body's overflow
+  // does not propagate to the viewport while html is `visible`, so locking
+  // body alone leaves the page scrollable behind the menu. The cost is that
+  // <html> is the scrolling element, and making it non-scrollable clamps its
+  // offset to 0 the moment the lock lands — the position is already gone
+  // while the menu is open, so putting the styles back restores nothing and
+  // closing the menu dropped you at the top of the page. Hence the explicit
+  // save and restore.
   useEffect(() => {
     if (!menuOpen) return;
     const root = document.documentElement;
     const prevBody = document.body.style.overflow;
     const prevRoot = root.style.overflow;
+    const y = window.scrollY;
+    /* Where we were when the lock went on. If a menu link navigates and the
+       route resolves before this cleanup runs, the URL has already changed
+       and restoring would drag the NEW page down to the old page's offset —
+       so only put it back when we are still on the same page. (In the other
+       order, the restore happens first and Next's own scroll-to-top on route
+       change lands last, which is also right.) */
+    const lockedAt = window.location.pathname + window.location.search;
     document.body.style.overflow = "hidden";
     root.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = prevBody;
       root.style.overflow = prevRoot;
+      const stillHere = window.location.pathname + window.location.search === lockedAt;
+      if (y > 0 && stillHere) {
+        /* `scroll-behavior: smooth` is set on html in globals.css, so a plain
+           scrollTo would animate the page back down in full view. */
+        window.scrollTo({ top: y, left: 0, behavior: "instant" as ScrollBehavior });
+      }
     };
   }, [menuOpen]);
 

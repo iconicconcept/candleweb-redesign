@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
 import { AppDispatch } from "../../redux/store";
 import useEthereum from "../../lib/hooks/useEthereum";
@@ -69,6 +69,22 @@ export default function AuthPanel({ initialMode }: { initialMode: Mode }) {
     password: "",
   });
 
+  /* Terms agreement. Sign-up has three entry points — Google, a wallet and
+     the email form — and consent has to hold for all three, so this gates
+     every one of them rather than just the form's submit button. The box
+     sits above the three choices for the same reason: a control that blocks
+     a button has to be visible before that button is reached. */
+  const [agreed, setAgreed] = useState(false);
+  const agreeRef = useRef<HTMLInputElement>(null);
+
+  /** Call before any sign-up path. Falsy return = stop, the user was told why. */
+  const consentGiven = () => {
+    if (agreed) return true;
+    error("Please read and agree to the Terms of Service to create an account");
+    agreeRef.current?.focus();
+    return false;
+  };
+
   /* Sanitised: a bare `/` (the header's "Log in" on the homepage used to send
      one) or an auth path would bounce a successful login back where it started,
      which reads as a login that silently failed. */
@@ -127,6 +143,9 @@ export default function AuthPanel({ initialMode }: { initialMode: Mode }) {
     walletConnect ? mobileConnectWallet() : connectWallet();
 
   const handleGoogle = () => {
+    /* Shared with the login pane, where there is nothing to agree to —
+       signing in again is not a new agreement. */
+    if (mode === "signup" && !consentGiven()) return;
     setBusy(true);
     googleAuth(redirect || "/dashboard");
   };
@@ -148,6 +167,7 @@ export default function AuthPanel({ initialMode }: { initialMode: Mode }) {
   };
 
   const handleWalletSignup = async (walletConnect: boolean) => {
+    if (!consentGiven()) return;
     const username = signupForm.username.trim();
     const email = signupForm.email.trim();
     if (!username || !email) {
@@ -210,6 +230,7 @@ export default function AuthPanel({ initialMode }: { initialMode: Mode }) {
 
   const handleSignupSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (!consentGiven()) return;
     const username = signupForm.username.trim();
     const email = signupForm.email.trim();
     const password = signupForm.password;
@@ -465,9 +486,11 @@ export default function AuthPanel({ initialMode }: { initialMode: Mode }) {
               <p className="say">
                 Free to open. You only fund your own exchange account.
               </p>
+
               <WalletChoices
                 mode="signup"
                 busy={busy}
+                blocked={!agreed}
                 walletOpen={walletOpen}
                 setWalletOpen={setWalletOpen}
                 onGoogle={handleGoogle}
@@ -535,14 +558,75 @@ export default function AuthPanel({ initialMode }: { initialMode: Mode }) {
                     </button>
                   </div>
                 </div>
-                <button type="submit" className="auth-submit" disabled={busy}>
+
+                {/* Not a <label> wrapper: a nested <a> inside a label both
+                  follows the link and toggles the box, so the box has its own
+                  label and the sentence toggles through an explicit handler
+                  that ignores clicks on the links. Both open in a new tab so
+                  reading the terms never discards a part-filled form. */}
+              <div className={`auth-agree ${agreed ? "is-on" : ""}`}>
+                <input
+                  ref={agreeRef}
+                  id="signup-agree"
+                  type="checkbox"
+                  checked={agreed}
+                  onChange={(e) => setAgreed(e.target.checked)}
+                />
+                <label
+                  className="bx"
+                  htmlFor="signup-agree"
+                  aria-label="I have read and agree to the Terms of Service and Privacy Policy"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="3.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M20 6.5 9.2 17.3 4 12.1" />
+                  </svg>
+                </label>
+                <p
+                  className="tx"
+                  onClick={(e) => {
+                    if ((e.target as HTMLElement).closest("a")) return;
+                    setAgreed((v) => !v);
+                  }}
+                >
+                  I have read and agree to the{" "}
+                  <Link href="/terms" target="_blank" rel="noopener noreferrer">
+                    Terms of Service
+                  </Link>{" "}
+                  and{" "}
+                  <Link href="/privacy" target="_blank" rel="noopener noreferrer">
+                    Privacy Policy
+                  </Link>
+                  .
+                </p>
+              </div>
+
+                <button
+                  type="submit"
+                  className="auth-submit"
+                  disabled={busy || !agreed}
+                >
                   Create account <span>→</span>
                 </button>
-                <p className="auth-legal">
-                  By continuing you agree to our{" "}
-                  <Link href="/terms">Terms</Link> and{" "}
-                  <Link href="/privacy">Privacy Policy</Link>.
-                </p>
+                {/* The gate is at the top of the pane, which is off-screen by
+                    the time someone has filled all three fields — so say why
+                    the button is dead rather than leaving them guessing. */}
+                {!agreed && (
+                  <p className="auth-legal">
+                    Agree to the{" "}
+                    <Link href="/terms" target="_blank" rel="noopener noreferrer">
+                      Terms of Service
+                    </Link>{" "}
+                    above to create your account.
+                  </p>
+                )}
               </form>
             </div>
           </div>
@@ -565,6 +649,7 @@ export default function AuthPanel({ initialMode }: { initialMode: Mode }) {
 function WalletChoices({
   mode,
   busy,
+  blocked = false,
   walletOpen,
   setWalletOpen,
   onGoogle,
@@ -572,17 +657,24 @@ function WalletChoices({
 }: {
   mode: Mode;
   busy: boolean;
+  /* Sign-up only: the terms box above has not been ticked yet, so these two
+     routes into an account are closed. Login never passes it. */
+  blocked?: boolean;
   walletOpen: boolean;
   setWalletOpen: (value: boolean) => void;
   onGoogle: () => void;
   onWallet: (walletConnect: boolean) => void;
 }) {
+  const gate = blocked
+    ? "Agree to the Terms of Service above to continue"
+    : undefined;
   return (
     <div className="auth-choices">
       <button
         type="button"
         className="auth-gbtn"
-        disabled={busy}
+        disabled={busy || blocked}
+        title={gate}
         onClick={onGoogle}
       >
         <GoogleMark />
@@ -593,7 +685,8 @@ function WalletChoices({
           type="button"
           className="auth-wbtn"
           aria-expanded={walletOpen}
-          disabled={busy}
+          disabled={busy || blocked}
+          title={gate}
           onClick={() => setWalletOpen(!walletOpen)}
         >
           <svg viewBox="0 0 24 24" aria-hidden="true">

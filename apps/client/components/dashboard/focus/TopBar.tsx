@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "../../../redux/store";
 import useAxiosAuth from "../../../lib/hooks/useAxiosAuth";
 import useUserStore from "../../../lib/hooks/useUserStore";
 import useDashboardTheme from "../../../lib/hooks/useDashboardTheme";
+import useNotificationPoll from "../../../lib/hooks/useNotificationPoll";
 import notificationService from "../../../services/notificationService";
 import { setCurrentPlan, setSubscription, setSubscriptionHistory } from "../../../redux/slices/subscriptionSlice";
 import { resetSubscriptionV2 } from "../../../redux/slices/subscriptionV2Slice";
@@ -86,6 +87,28 @@ export default function TopBar({ crumb, title, subtitle, actions, hideHeading }:
 
   const results = notification?.results ?? [];
   const unread = results.filter((r) => !r.is_read);
+  const unreadCount = unread.length;
+
+  /* The bell is the only place an unread count is shown, so it is the thing
+     that has to stay live. Paused while "mark all read" is looping its
+     per-id calls, so a poll landing mid-loop can't repaint rows it is part
+     way through clearing. */
+  useNotificationPoll(markingAll);
+
+  /* A count that changes while you are looking elsewhere on the page is easy
+     to miss, so the badge replays its entrance animation when the number
+     goes UP. Not on the way down — clearing one you just read shouldn't
+     draw the eye back — and not on first paint, where nothing is new. */
+  const [badgePop, setBadgePop] = useState(false);
+  const lastUnread = useRef(unreadCount);
+  useEffect(() => {
+    const grew = unreadCount > lastUnread.current;
+    lastUnread.current = unreadCount;
+    if (!grew) return;
+    setBadgePop(true);
+    const t = setTimeout(() => setBadgePop(false), 460);
+    return () => clearTimeout(t);
+  }, [unreadCount]);
 
   const initials = useMemo(() => {
     const source = user?.username || user?.first_name || user?.email || "";
@@ -171,14 +194,16 @@ export default function TopBar({ crumb, title, subtitle, actions, hideHeading }:
             ref={bellRef}
             className="fx-btn"
             type="button"
-            aria-label={unread.length ? `${unread.length} unread notifications` : "Notifications"}
+            aria-label={unreadCount ? `${unreadCount} unread notifications` : "Notifications"}
             aria-expanded={openPop === "notif"}
             aria-haspopup="dialog"
             onClick={() => setOpenPop((v) => (v === "notif" ? null : "notif"))}
           >
             <BellIcon />
-            {unread.length > 0 && (
-              <span className="cnt9">{unread.length > 9 ? "9+" : unread.length}</span>
+            {unreadCount > 0 && (
+              <span className={badgePop ? "cnt9 pop" : "cnt9"} aria-hidden="true">
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
             )}
           </button>
           <button

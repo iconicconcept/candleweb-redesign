@@ -7,6 +7,8 @@ import { AppDispatch, RootState } from "../../redux/store";
 import tradingV2Service from "../../services/tradingV2Service";
 import userService from "../../services/userService";
 import exchangeServices from "../../services/exchangeService";
+import subscriptionV2Service from "../../services/subscriptionV2Service";
+import { isLivePlan } from "../../lib/subscriptionV2Format";
 import useAxiosAuth from "../../lib/hooks/useAxiosAuth";
 import useUserStore from "../../lib/hooks/useUserStore";
 import { isAuthorizationHeaderSet } from "../../utils/check_auth";
@@ -50,6 +52,13 @@ const DashboardPage = () => {
   );
   const { balance } = useSelector((state: RootState) => state.user);
   const { exchangeRecord } = useSelector((state: RootState) => state.exchange);
+  /* Setup step 1 is "subscribe to a plan" — a new account has no subscription
+     at all (even the free plan has to be chosen), so this is a real step
+     rather than a formality. `isLivePlan` counts any plan, free included,
+     and still counts one cancelled at period end because it grants until it
+     actually ends. */
+  const { subscription, meLoaded } = useSelector((state: RootState) => state.subscriptionV2);
+  const hasPlan = isLivePlan(subscription);
   const fetchedRef = useRef(false);
 
   const [fleet, setFleet] = useState<FleetHealthV2 | null>(null);
@@ -72,6 +81,7 @@ const DashboardPage = () => {
     dispatch(tradingV2Service.listTrades(axiosToken));
     if (!balance || balance.length === 0) dispatch(userService.getBalance(axiosToken));
     if (exchangeRecord.length === 0) dispatch(exchangeServices.getExchangeRecords(axiosToken));
+    if (!meLoaded) dispatch(subscriptionV2Service.getMe(axiosToken));
     tradingV2Service
       .getFleetHealth(axiosToken)
       .then(setFleet)
@@ -192,8 +202,9 @@ const DashboardPage = () => {
                   Your first trade is a few steps away.
                 </p>
                 <p className="fx-sub3">
-                  Candleweb can&rsquo;t see anything until you connect an exchange. The setup
-                  steps cost nothing and move no money — the last one is the only one that does.
+                  Start with a plan — the free one needs no card. Candleweb can&rsquo;t see
+                  anything until you connect an exchange, and no money moves until you start
+                  a trade.
                 </p>
               </div>
             </section>
@@ -203,8 +214,38 @@ const DashboardPage = () => {
                 <h2>Get to your first trade</h2>
               </div>
               <div className="fx-start">
+                {/* Nothing trades without a plan, so it leads. It is the only
+                    step here that reads real state: the rest stay open rather
+                    than locked, and the backend is what actually refuses a bot
+                    without a plan (`has_active_plan` on /trading_v2/limits/).
+                    The single `go` button moves to whichever step is next. */}
+                <div className={`fx-stepline ${hasPlan ? "done9" : ""}`}>
+                  <span className="sn9">{hasPlan ? "✓" : "1"}</span>
+                  <div className="sb9">
+                    <b>Subscribe to a plan</b>
+                    <span>
+                      {hasPlan ? (
+                        <>
+                          You&rsquo;re on {subscription?.plan_name || "a plan"}. Change or cancel
+                          it any time.
+                        </>
+                      ) : (
+                        <>
+                          Candleweb needs a plan before it can trade for you. The free one costs
+                          nothing and needs no card.
+                        </>
+                      )}
+                    </span>
+                  </div>
+                  <Link
+                    className={`fx-mini ${hasPlan ? "" : "go"}`}
+                    href="/dashboard/subscription"
+                  >
+                    {hasPlan ? "Manage" : "Choose a plan"}
+                  </Link>
+                </div>
                 <div className="fx-stepline">
-                  <span className="sn9">1</span>
+                  <span className="sn9">2</span>
                   <div className="sb9">
                     <b>Connect an exchange</b>
                     <span>
@@ -212,12 +253,17 @@ const DashboardPage = () => {
                       it when you paste it.
                     </span>
                   </div>
-                  <Link className="fx-mini go" href="/dashboard/settings">
+                  {/* straight to the connect form, not Settings — Settings
+                      only holds another button to this same page */}
+                  <Link
+                    className={`fx-mini ${hasPlan ? "go" : ""}`}
+                    href="/dashboard/exchanges"
+                  >
                     Connect
                   </Link>
                 </div>
                 <div className="fx-stepline">
-                  <span className="sn9">2</span>
+                  <span className="sn9">3</span>
                   <div className="sb9">
                     <b>Add a bot</b>
                     <span>The thing that decides. Point Candleweb at your workflow, or use CandleAI.</span>
@@ -227,7 +273,7 @@ const DashboardPage = () => {
                   </Link>
                 </div>
                 <div className="fx-stepline">
-                  <span className="sn9">3</span>
+                  <span className="sn9">4</span>
                   <div className="sb9">
                     <b>Set up a trade</b>
                     <span>

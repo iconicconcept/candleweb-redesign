@@ -433,6 +433,17 @@
   border: 2px solid var(--fx-bg);
   line-height: 1;
 }
+/* Replayed by TopBar whenever the unread count goes up, so a notification
+   arriving on a poll tick is noticeable without stealing focus. Reuses
+   fxTickPop rather than adding a near-identical keyframe. */
+.fx-btn .cnt9.pop {
+  animation: fxTickPop 0.42s cubic-bezier(0.34, 1.4, 0.5, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .fx-btn .cnt9.pop {
+    animation: none;
+  }
+}
 button.fx-me {
   width: 38px;
   height: 38px;
@@ -3721,6 +3732,14 @@ button.fx-me[aria-expanded="true"] {
 .fx-ul .fx-preview {
   display: inline-flex;
   margin-top: 7px;
+  /* the pill sits inside the item's text block, where `.fx-ul span` (0,1,1)
+     outranks the base `.fx-preview` (0,1,0) and would hand it 11.5px grey
+     body text. Restated here so it keeps the 9px amber tag look. */
+  font-size: 9px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  line-height: 1.5;
+  color: var(--fx-amber2);
 }
 .fx-hint .fx-preview {
   vertical-align: middle;

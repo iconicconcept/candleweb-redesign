@@ -2,7 +2,7 @@ import Head from "next/head";
 import Link from "next/link";
 import { maskString } from "ui";
 import { useRouter } from "next/router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "../../../../redux/store";
 import tradingV2Service from "../../../../services/tradingV2Service";
@@ -15,12 +15,16 @@ import DashboardShell from "../../../../components/dashboard/focus/DashboardShel
 import TopBar from "../../../../components/dashboard/focus/TopBar";
 import Dialog from "../../../../components/dashboard/focus/Dialog";
 import { TrashIcon, RefreshIcon, WarnIcon } from "../../../../components/dashboard/focus/icons";
+import { secondsLabel, sinceLabel, timeoutDiffers } from "../../../../lib/botHealthV2";
 import {
+  BotHealthV2,
   BotV2,
   BotV2DecisionStyle,
   BotV2OnNoReply,
   BotV2Platform,
   BotV2ReachMode,
+  BotV2TestResult,
+  TradingLimitsV2,
 } from "../../../../types/tradingV2";
 import {
   PLATFORMS,
@@ -31,6 +35,39 @@ import {
   MODEL_OPTIONS,
   STATUS_META,
 } from "../../../../lib/botV2Labels";
+
+/* Bot settings — the edit side of Add-a-bot (`pages/dashboard/bots/new.tsx`).
+   Same four-section form, plus what only an existing bot has: a developer key
+   that can be rotated, a connection record to quote, and a pause/remove block.
+
+   Everything on the page writes through `PATCH /trading_v2/bots/{id}/` except
+   the two actions that have their own endpoints (regenerate-key, pause/resume)
+   and the connection test, which saves nothing.
+
+   Two spots carry a `.fx-preview` tag rather than a control, because the bot
+   model has nowhere to put them yet: the review-suggestion alert (§1.22) and
+   anything per-prompt-version — the "13 of 20 on this version" counter, the
+   version-history link and the archived-prompt item (§1.23). Tracked in
+   BACKEND_API_REQUESTS.md. */
+
+/* The request/reply shape a bot integrates against. Documentation of the API
+   contract rather than live data, so it is safe to show before a test has run
+   — same pair of samples the Add-a-bot screen uses. */
+const SAMPLE_REQUEST = `{
+  "trade_id": "tr_9f2c",
+  "pair": "BTC/USDT",
+  "timeframe": "15m",
+  "indicators": {
+    "rsi_14": 61.4,
+    "macd_12_26_9": 18.7,
+    "ema_50": 63980.1
+  }
+}`;
+const SAMPLE_REPLY = `{
+  "action": "buy",
+  "size_pct": 10,
+  "rationale": "RSI off 45, MACD positive, above EMA-50."
+}`;
 
 type FormState = {
   name: string;
@@ -86,6 +123,48 @@ const BotSettingsPage = () => {
   const loadedRef = useRef<number | null>(null);
   const tradesRef = useRef(false);
 
+  /* Health drives the live facts the design shows next to the connection
+     fields — when this bot was last reached, how long it takes to answer, and
+     the timeout the server actually applies (it clamps what the user typed).
+     A failure here is not a page error: the form still works without it. */
+  const [health, setHealth] = useState<BotHealthV2 | null>(null);
+  const [healthFailed, setHealthFailed] = useState(false);
+  const healthFetchedRef = useRef<number | null>(null);
+
+  const loadHealth = useCallback(async () => {
+    if (!valid || !isAuthorizationHeaderSet(axiosToken)) return;
+    try {
+      setHealth(await tradingV2Service.getBotHealth(axiosToken, id as number));
+      setHealthFailed(false);
+    } catch {
+      setHealth(null);
+      setHealthFailed(true);
+    }
+  }, [axiosToken, valid, id]);
+
+  /* Resuming a paused bot starts a bot, and the plan caps how many run at
+     once — so the button has to know before the backend refuses it. Editing a
+     bot spends nothing, so this gates Resume only. */
+  const [limits, setLimits] = useState<TradingLimitsV2 | null>(null);
+  useEffect(() => {
+    if (!isAuthorizationHeaderSet(axiosToken)) return;
+    tradingV2Service.getLimits(axiosToken).then(setLimits);
+  }, [axiosToken]);
+  const agents = limits?.agents;
+  const resumeBlocked = !!agents && !agents.can_start_another && bot?.status !== "ACTIVE";
+  const resumeBlockedWhy = !agents
+    ? ""
+    : !agents.has_active_plan
+      ? "You need an active plan to run a bot"
+      : `Your plan runs ${agents.max} bot${agents.max === 1 ? "" : "s"} at a time and you have ${agents.running} running. Pause one, or move to a larger plan`;
+
+  /* Connection test — the same endpoint Add-a-bot uses. `testedUrl` keeps the
+     result tied to the URL it was measured on, so editing the field drops a
+     result that no longer describes what is in the box. */
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<BotV2TestResult | null>(null);
+  const [testedUrl, setTestedUrl] = useState("");
+
   useEffect(() => {
     if (!valid || !isAuthorizationHeaderSet(axiosToken)) return;
     if (!tradesRef.current) {
@@ -96,7 +175,11 @@ const BotSettingsPage = () => {
       loadedRef.current = id;
       dispatch(tradingV2Service.getBot({ api: axiosToken, id: id as number }));
     }
-  }, [valid, id, bot, axiosToken, dispatch]);
+    if (healthFetchedRef.current !== id) {
+      healthFetchedRef.current = id;
+      loadHealth();
+    }
+  }, [valid, id, bot, axiosToken, dispatch, loadHealth]);
 
   useEffect(() => {
     if (bot && form === null) setForm(fromBot(bot));
@@ -116,15 +199,65 @@ const BotSettingsPage = () => {
     return JSON.stringify(form) !== JSON.stringify(fromBot(bot));
   }, [bot, form]);
 
-  const save = async () => {
-    if (!bot || !form) return;
-    if (!form.name.trim()) {
-      error("Give the bot a name.");
+  /* A reload or a closed tab is the one navigation the page can intercept
+     without fighting the router, and it is the one that loses the most work. */
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+      return "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
+
+  /* PUSH has to have somewhere to send candles; a PULL bot fetches them
+     itself, so the URL is optional there — but a typed one still has to be
+     valid, otherwise the save is refused by the backend with a field error. */
+  const needsWebhook = form?.reach_mode === "PUSH";
+  const hookUrl = (form?.webhook_url ?? "").trim();
+  const hookValid = /^https?:\/\//i.test(hookUrl);
+  const hookOk = needsWebhook ? hookValid : !hookUrl || hookValid;
+  const canTest = hookValid;
+
+  const missing = useMemo(() => {
+    const m: string[] = [];
+    if (!form?.name.trim()) m.push("name it");
+    if (!hookOk) {
+      m.push(needsWebhook ? "add a valid webhook URL" : "fix the webhook URL or leave it empty");
+    }
+    return m;
+  }, [form?.name, hookOk, needsWebhook]);
+
+  const runTest = async () => {
+    if (!canTest) {
+      error(
+        needsWebhook
+          ? "Enter a webhook URL first."
+          : "A pull bot needs no test — add a webhook URL only if you want us to check one.",
+      );
       return;
     }
-    const hookUrl = form.webhook_url.trim();
-    if (hookUrl ? !/^https?:\/\//i.test(hookUrl) : form.reach_mode === "PUSH") {
-      error(hookUrl ? "Enter a valid webhook URL (https://…)." : "A push bot needs a webhook URL.");
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const res = await dispatch(
+        tradingV2Service.testBotConnection({ api: axiosToken, webhook_url: hookUrl }),
+      );
+      setTestResult(res.payload as BotV2TestResult);
+      setTestedUrl(hookUrl);
+    } finally {
+      setTesting(false);
+    }
+  };
+  /* a result only describes the URL it was measured on */
+  const shownTest = testResult && testedUrl === hookUrl ? testResult : null;
+
+  const save = async () => {
+    if (!bot || !form) return;
+    if (missing.length) {
+      error(`Before saving: ${missing.join(", ")}.`);
       return;
     }
     setBusy("save");
@@ -138,7 +271,8 @@ const BotSettingsPage = () => {
             note: form.note.trim(),
             platform: form.platform,
             reach_mode: form.reach_mode,
-            webhook_url: form.webhook_url.trim() || null,
+            /* "" fails validation — a bot with no URL sends null */
+            webhook_url: hookUrl || null,
             reply_timeout_s: form.reply_timeout_s,
             on_no_reply: form.on_no_reply,
             prompt: form.prompt,
@@ -148,6 +282,9 @@ const BotSettingsPage = () => {
             alert_push_on_fail: form.alert_push_on_fail,
             auto_pause_after_n_fails: form.auto_pause_after_n_fails,
           },
+          /* the saved timeout is re-clamped server-side, so the figure the
+             connection block quotes is only right after a re-read */
+          onSuccess: () => loadHealth(),
         }),
       );
     } finally {
@@ -165,6 +302,9 @@ const BotSettingsPage = () => {
         await dispatch(tradingV2Service.resumeBot({ api: axiosToken, id: bot.id }));
       }
       setConfirmPause(false);
+      loadHealth();
+      /* pausing frees a running slot, resuming takes one */
+      tradingV2Service.getLimits(axiosToken).then(setLimits);
     } finally {
       setBusy(null);
     }
@@ -172,6 +312,7 @@ const BotSettingsPage = () => {
 
   const discard = () => {
     if (bot) setForm(fromBot(bot));
+    setTestResult(null);
     setConfirmDiscard(false);
   };
 
@@ -223,7 +364,18 @@ const BotSettingsPage = () => {
   };
   const copyKey = () => copyText(newKey);
 
+  /* The API may hand back a key that is already masked on a later read. It
+     looks copyable and is not, so the button says so rather than putting
+     bullet characters on the clipboard. */
+  const keyMasked = !!bot?.dev_key && /[*•]/.test(bot.dev_key);
+
   const meta = bot ? STATUS_META[bot.status] ?? STATUS_META.PAUSED : null;
+
+  /* connection facts for the webhook hint */
+  const lastCall = health?.last_signal ? sinceLabel(health.seconds_since_last_signal) : null;
+  const replyAvg =
+    health && health.reply_time_seconds != null ? secondsLabel(health.reply_time_seconds) : null;
+  const clamped = timeoutDiffers(health, form?.reply_timeout_s);
 
   return (
     <>
@@ -255,8 +407,8 @@ const BotSettingsPage = () => {
             {meta.dead && (
               <p className="fx-failmsg">
                 <b>Not responding.</b> Candleweb is not getting answers from this bot, so no orders
-                are being placed for any trade it decides. Fix it here, then resume — its
-                reliability record is on{" "}
+                are being placed for any trade it decides. Fix it here, test the connection below,
+                then resume — its reliability record is on{" "}
                 <Link href={`/dashboard/bots/${bot.id}`} style={{ color: "var(--fx-teal2)" }}>
                   the bot&rsquo;s page
                 </Link>
@@ -298,6 +450,7 @@ const BotSettingsPage = () => {
                         <input
                           id="bv"
                           type="text"
+                          placeholder="e.g. added EMA-200 filter, 18 Aug"
                           value={form.note}
                           onChange={(e) => set("note", e.target.value)}
                         />
@@ -345,15 +498,15 @@ const BotSettingsPage = () => {
                         <b>{r.label}</b>
                         <span>
                           {r.value === "PUSH"
-                            ? "We POST the closed candle to your URL and wait for a decision."
-                            : "Your bot pulls market data on its own schedule, then posts a decision back."}
+                            ? "One day we POST the closed candle to your URL and wait for a decision. Not yet — a push bot still has to pull its own candles today."
+                            : "Your bot calls the trade's pull URL on its own schedule, then posts a decision back."}
                         </span>
                         <em>
                           {bot.reach_mode === r.value
                             ? "Currently active"
                             : r.value === "PUSH"
-                              ? "Recommended"
-                              : "Works behind a firewall"}
+                              ? "Not sending yet"
+                              : "Recommended · works behind a firewall"}
                         </em>
                       </button>
                     ))}
@@ -361,35 +514,74 @@ const BotSettingsPage = () => {
 
                   <div style={{ marginTop: "16px" }}>
                     <label className="fx-fl" htmlFor="hk">
-                      Webhook URL {form.reach_mode === "PULL" && <em>— optional for pull mode</em>}
+                      Webhook URL {!needsWebhook && <em>— optional for pull mode</em>}
                     </label>
                     <div className="fx-inp">
                       <input
                         id="hk"
                         type="url"
+                        placeholder="https://your-n8n.app/webhook/candleweb"
                         value={form.webhook_url}
                         onChange={(e) => set("webhook_url", e.target.value)}
                       />
                     </div>
-                    <p className="fx-hint">
-                      Last signal, reply time, failed candles and 30-day uptime are on{" "}
-                      <Link href={`/dashboard/bots/${bot.id}`} style={{ color: "var(--fx-teal2)" }}>
-                        the bot&rsquo;s page
-                      </Link>
-                      .
-                    </p>
+                    {hookUrl && !hookValid ? (
+                      <p className="fx-warn2">
+                        <em>!</em>
+                        <span>
+                          That isn&rsquo;t a URL we can call. It has to start with{" "}
+                          <code>https://</code>.
+                        </span>
+                      </p>
+                    ) : (
+                      <p className="fx-hint">
+                        {lastCall ? (
+                          <>
+                            Last successful call {lastCall}
+                            {replyAvg ? ` · average reply ${replyAvg}` : ""}.{" "}
+                          </>
+                        ) : health && !health.last_signal ? (
+                          <>
+                            This bot hasn&rsquo;t answered us yet. Test the connection below before
+                            you hand it a trade.{" "}
+                          </>
+                        ) : healthFailed ? (
+                          <>Couldn&rsquo;t read this bot&rsquo;s connection record just now. </>
+                        ) : null}
+                        Failed candles and 30-day uptime are on{" "}
+                        <Link
+                          href={`/dashboard/bots/${bot.id}`}
+                          style={{ color: "var(--fx-teal2)" }}
+                        >
+                          the bot&rsquo;s page
+                        </Link>
+                        .
+                      </p>
+                    )}
                   </div>
 
                   {/* developer key */}
                   <div style={{ marginTop: "18px" }}>
                     <span className="fx-fl">Developer key</span>
                     <div className="fx-key">
-                      <code>{bot.dev_key ? maskString(bot.dev_key) : "— no key on this bot —"}</code>
+                      <code className={bot.dev_key ? "" : "pend"}>
+                        {bot.dev_key
+                          ? keyMasked
+                            ? bot.dev_key
+                            : maskString(bot.dev_key)
+                          : "— no key on this bot —"}
+                      </code>
                       <button
                         type="button"
                         className="fx-mini"
-                        disabled={!bot.dev_key}
-                        title={bot.dev_key ? undefined : "This bot has no developer key"}
+                        disabled={!bot.dev_key || keyMasked}
+                        title={
+                          !bot.dev_key
+                            ? "This bot has no developer key"
+                            : keyMasked
+                              ? "Only a masked key is stored in this session — regenerate to get one you can copy"
+                              : undefined
+                        }
                         onClick={() => copyText(bot.dev_key)}
                       >
                         Copy
@@ -403,11 +595,33 @@ const BotSettingsPage = () => {
                         Regenerate
                       </button>
                     </div>
+                    <div className="fx-kflow">
+                      <div className="fx-kf">
+                        <i>1</i>
+                        <div>
+                          <b>Candleweb → your bot</b>
+                          <span>
+                            We include the key on every call, so your workflow can confirm the
+                            candle really came from us.
+                          </span>
+                        </div>
+                      </div>
+                      <div className="fx-kf">
+                        <i>2</i>
+                        <div>
+                          <b>Your bot → Candleweb</b>
+                          <span>
+                            Your bot sends the same key back in the <code>X-Candleweb-Key</code>{" "}
+                            header. That authorises us to place and manage the order.
+                          </span>
+                        </div>
+                      </div>
+                    </div>
                     <p className="fx-warn2">
                       <em>!</em>
                       <span>
-                        Regenerating takes effect immediately. Update your workflow first or this bot
-                        stops being able to trade.
+                        Regenerating takes effect immediately, on every trade this bot decides for.
+                        Update your workflow first or this bot stops being able to trade.
                       </span>
                     </p>
                   </div>
@@ -435,6 +649,14 @@ const BotSettingsPage = () => {
                           )}
                         </select>
                       </div>
+                      <p className="fx-hint">
+                        How long we wait before giving up on this candle.
+                        {clamped && !dirty
+                          ? ` We currently wait ${secondsLabel(
+                              health?.reply_timeout_seconds,
+                            )} — the server holds this between 5s and 6h.`
+                          : ""}
+                      </p>
                     </div>
                     <div>
                       <label className="fx-fl" htmlFor="nf">
@@ -453,7 +675,67 @@ const BotSettingsPage = () => {
                           ))}
                         </select>
                       </div>
+                      <p className="fx-hint">
+                        Applies to timeouts and errors. Stops stay armed either way.
+                      </p>
                     </div>
+                  </div>
+
+                  {/* test the URL in the box, before it is saved */}
+                  <div style={{ marginTop: "18px" }}>
+                    <span className="fx-fl">Test the connection</span>
+                    <p className="fx-hint" style={{ margin: "0 0 10px" }}>
+                      {canTest
+                        ? "We send one sample candle to the URL above with a throwaway key. Nothing is traded, and nothing is saved by testing."
+                        : "Add a webhook URL above and we can check it from here. A pull bot calls us, so there is nothing for us to reach."}
+                    </p>
+                    <div className="fx-test">
+                      <div className="fx-th2">
+                        <b>Sample exchange</b>
+                        <button
+                          className="fx-mini go"
+                          type="button"
+                          disabled={testing || !canTest}
+                          title={canTest ? undefined : "Add a webhook URL to test it"}
+                          onClick={runTest}
+                        >
+                          {testing ? "Sending…" : "Send test candle"}
+                        </button>
+                      </div>
+                      <div className="fx-tsplit">
+                        <div>
+                          <span>We send</span>
+                          <pre className="fx-pre">{SAMPLE_REQUEST}</pre>
+                        </div>
+                        <div>
+                          <span>{shownTest ? "Your bot replied" : "Your bot should reply"}</span>
+                          <pre
+                            className={`fx-pre ${
+                              shownTest ? (shownTest.ok ? "ok9" : "bad9") : ""
+                            }`}
+                          >
+                            {shownTest
+                              ? shownTest.ok
+                                ? shownTest.body != null
+                                  ? JSON.stringify(shownTest.body, null, 2)
+                                  : `OK · HTTP ${shownTest.status_code ?? 200}`
+                                : `Failed${
+                                    shownTest.status_code ? ` · HTTP ${shownTest.status_code}` : ""
+                                  }${shownTest.error ? `\n${shownTest.error}` : ""}`
+                              : SAMPLE_REPLY}
+                          </pre>
+                        </div>
+                      </div>
+                    </div>
+                    {shownTest && !shownTest.ok && (
+                      <p className="fx-warn2">
+                        <em>!</em>
+                        <span>
+                          The test failed. You can still save — a URL that isn&rsquo;t answering
+                          only means this bot won&rsquo;t decide anything until it does.
+                        </span>
+                      </p>
+                    )}
                   </div>
                 </section>
 
@@ -464,9 +746,41 @@ const BotSettingsPage = () => {
                     <h3>Prompt</h3>
                   </div>
                   <p className="fx-fsub">
-                    Bot review reads this alongside every decision. Results before and after an
-                    edit are only comparable if you know when it changed — note it in the version
-                    field.
+                    Review reads this alongside every decision. Results before and after an edit
+                    only mean something if you know when it changed — which is what the version
+                    field above is for.
+                  </p>
+                  <div className="fx-inuse">
+                    <i>ⓘ</i>
+                    <p>
+                      {health ? (
+                        <>
+                          <b>
+                            {health.decisions_total.toLocaleString()} decision
+                            {health.decisions_total === 1 ? "" : "s"}
+                          </b>{" "}
+                          recorded against this bot
+                          {health.decisions_7d > 0
+                            ? `, ${health.decisions_7d.toLocaleString()} of them this week`
+                            : ""}
+                          . Each one keeps the prompt that actually ran, so editing here never
+                          rewrites what review already read — it starts a fresh stretch to compare
+                          against.
+                        </>
+                      ) : (
+                        <>
+                          Every decision keeps the prompt that actually ran, so editing here never
+                          rewrites what review already read — it starts a fresh stretch to compare
+                          against.
+                        </>
+                      )}
+                    </p>
+                  </div>
+                  <p className="fx-hint" style={{ margin: "-8px 0 16px" }}>
+                    <span className="fx-preview">
+                      <i>◔</i> A per-version counter and version history need prompt versions on
+                      the bot API (§1.23)
+                    </span>
                   </p>
                   <div className="fx-fr two2" style={{ marginBottom: "16px" }}>
                     <div>
@@ -520,6 +834,7 @@ const BotSettingsPage = () => {
                       id="pr"
                       className="fx-ta"
                       spellCheck={false}
+                      placeholder="Paste the prompt your agent runs on, or describe the rules if it isn't an LLM."
                       value={form.prompt}
                       onChange={(e) => set("prompt", e.target.value)}
                     />
@@ -531,6 +846,7 @@ const BotSettingsPage = () => {
                       month: "short",
                     })}{" "}
                     · {form.prompt.length.toLocaleString()} characters
+                    {dirty && form.prompt !== bot.prompt ? " · edited, not yet saved" : ""}
                   </p>
                 </section>
 
@@ -572,7 +888,12 @@ const BotSettingsPage = () => {
                   <div className="fx-sw">
                     <div className="tx">
                       <b>Pause after {pauseN} failures in a row</b>
-                      <span>Stops us hammering a dead endpoint.</span>
+                      <span>
+                        Stops us hammering a dead endpoint.
+                        {bot.consecutive_fail_count > 0
+                          ? ` ${bot.consecutive_fail_count} in a row right now.`
+                          : ""}
+                      </span>
                     </div>
                     <button
                       type="button"
@@ -609,12 +930,27 @@ const BotSettingsPage = () => {
                     <button
                       className="fx-cta main2"
                       type="button"
-                      disabled={busy === "save" || !dirty}
+                      disabled={busy === "save" || !dirty || missing.length > 0}
                       onClick={save}
                     >
                       {busy === "save" ? "Saving…" : "Save settings"}
                     </button>
                   </div>
+                  <p className="fx-note3">
+                    {missing.length > 0 ? (
+                      <>
+                        <b>Before you can save:</b> {missing.join(", ")}.
+                      </>
+                    ) : dirty ? (
+                      <>
+                        <b>Unsaved changes.</b> Saving applies them from the next candle close —
+                        the {linkedTrades.length === 1 ? "trade" : "trades"} this bot decides for
+                        keep the stops already placed on them.
+                      </>
+                    ) : (
+                      "Everything here matches what the bot is running on right now."
+                    )}
+                  </p>
                 </div>
 
                 {/* pause or remove */}
@@ -646,11 +982,35 @@ const BotSettingsPage = () => {
                         )}
                       </p>
                     </div>
+                    {bot.status !== "ACTIVE" && (
+                      <div className="fx-inuse" style={{ marginBottom: "14px" }}>
+                        <i>ⓘ</i>
+                        <p>
+                          This bot is <b>{meta.label.toLowerCase()}</b> and is deciding nothing
+                          right now. Resuming it also clears the consecutive failures on record, so
+                          the auto-pause counter starts again from zero.
+                          {resumeBlocked ? (
+                            <>
+                              {" "}
+                              <b>{resumeBlockedWhy}</b> before you can resume it —{" "}
+                              <Link
+                                href="/dashboard/subscription"
+                                style={{ color: "var(--fx-teal2)" }}
+                              >
+                                see plans
+                              </Link>
+                              .
+                            </>
+                          ) : null}
+                        </p>
+                      </div>
+                    )}
                     <div className="fx-dacts">
                       <button
                         type="button"
                         className="fx-cta ghost2"
-                        disabled={busy === "run"}
+                        disabled={busy === "run" || resumeBlocked}
+                        title={resumeBlocked ? `${resumeBlockedWhy}.` : undefined}
                         onClick={() => (bot.status === "ACTIVE" ? setConfirmPause(true) : toggleRun())}
                       >
                         {busy === "run"
@@ -675,7 +1035,7 @@ const BotSettingsPage = () => {
               <aside className="fx-side2">
                 <div className="fx-unlock">
                   <h4>Before you change the prompt</h4>
-                  <p className="us">Two things worth knowing.</p>
+                  <p className="us">Four things worth knowing.</p>
                   <div className="fx-ul got3">
                     <i>✓</i>
                     <div>
@@ -683,11 +1043,31 @@ const BotSettingsPage = () => {
                       <span>Past records never change</span>
                     </div>
                   </div>
-                  <div className="fx-ul">
-                    <i>2</i>
+                  <div className="fx-ul got3">
+                    <i>✓</i>
                     <div>
                       <b>Your developer key stays the same</b>
-                      <span>It never changes unless you reset it</span>
+                      <span>It only changes if you reset it</span>
+                    </div>
+                  </div>
+                  <div className="fx-ul">
+                    <i>3</i>
+                    <div>
+                      <b>The review counter restarts</b>
+                      <span>A new prompt is judged on its own trades, not the old one&rsquo;s</span>
+                      <span className="fx-preview">
+                        <i>◔</i> Needs §1.23
+                      </span>
+                    </div>
+                  </div>
+                  <div className="fx-ul">
+                    <i>4</i>
+                    <div>
+                      <b>The old prompt is archived</b>
+                      <span>So the two can be compared side by side later</span>
+                      <span className="fx-preview">
+                        <i>◔</i> Needs §1.23
+                      </span>
                     </div>
                   </div>
                   <p className="fx-tip2">
@@ -788,9 +1168,14 @@ const BotSettingsPage = () => {
           }
         >
           <p className="fx-dwarn">
-            The bot stops answering candles from now on. Open positions keep the stops already placed
-            on them and close normally. You can resume it whenever you like — pausing doesn&rsquo;t
-            close anything.
+            The bot stops answering candles from now on.{" "}
+            {linkedTrades.length > 0 && (
+              <>
+                Its {linkedTrades.length} open trade{linkedTrades.length === 1 ? "" : "s"} keep the
+                stops already placed on them and close normally, so nothing is left unmanaged.{" "}
+              </>
+            )}
+            You can resume it whenever you like — pausing doesn&rsquo;t close anything.
           </p>
         </Dialog>
 
@@ -846,8 +1231,10 @@ const BotSettingsPage = () => {
           }
         >
           <p className="fx-dwarn">
-            The bot and its prompt are deleted for good. Trades it decides for pause until you assign
-            another decider.
+            The bot and its prompt are deleted for good.{" "}
+            {linkedTrades.length > 0
+              ? `Its ${linkedTrades.length} trade${linkedTrades.length === 1 ? "" : "s"} pause with their stops in place until you assign another decider.`
+              : "No trade is assigned to it, so nothing stops running."}
           </p>
         </Dialog>
       </DashboardShell>
