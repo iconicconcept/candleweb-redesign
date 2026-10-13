@@ -469,6 +469,21 @@ const SubscriptionPage = () => {
     }
   }, [meLoaded, live, plans]);
 
+  /* A move down is scheduled, not paid for, so /pricing sends it here instead
+     of acting on a single click on a marketing page — this opens the same
+     dialog the plan list opens, with the comparison and the end date on it. */
+  const askedMoveRef = useRef(false);
+  useEffect(() => {
+    if (askedMoveRef.current || !router.isReady || !meLoaded || !live) return;
+    const code = String(router.query.move ?? "");
+    if (!code) return;
+    askedMoveRef.current = true;
+    const target = plans.find((p) => p.code === code);
+    router.replace("/dashboard/subscription", undefined, { shallow: true });
+    if (target && target.code !== live.plan_code) setMoveTo(target);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady, router.query.move, meLoaded, live, plans]);
+
   /* ---------- actions ---------- */
 
   const goCheckout = (url: string | null | undefined, pending: Pending) => {

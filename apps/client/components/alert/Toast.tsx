@@ -1,8 +1,22 @@
 import toast from "react-hot-toast";
 
+/**
+ * react-hot-toast keys a toast by its `id`: firing one that is already on
+ * screen updates it in place, while an id-less toast is always a new one. Call
+ * sites rarely pass an id, so anything that reaches the same message twice —
+ * two layers both reporting one failure, an effect that re-runs when the auth
+ * token arrives, a double-clicked button — stacked two identical boxes on the
+ * screen. Falling back to the message itself makes the second one land on the
+ * first, so a message says itself once however many times it is sent.
+ *
+ * An explicit `id` still wins, which is what lets one message replace another
+ * (the same "plan" slot carrying a different reason, say).
+ */
+const slot = (kind: string, message: string, id?: string) => id ?? `${kind}:${message}`;
+
 export const success = (message: string, id?: string) => {
   return toast.success(message, {
-    id,
+    id: slot("success", message, id),
     style: {
       border: "1px solid #098e42",
       padding: "16px 2rem",
@@ -18,7 +32,7 @@ export const success = (message: string, id?: string) => {
 
 export const error = (message: string, id?: string) => {
   return toast.error(message, {
-    id,
+    id: slot("error", message, id),
     style: {
       border: "1px solid #e30606",
       padding: "16px 2rem",
@@ -33,7 +47,7 @@ export const error = (message: string, id?: string) => {
 
 export const warning = (message: string, id?: string) => {
   return toast.success(message, {
-    id,
+    id: slot("warning", message, id),
     duration: 5000,
     style: {
       border: "1px solid #ff6348",

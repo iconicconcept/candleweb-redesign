@@ -9,13 +9,14 @@ import useUserStore from "../lib/hooks/useUserStore";
 import PublicHeader from "../components/public/PublicHeader";
 import PublicFooter from "../components/public/PublicFooter";
 import { Written, useRevealOnScroll } from "../components/public/Written";
-import { PlanV2 } from "../types/subscriptionV2";
+import { PlanV2, ReviewPackV2, SubscriptionV2 } from "../types/subscriptionV2";
+import { isLivePlan, longDate, planRank } from "../lib/subscriptionV2Format";
 import { validateEmailAddress } from "../utils/emailValidate";
 import { signUpPath } from "../lib/authRedirect";
 import useAxiosAuth from "../lib/hooks/useAxiosAuth";
 import PaymentMethodModal from "../components/public/PaymentMethodModal";
 import { writePending } from "../lib/subscriptionPending";
-import { error as toastError, success as toastSuccess } from "../components/alert/Toast";
+import { success as toastSuccess, warning as toastWarning } from "../components/alert/Toast";
 
 /**
  * Public pricing page, built from candleweb-pricing.html.
@@ -36,6 +37,19 @@ import { error as toastError, success as toastSuccess } from "../components/aler
 
 type Cycle = "monthly" | "annual";
 type Currency = "NGN" | "USD";
+
+/**
+ * What the payment dialog is about to buy.
+ *
+ * `subscribe` and `change` hit different endpoints for the same gesture: the
+ * API refuses POST /subscribe/ from anyone who already holds a plan, so a
+ * subscriber picking a different card here has to go through /change-plan/,
+ * exactly as the dashboard does.
+ */
+type Intent =
+  | { kind: "subscribe"; plan: PlanV2 }
+  | { kind: "change"; plan: PlanV2 }
+  | { kind: "reviews"; pack: ReviewPackV2 };
 
 const ORDER = ["paper", "builder", "desk"];
 const LEAD = "builder";
@@ -84,20 +98,46 @@ const PricingPage = () => {
   const { user } = useUserStore();
   const isLoggedIn = Object.keys(user).length > 0;
 
-  const { plans, reviewPacks } = useSelector((state: RootState) => state.subscriptionV2);
+  const { plans, reviewPacks, subscription, reviews } = useSelector(
+    (state: RootState) => state.subscriptionV2,
+  );
 
   const axiosToken = useAxiosAuth();
 
   const [cycle, setCycle] = useState<Cycle>("monthly");
   const [cur, setCur] = useState<Currency>("NGN");
-  /** The plan waiting on "card or crypto", or null. */
-  const [payFor, setPayFor] = useState<PlanV2 | null>(null);
+  /** What is waiting on "card or crypto", or null. */
+  const [intent, setIntent] = useState<Intent | null>(null);
   const [paying, setPaying] = useState(false);
 
   useEffect(() => {
     dispatch(subscriptionV2Service.listPlans());
     dispatch(subscriptionV2Service.listReviewPacks());
   }, [dispatch]);
+
+  /* A visitor who is already signed in may already be paying us. Without this
+     the page can only offer /subscribe/, which the API refuses for anyone on a
+     plan — the "you are already on a plan" wall this page used to hit. */
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    dispatch(subscriptionV2Service.getMe(axiosToken));
+    dispatch(subscriptionV2Service.getReviews(axiosToken));
+  }, [dispatch, isLoggedIn, axiosToken]);
+
+  /** The subscription that is still granting a plan, or null. */
+  const live = isLivePlan(subscription) ? subscription : null;
+
+  /* An empty store is "not asked yet", not "no plan" — on a first paint, or
+     after a /me/ that went out while the access token was being refreshed. A
+     click that lands then asks again rather than answering from the gap, which
+     is what sent a subscriber to /subscribe/ and got them refused. */
+  const currentPlanOf = async (): Promise<SubscriptionV2 | null> => {
+    if (!isLoggedIn) return null;
+    if (live) return live;
+    const res: any = await dispatch(subscriptionV2Service.getMe(axiosToken));
+    const sub = res?.payload?.subscription ?? null;
+    return isLivePlan(sub) ? sub : null;
+  };
 
   const byCode = useMemo(() => {
     const map: Record<string, PlanV2> = {};
@@ -244,7 +284,7 @@ const PricingPage = () => {
   /* Signing in is the one thing that still has to happen elsewhere — there is
      no anonymous checkout. Coming back to /pricing rather than the dashboard
      means the plan they picked is still in front of them. */
-  const choose = (code: string) => {
+  const choose = async (code: string) => {
     const plan = byCode[code];
     if (!isLoggedIn) {
       router.push(signUpPath("/pricing"));
@@ -254,30 +294,77 @@ const PricingPage = () => {
       router.push("/dashboard/subscription");
       return;
     }
-    /* The free plan takes no money, so it asks no payment question. */
-    if (plan.is_free) {
-      startPlan(plan, true);
+    const held = await currentPlanOf();
+    /* Already holding a plan: the only thing left to buy is a different one,
+       and that is a change, never a second subscription. */
+    if (held) {
+      if (held.plan_code === plan.code) {
+        toastWarning(
+          `You're already on ${plan.name}. Everything about it lives on your subscription page.`,
+          "plan",
+        );
+        router.push("/dashboard/subscription");
+        return;
+      }
+      /* Moving up is paid for now, so it finishes here. Moving down takes no
+         money today — it only decides when the current plan stops — so it goes
+         to the subscription page, which says what is lost and from when. */
+      if (planRank(plan) > planRank(byCode[held.plan_code])) {
+        setIntent({ kind: "change", plan });
+        return;
+      }
+      router.push(`/dashboard/subscription?move=${encodeURIComponent(plan.code)}`);
       return;
     }
-    setPayFor(plan);
+    /* The free plan takes no money, so it asks no payment question. */
+    if (plan.is_free) {
+      submit({ kind: "subscribe", plan });
+      return;
+    }
+    setIntent({ kind: "subscribe", plan });
   };
 
-  const startPlan = async (plan: PlanV2, free = false) => {
+  /* ---------------- buying bot reviews ---------------- */
+
+  /* No plan check here, deliberately. The subscription page sells a pack to
+     whoever clicks one and lets the API rule on it; guessing the same rule a
+     second time from this page's copy of /me/ only invents a refusal the
+     backend never made — which is exactly what it did while that copy was
+     still loading. Signing in is the one precondition, because there is no
+     anonymous checkout to send them to. */
+  const buyPack = (pack: ReviewPackV2) => {
+    if (!isLoggedIn) {
+      router.push(signUpPath("/pricing"));
+      return;
+    }
+    setIntent({ kind: "reviews", pack });
+  };
+
+  /* ---------------- one checkout, three things to buy ---------------- */
+
+  const submit = async (it: Intent) => {
     setPaying(true);
-    const res: any = await dispatch(
-      subscriptionV2Service.subscribe({
-        api: axiosToken,
-        plan: plan.code,
-        cycle: free ? "monthly" : cycle,
-      }),
-    );
-    if (res.meta.requestStatus !== "fulfilled") {
-      setPaying(false);
-      setPayFor(null);
-      toastError(
-        typeof res.payload === "string" ? res.payload : "We couldn't start that checkout.",
-        "plan",
+    let res: any;
+    if (it.kind === "reviews") {
+      res = await dispatch(
+        subscriptionV2Service.buyReviews({
+          api: axiosToken,
+          pack: it.pack.code,
+          callbackUrl: `${window.location.origin}/dashboard/subscription?checkout=reviews`,
+        }),
       );
+    } else {
+      const thunk =
+        it.kind === "change" ? subscriptionV2Service.changePlan : subscriptionV2Service.subscribe;
+      res = await dispatch(
+        thunk({ api: axiosToken, plan: it.plan.code, cycle: it.plan.is_free ? "monthly" : cycle }),
+      );
+    }
+    if (res.meta.requestStatus !== "fulfilled") {
+      /* subscriptionV2Service has already said why — a second toast here is
+         the same refusal twice. */
+      setPaying(false);
+      setIntent(null);
       return;
     }
     const body = res.payload ?? {};
@@ -285,16 +372,35 @@ const PricingPage = () => {
       /* The dashboard reads this when the processor sends them back, so the
          result is confirmed against the API rather than trusted from a
          redirect. Leaving the page: `paying` stays on. */
-      writePending({ kind: "plan", plan: plan.code });
+      writePending(
+        it.kind === "reviews"
+          ? {
+              kind: "reviews",
+              quantity: num(it.pack.quantity),
+              number: body.invoice?.number ?? null,
+              before: reviews?.balance ?? 0,
+            }
+          : { kind: "plan", plan: it.plan.code },
+      );
       window.location.assign(body.checkout_url);
       return;
     }
     setPaying(false);
-    setPayFor(null);
+    setIntent(null);
+    if (it.kind === "reviews") {
+      toastSuccess("Done. Your reviews are added as soon as the payment is confirmed.");
+      router.push("/dashboard/subscription");
+      return;
+    }
+    const free = it.kind === "subscribe" && it.plan.is_free;
     toastSuccess(
-      free
-        ? `You're on ${plan.name}. Add a bot and it starts trading on paper — nothing at risk.`
-        : `You're on ${plan.name}.`,
+      body.scheduled && body.effective_at
+        ? `Moving to ${it.plan.name} on ${longDate(body.effective_at)}. You keep ${
+            subscription?.plan_name ?? "your plan"
+          } until then.`
+        : free
+          ? `You're on ${it.plan.name}. Add a bot and it starts trading on paper — nothing at risk.`
+          : `You're on ${it.plan.name}.`,
     );
     router.push(free ? "/dashboard" : "/dashboard/subscription");
   };
@@ -314,8 +420,17 @@ const PricingPage = () => {
           ? `${money(fee, "NGN")} + ${money(vFee, "USD")}`
           : money(fee, "NGN");
 
-  const planCta = (plan: PlanV2) =>
-    plan.is_free ? `Start on ${plan.name}` : `Choose ${plan.name}`;
+  /* A subscriber is not choosing a first plan, they are moving between plans —
+     the button has to say so, or "Choose Desk" reads as a second purchase. */
+  const planCta = (plan: PlanV2) => {
+    if (live)
+      return live.plan_code === plan.code
+        ? `Your plan`
+        : planRank(plan) > planRank(byCode[live.plan_code])
+          ? `Move to ${plan.name}`
+          : `Switch to ${plan.name}`;
+    return plan.is_free ? `Start on ${plan.name}` : `Choose ${plan.name}`;
+  };
 
   return (
     <>
@@ -860,12 +975,12 @@ const PricingPage = () => {
                 </p>
                 {reviewPacks && reviewPacks.length > 0 && (
                   <div className="pr-tops">
-                    {reviewPacks.map((pack: any) => (
+                    {reviewPacks.map((pack: ReviewPackV2) => (
                       <button
                         className="pr-top"
                         type="button"
                         key={pack.code}
-                        onClick={() => choose("builder")}
+                        onClick={() => buyPack(pack)}
                       >
                         <b>
                           {money(num(pack.amount), (pack.currency as Currency) || "NGN")}
@@ -1048,13 +1163,30 @@ const PricingPage = () => {
         <PublicFooter />
       </main>
 
-      {payFor && (
+      {intent && (
         <PaymentMethodModal
-          summary={`${payFor.name} · ${perMonth(payFor, cur, cycle) === 0 ? "free" : `${money(perMonth(payFor, cur, cycle), cur)} ${cycle === "annual" ? "a year" : "a month"}`}`}
-          note="You'll finish on the processor's secure checkout, then land on your subscription page. Your plan changes once the payment is confirmed — your trading funds stay on your own exchange."
+          summary={
+            intent.kind === "reviews"
+              ? `${intent.pack.name} · ${money(
+                  num(intent.pack.amount),
+                  (intent.pack.currency as Currency) || "NGN",
+                )}`
+              : `${intent.plan.name} · ${
+                  perMonth(intent.plan, cur, cycle) === 0
+                    ? "free"
+                    : `${money(perMonth(intent.plan, cur, cycle), cur)} ${
+                        cycle === "annual" ? "a year" : "a month"
+                      }`
+                }`
+          }
+          note={
+            intent.kind === "reviews"
+              ? "You'll finish on the processor's secure checkout, then land on your subscription page. The reviews are added once the payment is confirmed, and they never expire."
+              : "You'll finish on the processor's secure checkout, then land on your subscription page. Your plan changes once the payment is confirmed — your trading funds stay on your own exchange."
+          }
           busy={paying}
-          onCancel={() => setPayFor(null)}
-          onContinue={() => startPlan(payFor)}
+          onCancel={() => setIntent(null)}
+          onContinue={() => submit(intent)}
         />
       )}
     </>
