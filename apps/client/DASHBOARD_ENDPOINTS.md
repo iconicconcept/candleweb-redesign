@@ -24,10 +24,10 @@ uses them). Service `services/subscriptionV2Service.ts`, slice `subscriptionV2`.
 | ✅ | `GET /subscription_v2/me/reviews/` | review chip, ring, streak |
 | ✅ | `GET /subscription_v2/me/invoices/` | billing history; an `open`/`failed` invoice shows a "Pay … due" button |
 | ✅ | `GET /subscription_v2/me/payment-methods/` | "Paying with" label |
-| ✅ | `POST /subscription_v2/subscribe/` | free plan starts inline; paid → redirect to `checkout_url`. Sends `auto_renew: true` explicitly (2026-10-04) rather than relying on the server default — the page shows a renewal date and offers cancel/resume, which assume a renewing subscription. Confirm the backend default matches. |
-| ✅ | `POST /subscription_v2/change-plan/` | upgrade → `checkout_url`; downgrade → `scheduled` + `effective_at` toast |
+| ✅ | `POST /subscription_v2/subscribe/` | free plan starts inline; paid → redirect to `checkout_url`. Sends `callback_url` (2026-10-17) — without it the provider returns the user to the host configured on the server, which is an older deployment. Sends `auto_renew: true` explicitly (2026-10-04) rather than relying on the server default — the page shows a renewal date and offers cancel/resume, which assume a renewing subscription. Confirm the backend default matches. |
+| ✅ | `POST /subscription_v2/change-plan/` | upgrade → `checkout_url`; downgrade → `scheduled` + `effective_at` toast. Sends `callback_url` (2026-10-17) — this was the flow that landed users on the old site. |
 | ✅ | `POST /subscription_v2/cancel/` · `/resume/` | cancel dialog; "undo cancellation" button while `cancel_at_period_end` |
-| ✅ | `POST /subscription_v2/me/invoices/{number}/pay/` | pay an outstanding invoice |
+| ✅ | `POST /subscription_v2/me/invoices/{number}/pay/` | pay an outstanding invoice. Sends `callback_url` (2026-10-17). |
 | ❓ | checkout return URL | on return the page polls `/me/` (6× / 3s) if the query has `status`, `tx_ref`, `transaction_id` or `checkout`. Confirm what Flutterwave's `redirect_url` points at and which params it carries. |
 | ⛔ | crypto payment | subscribe/change-plan take no payment method and only return a Flutterwave checkout, so "Pay with crypto" is shown disabled ("Soon"). |
 | ✅ (2026-09-30) | `GET /subscription_v2/review-packs/` | public; top-up strip in the "Bot reviews" card (active view), sorted by quantity, "save N%" from `unit_amount` vs the dearest pack |

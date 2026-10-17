@@ -30,6 +30,34 @@ const DIRECTION_LABEL: Record<string, string> = {
 
 type Filter = "all" | "running" | "paused";
 
+const IND_LIMIT = 10;
+
+const IndicatorChips = ({ chips }: { chips: string[] }) => {
+  const [open, setOpen] = useState(false);
+  if (!chips.length)
+    return (
+      <div className="fx-ind2">
+        <span className="fx-ip">none</span>
+      </div>
+    );
+  const extra = chips.length - IND_LIMIT;
+  const shownChips = open || extra <= 0 ? chips : chips.slice(0, IND_LIMIT);
+  return (
+    <div className="fx-ind2">
+      {shownChips.map((c) => (
+        <span className="fx-ip" key={c}>
+          {c}
+        </span>
+      ))}
+      {extra > 0 && (
+        <button type="button" className="fx-ip more2" onClick={() => setOpen((v) => !v)}>
+          {open ? "Show less" : `Load more (${extra})`}
+        </button>
+      )}
+    </div>
+  );
+};
+
 const TradesPage = () => {
   const dispatch = useDispatch<AppDispatch>();
   const axiosToken = useAxiosAuth();
@@ -245,19 +273,9 @@ const TradesPage = () => {
                     <b className="mut2">—</b>
                     <em>not available yet</em>
                   </div>
-                  <div className="fx-tm2">
+                  <div className="fx-tm2 wide2">
                     <span>Indicators sent</span>
-                    <div className="fx-ind2">
-                      {chips.length ? (
-                        chips.map((c) => (
-                          <span className="fx-ip" key={c}>
-                            {c}
-                          </span>
-                        ))
-                      ) : (
-                        <span className="fx-ip">none</span>
-                      )}
-                    </div>
+                    <IndicatorChips chips={chips} />
                   </div>
                 </div>
 

@@ -130,7 +130,19 @@ const fail = (err: any, thunkApi: { rejectWithValue: (v: string) => any }) => {
   return thunkApi.rejectWithValue(msg);
 };
 
-type PlanChoice = { api: AxiosInstance; plan: string; cycle: SubCycle };
+/* Every checkout body takes an optional `callback_url` (schema: CallbackUrl).
+   Leave it out and the provider returns the user to whatever host the server
+   is configured with — which is still an older deployment — so send our own
+   origin on every flow, not just the review packs. The subscription page
+   confirms the result against the API whatever query string comes back, so
+   the `checkout` marker is only there to say what was being bought. */
+const returnUrl = (checkout: string, override?: string) => {
+  if (override) return { callback_url: override };
+  if (typeof window === "undefined") return {};
+  return { callback_url: `${window.location.origin}/dashboard/subscription?checkout=${checkout}` };
+};
+
+type PlanChoice = { api: AxiosInstance; plan: string; cycle: SubCycle; callbackUrl?: string };
 
 /** POST /subscribe/ — free plan starts now (`subscription`), paid returns `checkout_url`.
     `auto_renew` is sent explicitly rather than left to the server default: the page
@@ -138,7 +150,12 @@ type PlanChoice = { api: AxiosInstance; plan: string; cycle: SubCycle };
     which only make sense on a renewing subscription. */
 const subscribe = createAsyncThunk("subscriptionV2/subscribe", async (p: PlanChoice, thunkApi) => {
   try {
-    return await post(p.api, "subscribe/", { plan: p.plan, cycle: p.cycle, auto_renew: true });
+    return await post(p.api, "subscribe/", {
+      plan: p.plan,
+      cycle: p.cycle,
+      auto_renew: true,
+      ...returnUrl("plan", p.callbackUrl),
+    });
   } catch (err: any) {
     return fail(err, thunkApi);
   }
@@ -147,7 +164,11 @@ const subscribe = createAsyncThunk("subscriptionV2/subscribe", async (p: PlanCho
 /** POST /change-plan/ — upgrade returns `checkout_url` + `amount_due`; downgrade is `scheduled` */
 const changePlan = createAsyncThunk("subscriptionV2/changePlan", async (p: PlanChoice, thunkApi) => {
   try {
-    return await post(p.api, "change-plan/", { plan: p.plan, cycle: p.cycle });
+    return await post(p.api, "change-plan/", {
+      plan: p.plan,
+      cycle: p.cycle,
+      ...returnUrl("plan", p.callbackUrl),
+    });
   } catch (err: any) {
     return fail(err, thunkApi);
   }
@@ -174,9 +195,13 @@ const resume = createAsyncThunk("subscriptionV2/resume", async (api: AxiosInstan
 /** POST /me/invoices/{number}/pay/ — checkout for one unpaid invoice */
 const payInvoice = createAsyncThunk(
   "subscriptionV2/payInvoice",
-  async (p: { api: AxiosInstance; number: string }, thunkApi) => {
+  async (p: { api: AxiosInstance; number: string; callbackUrl?: string }, thunkApi) => {
     try {
-      return await post(p.api, `me/invoices/${encodeURIComponent(p.number)}/pay/`);
+      return await post(
+        p.api,
+        `me/invoices/${encodeURIComponent(p.number)}/pay/`,
+        returnUrl("invoice", p.callbackUrl),
+      );
     } catch (err: any) {
       return fail(err, thunkApi);
     }
@@ -191,7 +216,7 @@ const buyReviews = createAsyncThunk(
     try {
       return await post(p.api, "reviews/purchase/", {
         pack: p.pack,
-        ...(p.callbackUrl ? { callback_url: p.callbackUrl } : {}),
+        ...returnUrl("reviews", p.callbackUrl),
       });
     } catch (err: any) {
       return fail(err, thunkApi);
