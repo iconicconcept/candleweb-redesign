@@ -1141,6 +1141,14 @@ button.fx-me[aria-expanded="true"] {
   padding: 14px 20px;
   font-size: 14px;
 }
+/* `.dgr2` is sized for the danger-zone row, where it hugs its own label
+   (flex:0 0 auto). In a dialog footer that put a text-width danger button
+   next to a `flex:1` ghost button, so the pair never matched. In here the
+   footer row decides the width, like every other `.fx-cta`. */
+.fx-dlg .df .fx-cta.dgr2 {
+  flex: 1 1 0;
+  min-width: 180px;
+}
 /* the dialog's own gradient + glow makes the page-default input background
    (var(--w04), a ~4-5% tint) read as almost nothing against it — bump it up
    a little just inside dialogs so empty fields don't look like blank space. */
