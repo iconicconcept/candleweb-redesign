@@ -53,14 +53,20 @@ export const metricNum = (v: MetricsV2Number | undefined): number | null => {
 /** First candidate key that is actually present, as a number. Tries each
  *  spelling in turn: the response shape is undocumented, and British and
  *  American spellings both appear across this API. */
-const pickNumber = (
-  source: Record<string, unknown> | null | undefined,
-  keys: string[],
-): number | null => {
+/* `source` is typed `object`, not `Record<string, unknown>`, so the metric
+   types pass without a cast at every call site. They are interface types with
+   no index signature, and TS refuses `PortfolioMetricsV2 as Record<string,
+   unknown>` outright (TS2352) — the repo builds on that error even though the
+   editor let it through. The one assertion that stays is here, where it is
+   honest: these responses are documented as "No response body", so the field
+   names ARE unknown and probing them by string is the whole point. */
+const pickNumber = (source: object | null | undefined, keys: string[]): number | null => {
   if (!source) return null;
+  const bag = source as Record<string, MetricsV2Number | undefined>;
   for (const k of keys) {
-    if (source[k] !== undefined) {
-      const n = metricNum(source[k] as MetricsV2Number);
+    const raw = bag[k];
+    if (raw !== undefined) {
+      const n = metricNum(raw);
       if (n != null) return n;
     }
   }
@@ -104,20 +110,20 @@ const REALISED_PCT_KEYS = [
 
 /** Realised PnL over the requested window. */
 export const realisedPnl = (m: PortfolioMetricsV2 | TradeMetricsV2 | null | undefined) =>
-  pickNumber(m as Record<string, unknown>, REALISED_KEYS);
+  pickNumber(m, REALISED_KEYS);
 
 /** Unrealised (open) PnL. */
 export const unrealisedPnl = (m: PortfolioMetricsV2 | TradeMetricsV2 | null | undefined) =>
-  pickNumber(m as Record<string, unknown>, UNREALISED_KEYS);
+  pickNumber(m, UNREALISED_KEYS);
 
 /** Win rate. May arrive 0–1 or 0–100; `winRateLabel` normalises. */
 export const winRate = (m: PortfolioMetricsV2 | TradeMetricsV2 | null | undefined) =>
-  pickNumber(m as Record<string, unknown>, WIN_RATE_KEYS);
+  pickNumber(m, WIN_RATE_KEYS);
 
 /** Realised return as a percentage — the headline figure in the design, with
  *  `realisedPnl` as its caption. Never derived from the amount. */
 export const realisedPct = (m: PortfolioMetricsV2 | TradeMetricsV2 | null | undefined) =>
-  pickNumber(m as Record<string, unknown>, REALISED_PCT_KEYS);
+  pickNumber(m, REALISED_PCT_KEYS);
 
 /* The Overview hero captions each figure with a count or a second unit —
    "+$52.70 / 3 positions", "+2.84% / 41 closed", "18% / ≈ $151",
@@ -137,22 +143,22 @@ const OPEN_POSITIONS_KEYS = ["open_positions", "positions_open", "open_position_
 
 /** Today's change as a percentage — the second half of the hero's delta pill. */
 export const changeTodayPct = (m: PortfolioMetricsV2 | null | undefined) =>
-  pickNumber(m as Record<string, unknown>, CHANGE_TODAY_PCT_KEYS);
+  pickNumber(m, CHANGE_TODAY_PCT_KEYS);
 
 /** `at_risk_now` as a share of the account, which is what the design leads
  *  with. Read, never derived: the denominator would be `account_equity`, and
  *  that is null today. */
 export const atRiskPct = (m: PortfolioMetricsV2 | null | undefined) =>
-  pickNumber(m as Record<string, unknown>, AT_RISK_PCT_KEYS);
+  pickNumber(m, AT_RISK_PCT_KEYS);
 
 /** Closed positions in the window — the "41 closed" caption. */
 export const closedCount = (m: PortfolioMetricsV2 | TradeMetricsV2 | null | undefined) =>
-  pickNumber(m as Record<string, unknown>, CLOSED_KEYS);
+  pickNumber(m, CLOSED_KEYS);
 
 /** Open positions right now — the "3 positions" caption. Not a list: there is
  *  no positions endpoint, only (perhaps) this count. */
 export const openPositionCount = (m: PortfolioMetricsV2 | null | undefined) =>
-  pickNumber(m as Record<string, unknown>, OPEN_POSITIONS_KEYS);
+  pickNumber(m, OPEN_POSITIONS_KEYS);
 
 /* ------------------------------------------------------------------ *
  * Formatting
