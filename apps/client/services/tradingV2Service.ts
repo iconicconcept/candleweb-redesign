@@ -22,6 +22,10 @@ import {
   BotDecisionsV2Query,
   BotHealthV2,
   FleetHealthV2,
+  PortfolioMetricsV2,
+  PortfolioMetricsV2Query,
+  TradeMetricsV2,
+  TradeMetricsV2Query,
 } from "../types/tradingV2";
 import { unwrapV2, unwrapPageV2 } from "../lib/tradingV2Shape";
 
@@ -473,6 +477,58 @@ const getFleetHealth = async (api: AxiosInstance): Promise<FleetHealthV2> => {
   }
 };
 
+/* ================= Metrics (v2) =================
+   Money, derived from recorded fills only. Both of these are plain async
+   functions rather than thunks, like the health pair above: a page reads them
+   into local state next to figures it already has, and nothing else in the
+   app needs them in the store.
+
+   `window_days` is always sent explicitly even though the server defaults to
+   30 — the labels on screen say "· 30d", and a changed server default would
+   silently make them lie. A filter with no value is never sent at all, the
+   same rule as the decisions list.
+   ================================================================ */
+
+/** GET /trading_v2/metrics/ — portfolio PnL, risk and win rate.
+ *
+ *  `account_equity`, `change_today` and `max_drawdown` come back null today,
+ *  each with its reason in `unavailable`; read them through `metricRead` in
+ *  `lib/tradingV2Metrics.ts` so the reason is shown rather than a zero. */
+const getPortfolioMetrics = async (
+  api: AxiosInstance,
+  query: PortfolioMetricsV2Query = {},
+): Promise<PortfolioMetricsV2> => {
+  const params: Record<string, string | number> = {};
+  if (query.venue) params.venue = query.venue;
+  if (query.window_days != null) params.window_days = query.window_days;
+  try {
+    const { data } = await api.get("/trading_v2/metrics/", { params });
+    return unwrapV2<PortfolioMetricsV2>(data);
+  } catch (err: any) {
+    throw new Error(getErrorMessage(err));
+  }
+};
+
+/** GET /trading_v2/trades/{id}/metrics/ — PnL and risk for one trade.
+ *
+ *  Positions are matched by venue and symbol, NOT by a foreign key, so two
+ *  trades on the same pair and venue get the same positions back. Never sum
+ *  these across trades; show `positions_matched_by` instead. */
+const getTradeMetrics = async (
+  api: AxiosInstance,
+  id: number,
+  query: TradeMetricsV2Query = {},
+): Promise<TradeMetricsV2> => {
+  const params: Record<string, string | number> = {};
+  if (query.window_days != null) params.window_days = query.window_days;
+  try {
+    const { data } = await api.get(`${BASE}${id}/metrics/`, { params });
+    return unwrapV2<TradeMetricsV2>(data);
+  } catch (err: any) {
+    throw new Error(getErrorMessage(err));
+  }
+};
+
 const tradingV2Service = {
   listTrades,
   getTrade,
@@ -495,6 +551,8 @@ const tradingV2Service = {
   getDecision,
   getBotHealth,
   getFleetHealth,
+  getPortfolioMetrics,
+  getTradeMetrics,
 };
 
 export default tradingV2Service;

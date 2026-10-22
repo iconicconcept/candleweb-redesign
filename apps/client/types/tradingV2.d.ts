@@ -275,3 +275,129 @@ export interface FleetHealthV2 {
   unavailable: BotHealthV2Unavailable;
   bots: FleetHealthV2Bot[];
 }
+
+/* ------------------------------------------------------------------ *
+ * Metrics — `/api/trading_v2/metrics/` and `/trades/<id>/metrics/`
+ *
+ * Every figure here is derived from RECORDED FILLS, never from an intention:
+ * an allocated amount, a risk percentage or a running trade proves nothing
+ * about money. That is why these are separate from `TradeV2`, which is only
+ * the setup.
+ *
+ * Two contracts carry over from bot health and matter just as much:
+ *
+ *  - `unavailable` is a map of field name → the backend's own reason. A key
+ *    listed there has NO number yet and must render as that sentence, never
+ *    as 0 and never as a flat dash with no explanation. Today
+ *    `account_equity`, `change_today` and `max_drawdown` are always in it:
+ *    equity is the sum of the ledger and the agent path does not write
+ *    ledger entries yet, and drawdown needs equity sampled over time.
+ *  - `at_risk_now` is derived from the stops ACTUALLY ARMED on the venue, so
+ *    a position with no stop contributes ZERO to it. On its own it therefore
+ *    reads as "barely exposed" for the worst case there is. It must always be
+ *    shown next to `unprotected_positions`, which counts exactly those.
+ *
+ * Money and percentages arrive as decimal strings elsewhere in trading_v2
+ * (`allocated_amount`, `risk_pct`), so every numeric field here is typed
+ * `string | number | null` and read through `metricNum` in
+ * `lib/tradingV2Metrics.ts` rather than used raw.
+ * ------------------------------------------------------------------ */
+
+/** Field name → the backend's explanation for why it has no value yet. Same
+ *  shape and same rules as `BotHealthV2Unavailable`, so the `isUnavailable` /
+ *  `unavailableReason` helpers in `lib/botHealthV2.ts` work on it unchanged. */
+export type MetricsV2Unavailable = BotHealthV2Unavailable;
+
+/** A money or percentage figure as trading_v2 sends it. */
+export type MetricsV2Number = string | number | null;
+
+/**
+ * GET /trading_v2/metrics/ — portfolio PnL, risk and win rate.
+ *
+ * ⚠ The OpenAPI entry for this endpoint documents **no response body**, so
+ * only the fields named in its description are confirmed. Those are declared
+ * below. The realised / unrealised / win-rate figures are described in prose
+ * ("Portfolio PnL, risk and win rate", "Realised window, default 30") but
+ * their exact keys are NOT given, so they are declared optional under their
+ * most likely spellings and read through the resolvers in
+ * `lib/tradingV2Metrics.ts`. When the backend confirms the real names, that
+ * one file is the only place that has to change.
+ */
+export interface PortfolioMetricsV2 {
+  /* --- confirmed by the endpoint description --- */
+
+  /** Sum of the ledger. Always null today — see `unavailable`. */
+  account_equity: MetricsV2Number;
+  /** Always null today — see `unavailable`. */
+  change_today: MetricsV2Number;
+  /** Needs equity sampled over time. Always null today — see `unavailable`. */
+  max_drawdown: MetricsV2Number;
+  /** From stops armed on the venue. A position with no stop adds zero, so
+   *  never show this without `unprotected_positions`. */
+  at_risk_now: MetricsV2Number;
+  /** Open positions with no stop armed. The caveat that makes `at_risk_now`
+   *  honest; `0` here is good news and worth stating. */
+  unprotected_positions: number | null;
+  unavailable?: MetricsV2Unavailable;
+
+  /* --- named in prose, exact keys unconfirmed (see the resolvers) --- */
+
+  /** The realised window actually applied, if the response echoes it. */
+  window_days?: number | null;
+  /** The venue filter actually applied, if the response echoes it. */
+  venue?: string | null;
+
+  realised_pnl?: MetricsV2Number;
+  realized_pnl?: MetricsV2Number;
+  unrealised_pnl?: MetricsV2Number;
+  unrealized_pnl?: MetricsV2Number;
+  open_pnl?: MetricsV2Number;
+  win_rate?: MetricsV2Number;
+  wins?: number | null;
+  losses?: number | null;
+  trades_closed?: number | null;
+}
+
+/**
+ * GET /trading_v2/trades/{id}/metrics/ — PnL and risk for one trade.
+ *
+ * `positions_matched_by` is the field that stops this being read as exact
+ * attribution: a `Position` carries no foreign key to a v2 trade, so
+ * positions are matched by VENUE AND SYMBOL. Two trades on the same pair and
+ * venue therefore report the SAME positions, and the figures must never be
+ * summed across trades — the total would double-count. The response states
+ * the matching rule precisely so a client cannot mistake it, and the UI
+ * repeats it wherever a per-trade figure is shown.
+ *
+ * ⚠ Same caveat as the portfolio endpoint: OpenAPI documents no response
+ * body, so the PnL key names are resolved tolerantly.
+ */
+export interface TradeMetricsV2 {
+  /** How positions were attributed, e.g. "venue+symbol". Surface it. */
+  positions_matched_by?: string | null;
+  window_days?: number | null;
+
+  realised_pnl?: MetricsV2Number;
+  realized_pnl?: MetricsV2Number;
+  unrealised_pnl?: MetricsV2Number;
+  unrealized_pnl?: MetricsV2Number;
+  open_pnl?: MetricsV2Number;
+  win_rate?: MetricsV2Number;
+  at_risk_now?: MetricsV2Number;
+  unprotected_positions?: number | null;
+  unavailable?: MetricsV2Unavailable;
+}
+
+/** GET /metrics/ — filters. Both optional; `window_days` defaults to 30. */
+export interface PortfolioMetricsV2Query {
+  /** Limit to one venue. */
+  venue?: string;
+  /** Realised window. Default 30 server-side; sent explicitly so the figure
+   *  and the "· 30d" label on screen cannot drift apart. */
+  window_days?: number;
+}
+
+/** GET /trades/<id>/metrics/ — filters. */
+export interface TradeMetricsV2Query {
+  window_days?: number;
+}

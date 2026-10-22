@@ -18,8 +18,30 @@ import HeroChart from "../../components/dashboard/focus/HeroChart";
 import DecisionsFeed from "../../components/dashboard/focus/DecisionsFeed";
 import { STATUS_META } from "../../lib/botV2Labels";
 import { BalanceProp } from "../../types/user";
-import { FleetHealthV2 } from "../../types/tradingV2";
+import { FleetHealthV2, PortfolioMetricsV2 } from "../../types/tradingV2";
 import { NOT_MEASURED, failureStreakParts, isUnavailable } from "../../lib/botHealthV2";
+import {
+  AT_RISK_PCT_FIELDS,
+  CHANGE_TODAY_PCT_FIELDS,
+  DEFAULT_WINDOW_DAYS,
+  REALISED_FIELDS,
+  REALISED_PCT_FIELDS,
+  UNREALISED_FIELDS,
+  atRiskPct,
+  changeTodayPct,
+  closedCount,
+  metricNum,
+  metricRead,
+  openPositionCount,
+  pctLabel,
+  plainMoney,
+  realisedPct,
+  realisedPnl,
+  riskNowParts,
+  signedMoney,
+  toneClass,
+  unrealisedPnl,
+} from "../../lib/tradingV2Metrics";
 
 const DIRECTION_SIDE: Record<string, { label: string; cls: string }> = {
   LONG: { label: "long", cls: "b2" },
@@ -63,6 +85,13 @@ const DashboardPage = () => {
 
   const [fleet, setFleet] = useState<FleetHealthV2 | null>(null);
 
+  /* Portfolio money and risk — `GET /trading_v2/metrics/`, which fills the
+     hero's four substats, the delta pill and the "Risk right now" card.
+     Local state next to the figures it sits beside: nothing else reads it,
+     and a stale PnL is worse than no PnL. */
+  const [metrics, setMetrics] = useState<PortfolioMetricsV2 | null>(null);
+  const [metricsAsked, setMetricsAsked] = useState(false);
+
   /* The fleet's streak is its WORST bot, not an average. The fleet payload has
      no `last_failure_at`, so `failed_30d` is what separates a 0 meaning
      "failed today" from a 0 meaning "nothing has failed yet". */
@@ -86,8 +115,45 @@ const DashboardPage = () => {
       .getFleetHealth(axiosToken)
       .then(setFleet)
       .catch(() => setFleet(null));
+    /* Read on its own: a metrics failure must not cost the page its bot
+       health, and vice versa. */
+    tradingV2Service
+      .getPortfolioMetrics(axiosToken, { window_days: DEFAULT_WINDOW_DAYS })
+      .then(setMetrics)
+      .catch(() => setMetrics(null))
+      .finally(() => setMetricsAsked(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [axiosToken, dispatch]);
+
+  /* Every figure read once, here, so the hero and the risk card cannot
+     disagree about what the same response said. `metricRead` is what honours
+     `unavailable`: a field named there renders the backend's own reason and
+     never a zero — `account_equity`, `change_today` and `max_drawdown` are in
+     it on every response today. */
+  const equity = metricRead(metrics, "account_equity", metricNum(metrics?.account_equity));
+  const changeToday = metricRead(metrics, "change_today", metricNum(metrics?.change_today));
+  const changePct = metricRead(metrics, CHANGE_TODAY_PCT_FIELDS, changeTodayPct(metrics));
+  const drawdown = metricRead(metrics, "max_drawdown", metricNum(metrics?.max_drawdown));
+  const openPnl = metricRead(metrics, UNREALISED_FIELDS, unrealisedPnl(metrics));
+  const realisedAmt = metricRead(metrics, REALISED_FIELDS, realisedPnl(metrics));
+  const realised = metricRead(metrics, REALISED_PCT_FIELDS, realisedPct(metrics));
+  const atRisk = riskNowParts(metrics);
+  const atRiskShare = metricRead(metrics, AT_RISK_PCT_FIELDS, atRiskPct(metrics));
+  const closed = closedCount(metrics);
+  const openPositions = openPositionCount(metrics);
+
+  /* Whatever the backend says it cannot measure, collected so the sentences
+     can render once, under the hero stats they belong to. Keeping them out of
+     the caption slots is what lets the four stats sit on one line, as in the
+     design — a reason is a sentence and a caption is two words. */
+  const statReasons = [
+    { label: "Account equity", read: equity },
+    { label: "Today's change", read: changeToday },
+    { label: "Max drawdown", read: drawdown },
+    { label: "At risk now", read: atRisk.read },
+  ]
+    .filter((x) => !x.read.available && x.read.reason)
+    .map((x) => ({ label: x.label, reason: x.read.reason as string }));
 
   const totalBalance = useMemo(
     () =>
@@ -348,60 +414,221 @@ const DashboardPage = () => {
 
               <div className="fx-hero-in">
                 <p className="fx-eqlab">
-                  Account balance
+                  {/* The design says "Account equity". `account_equity` is
+                      null on every response today (the agent path writes no
+                      ledger entries yet), so the figure below stays the
+                      exchange balance, which is real — and the label says
+                      which of the two it is rather than claiming equity. */}
+                  {equity.available && equity.value != null ? "Account equity" : "Account balance"}
                   {exchangeRecord[0]?.supported_exchange_id
                     ? ` · ${exchangeRecord[0].supported_exchange_id}`
                     : ""}
                 </p>
                 <p className="fx-eq">
-                  {balance && balance.length ? dollarFormat(totalBalance) : "—"}
+                  {equity.available && equity.value != null
+                    ? plainMoney(equity.value)
+                    : balance && balance.length
+                      ? dollarFormat(totalBalance)
+                      : "—"}
                 </p>
-                <div style={{ marginTop: "15px" }}>
-                  <span className="fx-preview">
-                    <i>◔</i> Daily P&amp;L arrives with a positions endpoint
-                  </span>
-                </div>
 
+                {/* The delta pill: money and percentage together, per the
+                    design ("+$96.40 today · +1.16%"). `change_today` is in
+                    `unavailable` today, so the fallback prints the backend's
+                    own sentence. `.fx-delta` carries its own 15px top margin,
+                    so only the fallback needs a wrapper. */}
+                {changeToday.available && changeToday.value != null ? (
+                  <span className={`fx-delta ${changeToday.value < 0 ? "dn2" : ""}`}>
+                    {changeToday.value < 0 ? "↘" : "↗"} {signedMoney(changeToday.value)} today
+                    {changePct.available && changePct.value != null
+                      ? ` · ${pctLabel(changePct.value)}`
+                      : ""}
+                  </span>
+                ) : (
+                  <div style={{ marginTop: "15px" }}>
+                    <span className="fx-preview">
+                      {/* Short, because this is a pill. The sentence behind it
+                          is in the reasons block under the stats. */}
+                      <i>◔</i> Today&rsquo;s change not measured yet
+                    </span>
+                  </div>
+                )}
+
+                {/* The design's four: Open PnL, Realised · 30d, Max drawdown,
+                    At risk now. The trade/bot counts that used to sit here are
+                    in the chips above and the bots strip below. */}
                 <div className="fx-substat">
                   <div className="fx-ss">
-                    <span>Open P&amp;L</span>
-                    <b className="mut2">—</b>
-                    <i>needs a positions endpoint</i>
+                    <span className="fx-kase">OPEN PnL</span>
+                    <b className={toneClass(openPnl.available ? openPnl.value : null, "up3", "dn3")}>
+                      {openPnl.available ? signedMoney(openPnl.value) : "—"}
+                    </b>
+                    {/* Captions stay as short as the design's ("3 positions",
+                        "41 closed", "1–4 Aug", "≈ $151"). A reason sentence
+                        never goes in here — it is a paragraph, and one
+                        paragraph in a four-up row wraps the whole row. Reasons
+                        render under the row instead. */}
+                    <i>
+                      {openPositions != null
+                        ? `${openPositions} position${openPositions === 1 ? "" : "s"}`
+                        : "unrealised"}
+                    </i>
                   </div>
+
+                  {/* Percentage leads, as in the design; the money becomes the
+                      caption when there is no closed count to put there. */}
                   <div className="fx-ss">
-                    <span>Realised · 30d</span>
-                    <b className="mut2">—</b>
-                    <i>needs a P&amp;L endpoint</i>
+                    <span>Realised · {DEFAULT_WINDOW_DAYS}d</span>
+                    <b
+                      className={toneClass(
+                        realised.available && realised.value != null
+                          ? realised.value
+                          : realisedAmt.available
+                            ? realisedAmt.value
+                            : null,
+                        "up3",
+                        "dn3",
+                      )}
+                    >
+                      {realised.available && realised.value != null
+                        ? pctLabel(realised.value)
+                        : realisedAmt.available && realisedAmt.value != null
+                          ? signedMoney(realisedAmt.value)
+                          : "—"}
+                    </b>
+                    <i>
+                      {closed != null
+                        ? `${closed.toLocaleString()} closed`
+                        : realisedAmt.available && realisedAmt.value != null
+                          ? signedMoney(realisedAmt.value)
+                          : "from fills"}
+                    </i>
                   </div>
+
                   <div className="fx-ss">
-                    <span>Trades set up</span>
-                    <b>{trades.length}</b>
-                    <i>{runningTrades} running</i>
+                    <span>Max drawdown</span>
+                    <b className={drawdown.available && drawdown.value != null ? "dn3" : "mut2"}>
+                      {drawdown.available ? pctLabel(drawdown.value) : "—"}
+                    </b>
+                    <i>{drawdown.available ? "peak to trough" : "not measured"}</i>
                   </div>
+
+                  {/* `at_risk_now` counts only stops ARMED on the venue, so a
+                      position with no stop adds nothing. The unprotected count
+                      travels with it everywhere — see `riskNowParts`. */}
                   <div className="fx-ss">
-                    <span>Bots connected</span>
-                    <b>{bots.length}</b>
-                    <i>{activeBots} live</i>
+                    <span>At risk now</span>
+                    <b className={atRisk.read.available && atRisk.read.value != null ? "" : "mut2"}>
+                      {atRiskShare.available && atRiskShare.value != null
+                        ? pctLabel(atRiskShare.value)
+                        : atRisk.label}
+                    </b>
+                    <i>
+                      {atRiskShare.available &&
+                      atRiskShare.value != null &&
+                      atRisk.read.value != null
+                        ? `≈ ${plainMoney(atRisk.read.value)}`
+                        : atRisk.unprotected != null && atRisk.unprotected > 0
+                          ? `${atRisk.unprotected} unprotected`
+                          : "armed stops"}
+                    </i>
                   </div>
                 </div>
+
+                {/* The `unavailable` reasons, directly under the stats they
+                    explain and nowhere else. Each names its own field, so the
+                    sentence stays attached to the figure it is about without
+                    widening that figure's cell or pushing the row onto two
+                    lines. */}
+                {statReasons.length > 0 && (
+                  <div className="fx-hint" style={{ marginTop: "12px", maxWidth: "640px" }}>
+                    {statReasons.map((r) => (
+                      <span key={r.label} style={{ display: "block", marginTop: "4px" }}>
+                        <b>{r.label}:</b> {r.reason}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             </section>
 
-            {/* ---- trades as positions ---- */}
+            {/* ---- the design's "Open positions" section ----
+
+                 The design lists OPEN POSITIONS here — pair, side, size,
+                 entry → mark, a stop-distance track and live PnL per row —
+                 not trades. We list trades because there is no positions
+                 endpoint to list: `trading_v2` has none, `/api/bot/position/
+                 state/` is the AI client's own reconciliation route (it
+                 requires `ai`, `exchange` and `mode` and answers from the
+                 ledger), and the v1 `/api/trade/active/` belongs to the old
+                 trading system this dashboard no longer uses. There is not
+                 even a `Position` schema in the API.
+
+                 Verified against all 140 paths in the live schema, and the two
+                 candidates probed directly:
+                   /bot/position/state/  → 403 "API key is required." It wants
+                     a BOT's key, not the user's bearer token, and is scoped to
+                     one ai + exchange + mode. Not a portfolio read.
+                   /trade/orders/        → 200, but v1, and orders are not
+                     positions.
+
+                 So the section carries the design's heading and leads with
+                 what `GET /metrics/` genuinely knows — the count, the
+                 unrealised total, how many are unprotected. The trades sit
+                 below under their own label, because a trade is a
+                 configuration and a position is money on the venue, and the
+                 two must never be read as the same list. The per-position
+                 rows arrive with §1.21. */}
             <section className="fx-sec rv">
               <div className="fx-sh">
                 <h2>
-                  Your trades <span className="sub2">stops enforced by Candleweb</span>
+                  Open positions <span className="sub2">stops enforced by Candleweb</span>
                 </h2>
-                <Link className="fx-link" href="/dashboard/trades">
+                {/* <Link className="fx-link" href="/dashboard/trades">
                   All trades →
-                </Link>
+                </Link> */}
               </div>
-              <span className="fx-preview">
-                <i>◔</i> Live P&amp;L and stop distance arrive when the backend exposes them
-              </span>
 
-              {trades.length === 0 ? (
+              {/* What the API can say about positions today: the aggregate,
+                  from `GET /metrics/`. The per-position rows the design draws
+                  need an endpoint that does not exist — verified against all
+                  140 paths in the live schema. */}
+              <div className="fx-flat2" style={{ marginTop: 0 }}>
+                <b>
+                  {openPositions != null
+                    ? `${openPositions} open position${openPositions === 1 ? "" : "s"}.`
+                    : "Positions can't be listed yet."}
+                </b>{" "}
+                {openPnl.available && openPnl.value != null && (
+                  <>
+                    Together they are{" "}
+                    <span className={toneClass(openPnl.value, "fx-up", "fx-dn")}>
+                      {signedMoney(openPnl.value)}
+                    </span>{" "}
+                    unrealised
+                    {atRisk.unprotected != null && atRisk.unprotected > 0
+                      ? `, and ${atRisk.unprotected} of them has no stop armed. `
+                      : ". "}
+                  </>
+                )}
+                Entry, mark price, size and the stop-distance track need a per-position endpoint —
+                only the totals above and in the hero exist so far.
+              </div>
+
+              {/* The trades underneath are the setups, not the positions. They
+                  are labelled as such so the two are never read as the same
+                  thing: a trade is a configuration, a position is money on the
+                  venue. */}
+              {/* <div className="fx-sh" style={{ marginTop: "22px", marginBottom: "10px" }}>
+                <h2 style={{ fontSize: "14px" }}>
+                  Set up to trade{" "}
+                  <span className="sub2">
+                    {trades.length} trade{trades.length === 1 ? "" : "s"} · {runningTrades} running
+                  </span>
+                </h2>
+              </div> */}
+
+              {/*{trades.length === 0 ? (
                 <div className="fx-flat2" style={{ marginTop: "14px" }}>
                   <b>No trades yet.</b>{" "}
                   <Link href="/dashboard/trades/new" style={{ color: "var(--fx-teal2)" }}>
@@ -435,15 +662,18 @@ const DashboardPage = () => {
                           {" · "}
                           {dollarFormat(parseFloat(t.allocated_amount) || 0)} allocated
                         </div>
+                        {/* A setup has no PnL of its own — that belongs to the
+                            position it opens. The cell states what the row is
+                            rather than implying a number is on its way. 
                         <div className="fx-plr">
-                          <span className="mut2">—</span>
-                          <small>P&amp;L pending</small>
+                          <span className="mut2">{t.max_size_pct}%</span>
+                          <small>max size</small>
                         </div>
                       </Link>
                     );
                   })}
                 </div>
-              )}
+              )} */}
             </section>
 
             {/* ---- bots ---- */}
@@ -489,76 +719,6 @@ const DashboardPage = () => {
                 </div>
               )}
             </section>
-
-            {/* ---- activity + needs you ---- */}
-            <div className="fx-cols fx-sec rv">
-              <section>
-                {/* Decisions are read in place — a few at a time, with
-                    "Show more" for the rest — so there is nowhere else to
-                    send the user. Each row opens that decision in full. */}
-                <div className="fx-sh">
-                  <h2>Recent activity</h2>
-                  <span className="fx-src">what your bots decided</span>
-                </div>
-                <DecisionsFeed
-                  api={axiosToken}
-                  pageSize={4}
-                  empty={
-                    <>
-                      <b>Nothing from your bots yet.</b> Each time one of your bots fetches candles
-                      and answers, the decision lands here.
-                    </>
-                  }
-                />
-              </section>
-              <section>
-                <div className="fx-sh">
-                  <h2>Needs you</h2>
-                </div>
-                {failingBots.length > 0 ? (
-                  failingBots.map((b) => (
-                    <div className="fx-soft warn5" key={b.id} style={{ marginBottom: "12px" }}>
-                      <h3>{b.name} isn&rsquo;t responding</h3>
-                      <p>
-                        Candleweb is not getting answers from it, so no orders are being placed for
-                        the trades it decides.{" "}
-                        <Link href={`/dashboard/bots/${b.id}`} style={{ color: "var(--fx-teal2)" }}>
-                          Open the bot
-                        </Link>
-                        .
-                      </p>
-                    </div>
-                  ))
-                ) : (
-                  <div className="fx-soft">
-                    <h3 style={{ marginBottom: "10px" }}>Nothing needs you right now</h3>
-                    <p>
-                      When a bot goes quiet or a trade errors it shows up here. Risk figures land
-                      when the positions endpoint does.
-                    </p>
-                  </div>
-                )}
-
-                <div className="fx-soft" style={{ marginTop: "14px" }}>
-                  <h3 style={{ marginBottom: "12px" }}>Risk right now</h3>
-                  <span className="fx-preview" style={{ marginBottom: "10px", display: "inline-block" }}>
-                    <i>◔</i> Full risk figures need a positions endpoint
-                  </span>
-                  <div className="fx-riskline">
-                    <span>If every stop hit at once</span>
-                    <b className="mut2">—</b>
-                  </div>
-                  <div className="fx-riskline">
-                    <span>Max size per trade</span>
-                    <b>{maxSizePct != null ? `${maxSizePct}%` : "—"}</b>
-                  </div>
-                  <div className="fx-riskline">
-                    <span>Closest stop</span>
-                    <b className="mut2">—</b>
-                  </div>
-                </div>
-              </section>
-            </div>
 
             {/* ---- momentum (design only) ---- */}
             <section className="fx-mom rv">
@@ -685,6 +845,111 @@ const DashboardPage = () => {
                 </div>
               </div>
             </section>
+
+            {/* ---- activity + needs you ---- */}
+            <div className="fx-cols fx-sec rv">
+              <section>
+                {/* Decisions are read in place — a few at a time, with
+                    "Show more" for the rest — so there is nowhere else to
+                    send the user. Each row opens that decision in full. */}
+                <div className="fx-sh">
+                  <h2>Today</h2>
+                  <Link href="/dashboard/history" className="fx-src">
+                    Full history →
+                  </Link>
+                </div>
+                <DecisionsFeed
+                  api={axiosToken}
+                  pageSize={4}
+                  empty={
+                    <>
+                      <b>Nothing from your bots yet.</b> Each time one of your bots fetches candles
+                      and answers, the decision lands here.
+                    </>
+                  }
+                />
+              </section>
+              <section>
+                <div className="fx-sh">
+                  <h2>Needs you</h2>
+                </div>
+                {failingBots.length > 0 ? (
+                  failingBots.map((b) => (
+                    <div className="fx-soft warn5" key={b.id} style={{ marginBottom: "12px" }}>
+                      <h3>{b.name} isn&rsquo;t responding</h3>
+                      <p>
+                        Candleweb is not getting answers from it, so no orders are being placed for
+                        the trades it decides.{" "}
+                        <Link href={`/dashboard/bots/${b.id}`} style={{ color: "var(--fx-teal2)" }}>
+                          Open the bot
+                        </Link>
+                        .
+                      </p>
+                    </div>
+                  ))
+                ) : (
+                  <div className="fx-soft">
+                    <h3 style={{ marginBottom: "10px" }}>Nothing needs you right now</h3>
+                    <p>
+                      When a bot goes quiet or a trade errors it shows up here. Risk figures land
+                      when the positions endpoint does.
+                    </p>
+                  </div>
+                )}
+
+                <div className="fx-soft" style={{ marginTop: "14px" }}>
+                  <h3 style={{ marginBottom: "12px" }}>Risk right now</h3>
+                  {/* Only "Closest stop" still has no source — it needs the
+                      distance from mark to stop per position. The badge says
+                      that rather than disclaiming the whole card. */}
+                  <span className="fx-preview" style={{ marginBottom: "10px", display: "inline-block" }}>
+                    <i>◔</i> Stop distances need a positions endpoint
+                  </span>
+                  <div className="fx-riskline">
+                    <span>If every stop hit at once</span>
+                    <b className={atRisk.read.available && atRisk.read.value != null ? "fx-dn" : "mut2"}>
+                      {atRisk.read.available && atRisk.read.value != null
+                        ? `−${plainMoney(atRisk.read.value)}`
+                        : "—"}
+                    </b>
+                  </div>
+                  <div className="fx-riskline">
+                    <span>Open positions with no stop</span>
+                    <b
+                      className={
+                        atRisk.unprotected == null ? "mut2" : atRisk.unprotected > 0 ? "fx-dn" : ""
+                      }
+                    >
+                      {atRisk.unprotected == null ? "—" : atRisk.unprotected}
+                    </b>
+                  </div>
+                  <div className="fx-riskline">
+                    <span>Max size per trade</span>
+                    <b>{maxSizePct != null ? `${maxSizePct}%` : "—"}</b>
+                  </div>
+                  <div className="fx-riskline">
+                    <span>Closest stop</span>
+                    <b className="mut2">—</b>
+                  </div>
+
+                  {/* The caveat that makes the figure above honest, and the
+                      ledger-derived figures that have a reason instead of a
+                      number. Both wait for a response — before one there is
+                      nothing to qualify. */}
+                  {metricsAsked && metrics && (
+                    <p className="fx-hint" style={{ marginTop: "10px" }}>
+                      {atRisk.caveat}
+                    </p>
+                  )}
+                  {metricsAsked && !metrics && (
+                    <p className="fx-hint" style={{ marginTop: "10px" }}>
+                      Your figures couldn&rsquo;t be read just now — nothing on your account has
+                      changed.
+                    </p>
+                  )}
+                </div>
+              </section>
+            </div>
           </>
         )}
       </DashboardShell>

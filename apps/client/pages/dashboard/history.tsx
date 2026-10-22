@@ -72,7 +72,7 @@ const DashboardHistoryPage = () => {
           <div className="fx-sm">
             <span>Net · 30d</span>
             <b className="mut2">—</b>
-            <i>needs a P&amp;L endpoint</i>
+            <i>needs a PnL endpoint</i>
           </div>
           <div className="fx-sm">
             <span>Best day</span>
@@ -176,7 +176,7 @@ const DashboardHistoryPage = () => {
           Each row will show the pair, the bot, entry and exit prices, how long it was held, why it
           closed (stop hit / trailing stop / bot closed) and the result. The frontend is ready — it
           needs <code>GET /trading_v2/trades/history/</code> (or similar) with closed positions and
-          their P&amp;L.
+          their PnL.
         </p>
       </DashboardShell>
     </>

@@ -24,10 +24,14 @@ export const ChartIcon = (p: SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
+/* A payment card — subscription, invoices and the course checkout all use it.
+   It was previously a byte-for-byte copy of `BotIcon`, so "Subscription" in
+   the account menu drew a robot. The path is the design's own card
+   (`candleweb-dashboard-focus.html`, the account popover). */
 export const CardStackIcon = (p: SVGProps<SVGSVGElement>) => (
   <svg {...base(p)}>
-    <rect x="4" y="8" width="16" height="12" rx="3" />
-    <path d="M12 4v4M9 13h.01M15 13h.01M9 17h6" />
+    <rect x="3" y="6.5" width="18" height="12" rx="2.6" />
+    <path d="M3 10.5h18M16.5 14.5h1.5" />
   </svg>
 );
 

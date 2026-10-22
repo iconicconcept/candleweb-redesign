@@ -22,6 +22,8 @@ import {
   unavailableReason,
   whenLabel,
 } from "../../lib/botHealthV2";
+import useBotPnl from "../../lib/hooks/useBotPnl";
+import { DEFAULT_WINDOW_DAYS, signedMoney, toneClass } from "../../lib/tradingV2Metrics";
 
 const BotsPage = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -64,6 +66,11 @@ const BotsPage = () => {
   // trade currently pointed at it — not the bot's own config (decision style,
   // on-no-reply), which was shown here before real trade data was wired up.
   const tradesForBot = (botId: number) => trades.filter((t) => t.bot === botId);
+
+  /* Realised PnL per bot. Read once per distinct (pair, account) group across
+     the whole account, then attributed to the bots that touch each group — so
+     a pair two bots share costs one request, not two. See `useBotPnl`. */
+  const { forBot: pnlForBot, asked: pnlAsked } = useBotPnl(axiosToken, trades);
 
   /* `running` = bots that are not paused; `connected` = bots actually
      answering. Both come from the fleet endpoint; the local status list is
@@ -324,6 +331,11 @@ const BotsPage = () => {
             const conn = connectionState(
               fb ? { connected: fb.connected, status: fb.status, last_signal: fb.last_signal } : null,
             );
+            const botTrades = tradesForBot(b.id);
+            const pnl = pnlForBot(b.id);
+            /* In flight is its own state, distinct from "no figure": only a
+               bot that HAS trades can be waiting on one. */
+            const pnlLoading = botTrades.length > 0 && !pnlAsked;
             return (
               <div key={b.id} className={`fx-bcard ${meta.dead ? "dead" : ""} ${b.status === "PAUSED" ? "off5" : ""}`}>
                 <div className="fx-bl1">
@@ -359,14 +371,41 @@ const BotsPage = () => {
                     <span>Auto-pause at</span>
                     <b>{b.auto_pause_after_n_fails || "—"}</b>
                   </div>
+                  {/* Realised PnL, de-duplicated by position group. `shared`
+                      means another decider trades one of this bot's pairs on
+                      the same account, so the figure covers their fills too
+                      and nothing client-side can separate them. */}
                   <div className="fx-bm">
-                    <span>P&amp;L · 30d</span>
-                    <b className="mut">—</b>
+                    <span className="fx-kase">PnL · {DEFAULT_WINDOW_DAYS}D</span>
+                    <b className={pnlLoading ? "mut" : toneClass(pnl.total, "up5", "dn5", "mut")}>
+                      {pnlLoading ? (
+                        <i className="fx-skel" aria-label="Reading PnL" />
+                      ) : pnl.total == null ? (
+                        "—"
+                      ) : (
+                        signedMoney(pnl.total)
+                      )}
+                    </b>
                     {/* a <div>, not a second `.fx-bm span` — that selector
                         would force its own uppercase/mono styling onto this
                         note regardless of the `.fx-preview` class */}
-                    <div className="fx-preview" style={{ marginTop: 4 }}>
-                      needs a per-bot performance endpoint
+                    <div
+                      className={
+                        !pnlLoading && (pnl.shared || pnl.total == null) ? "fx-preview" : undefined
+                      }
+                      style={{ marginTop: 4, fontSize: "11px", color: "var(--fx-t3)" }}
+                    >
+                      {botTrades.length === 0
+                        ? "no trades yet"
+                        : pnlLoading
+                          ? "reading…"
+                          : pnl.total == null
+                            ? "not reported yet"
+                            : pnl.read < pnl.of
+                              ? `${pnl.read} of ${pnl.of} pairs read`
+                              : pnl.shared
+                                ? "shares a pair with another decider"
+                                : `across ${pnl.of} pair${pnl.of === 1 ? "" : "s"}`}
                     </div>
                   </div>
                 </div>
@@ -402,19 +441,16 @@ const BotsPage = () => {
                 )}
 
                 <div className="fx-bl3">
-                  {(() => {
-                    const botTrades = tradesForBot(b.id);
-                    return botTrades.length === 0 ? (
-                      <span className="fx-tr2 none2">No trades assigned</span>
-                    ) : (
-                      botTrades.map((t) => (
-                        <span className="fx-tr2" key={t.id}>
-                          <i />
-                          {(t.pair_name || `Pair #${t.pair}`).toUpperCase()} · {t.timeframe}
-                        </span>
-                      ))
-                    );
-                  })()}
+                  {botTrades.length === 0 ? (
+                    <span className="fx-tr2 none2">No trades assigned</span>
+                  ) : (
+                    botTrades.map((t) => (
+                      <span className="fx-tr2" key={t.id}>
+                        <i />
+                        {(t.pair_name || `Pair #${t.pair}`).toUpperCase()} · {t.timeframe}
+                      </span>
+                    ))
+                  )}
                 </div>
 
                 <div className="fx-bacts">

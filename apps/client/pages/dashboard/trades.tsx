@@ -12,9 +12,19 @@ import DashboardShell from "../../components/dashboard/focus/DashboardShell";
 import TopBar from "../../components/dashboard/focus/TopBar";
 import Dialog from "../../components/dashboard/focus/Dialog";
 import { TrashIcon } from "../../components/dashboard/focus/icons";
-import { TradeV2, TradeV2Status } from "../../types/tradingV2";
+import { PortfolioMetricsV2, TradeMetricsV2, TradeV2, TradeV2Status } from "../../types/tradingV2";
 import { BalanceProp } from "../../types/user";
 import { indicatorChips } from "../../lib/tradingV2Indicators";
+import {
+  DEFAULT_WINDOW_DAYS,
+  REALISED_FIELDS,
+  REALISED_PCT_FIELDS,
+  metricRead,
+  pnlCellParts,
+  realisedPct,
+  realisedPnl,
+  toneClass,
+} from "../../lib/tradingV2Metrics";
 
 const STATUS_META: Record<TradeV2Status, { label: string; cls: string }> = {
   RUNNING: { label: "Running", cls: "on5" },
@@ -31,6 +41,10 @@ const DIRECTION_LABEL: Record<string, string> = {
 type Filter = "all" | "running" | "paused";
 
 const IND_LIMIT = 10;
+
+/* Each row costs one `GET /trading_v2/trades/{id}/metrics/`. A long list is
+   capped rather than opening the page on a request per trade. */
+const PER_TRADE_METRIC_CAP = 20;
 
 const IndicatorChips = ({ chips }: { chips: string[] }) => {
   const [open, setOpen] = useState(false);
@@ -69,13 +83,35 @@ const TradesPage = () => {
   const [filter, setFilter] = useState<Filter>("all");
   const [busyId, setBusyId] = useState<number | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<TradeV2 | null>(null);
+
+  /* Account-wide money — `GET /trading_v2/metrics/`. Local state: nothing
+     else on the page reads it, and a stale PnL is worse than no PnL. */
+  const [metrics, setMetrics] = useState<PortfolioMetricsV2 | null>(null);
   const fetchedRef = useRef(false);
+
+  /* Per-row "PnL · 30D" — one `GET /trading_v2/trades/{id}/metrics/` per row
+     shown. These are NEVER summed into the band above: positions match by
+     venue and symbol, so two trades on one pair and account report the same
+     money, and adding the rows would count it twice. The band reads the
+     account-wide endpoint, which has already resolved that overlap. */
+  const [rowMetrics, setRowMetrics] = useState<Record<number, TradeMetricsV2 | null>>({});
+  const [rowsAsked, setRowsAsked] = useState(false);
+  const rowsRef = useRef<string>("");
 
   useEffect(() => {
     if (!isAuthorizationHeaderSet(axiosToken) || fetchedRef.current) return;
     fetchedRef.current = true;
     dispatch(tradingV2Service.listTrades(axiosToken));
     if (!balance || balance.length === 0) dispatch(userService.getBalance(axiosToken));
+    /* The band's "Net · 30d" is the PnL across EVERY trade, so it comes from
+       the account-wide `GET /trading_v2/metrics/` rather than from summing
+       the rows. Summing per-trade metrics would double-count: positions match
+       by venue and symbol, so two trades on one pair and account report the
+       same positions. The portfolio endpoint has already resolved that. */
+    tradingV2Service
+      .getPortfolioMetrics(axiosToken, { window_days: DEFAULT_WINDOW_DAYS })
+      .then(setMetrics)
+      .catch(() => setMetrics(null));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [axiosToken, dispatch]);
 
@@ -93,11 +129,68 @@ const TradesPage = () => {
     return trades;
   }, [trades, filter]);
 
+  /* The exact ids the effect below will ask for, shared with the render so
+     the two can never disagree about which rows were requested — a row left
+     out of the capped set must say so, not sit on "reading…" forever. */
+  const metricIds = useMemo(
+    () => shown.slice(0, PER_TRADE_METRIC_CAP).map((t) => t.id),
+    [shown],
+  );
+
+  useEffect(() => {
+    if (!isAuthorizationHeaderSet(axiosToken)) return;
+    const key = metricIds.join(",");
+    if (rowsRef.current === key) return;
+    rowsRef.current = key;
+    if (!metricIds.length) {
+      setRowMetrics({});
+      setRowsAsked(true);
+      return;
+    }
+    let live = true;
+    let landed = false;
+    Promise.all(
+      metricIds.map((id) =>
+        tradingV2Service
+          .getTradeMetrics(axiosToken, id, { window_days: DEFAULT_WINDOW_DAYS })
+          .then((m) => [id, m] as const)
+          .catch(() => [id, null] as const),
+      ),
+    ).then((pairs) => {
+      if (!live) return;
+      const next: Record<number, TradeMetricsV2 | null> = {};
+      pairs.forEach(([id, m]) => {
+        next[id] = m;
+      });
+      landed = true;
+      setRowMetrics(next);
+      setRowsAsked(true);
+    });
+    return () => {
+      live = false;
+      /* If the effect re-runs before the answer lands — a new `trades`
+         array from Redux, or a filter click, is enough, since both rebuild
+         `metricIds` — this cleanup discards the reply. The guard above must
+         then be released, or the next run skips the request as "already
+         asked" while its only result was just thrown away, and the cell
+         reads "reading…" until a reload. Released only when nothing landed,
+         so a completed fetch is not re-issued. */
+      if (!landed && rowsRef.current === key) rowsRef.current = "";
+    };
+  }, [axiosToken, metricIds]);
+
   const runningCount = trades.filter((t) => t.status === "RUNNING").length;
   const capitalAllocated = trades.reduce((s, t) => s + (parseFloat(t.allocated_amount) || 0), 0);
   const balanceKnown = !!balance && balance.length > 0;
   const freeToAllocate = balanceKnown ? Math.max(0, totalBalance - capitalAllocated) : null;
   const allocPct = balanceKnown && totalBalance > 0 ? Math.min(100, (capitalAllocated / totalBalance) * 100) : 0;
+
+  /* The band's one money figure: realised PnL across every trade. A PnL cell
+     is a percentage over an amount, per the design — `pnlCellParts` builds
+     that pair and falls back to the amount when no percentage is sent. */
+  const netPct = metricRead(metrics, REALISED_PCT_FIELDS, realisedPct(metrics));
+  const netAmount = metricRead(metrics, REALISED_FIELDS, realisedPnl(metrics));
+  const net = pnlCellParts(netPct, netAmount);
 
   const toggleRun = async (t: TradeV2) => {
     setBusyId(t.id);
@@ -149,14 +242,18 @@ const TradesPage = () => {
           </Link>
         </div>
 
-        {/* ---- performance overview — preview only, not wired ---- */}
+        {/* ---- performance overview ----
+             Capital allocated, Free to allocate and Net · 30d are live; only
+             "In open positions" is still waiting on an endpoint, so the
+             ribbon names that one thing rather than writing the whole band
+             off as a preview. */}
         <section className="fx-mom rv d2" style={{ marginTop: "clamp(20px,2.6vw,30px)", paddingTop: "22px" }}>
           <div className="fx-sh">
             <h2>
-              How your trades are doing <span className="sub2">preview</span>
+              How your trades are doing
             </h2>
             <span className="fx-preview">
-              <i>◔</i> Metrics arrive when the backend exposes them
+              <i>◔</i> Open positions need an endpoint
             </span>
           </div>
           <div className="fx-cap2" style={{ marginTop: 0 }}>
@@ -177,10 +274,11 @@ const TradesPage = () => {
               </b>
               <i>{freeToAllocate == null ? "needs a balance endpoint" : "across your exchanges"}</i>
             </div>
+            {/* Net across every trade, from the account-wide metrics call. */}
             <div className="fx-cp">
-              <span>Net · 30d</span>
-              <b className="mut2">—</b>
-              <i>needs a P&amp;L endpoint</i>
+              <span>Net · {DEFAULT_WINDOW_DAYS}d</span>
+              <b className={toneClass(net.tone, "up6", "fx-dn")}>{net.figure}</b>
+              <i>{net.caption}</i>
             </div>
           </div>
           <div className="fx-capbar" style={{ marginTop: "20px" }}>
@@ -238,6 +336,15 @@ const TradesPage = () => {
             const isAi = t.decider_type === "CANDLE_AI";
             const decider = isAi ? "CandleAI" : t.bot_name || "Own bot";
             const chips = indicatorChips(t.indicators);
+            /* This row's own PnL. A PnL cell is a percentage over an amount
+               per the design, so `pnlCellParts` leads with the percentage and
+               drops to the money when the response carries no percentage. */
+            const rowAsked = metricIds.includes(t.id);
+            const rm = rowMetrics[t.id];
+            const rowPnl = pnlCellParts(
+              metricRead(rm, REALISED_PCT_FIELDS, realisedPct(rm)),
+              metricRead(rm, REALISED_FIELDS, realisedPnl(rm)),
+            );
             return (
               <div
                 key={t.id}
@@ -269,9 +376,17 @@ const TradesPage = () => {
                     <em>{t.trailing_stop ? "trailing stop" : "fixed stop"}</em>
                   </div>
                   <div className="fx-tm2">
-                    <span>P&amp;L · 30d</span>
-                    <b className="mut2">—</b>
-                    <em>not available yet</em>
+                    <span className="fx-kase">PnL · 30D</span>
+                    <b className={rowAsked && rowsAsked ? toneClass(rowPnl.tone, "up5", "dn5") : "mut2"}>
+                      {!rowAsked || !rowsAsked ? "—" : rowPnl.figure}
+                    </b>
+                    <em>
+                      {!rowAsked
+                        ? `beyond the first ${PER_TRADE_METRIC_CAP} rows`
+                        : !rowsAsked
+                          ? "reading…"
+                          : rowPnl.caption}
+                    </em>
                   </div>
                   <div className="fx-tm2 wide2">
                     <span>Indicators sent</span>
@@ -295,6 +410,11 @@ const TradesPage = () => {
                   >
                     {busyId === t.id ? "…" : running ? "Pause" : "Start"}
                   </button>
+                  {/* The read screen. `new?id=` stays the edit screen and is
+                      still linked beside this one. */}
+                  <Link className="fx-mini" href={`/dashboard/trades/${t.id}`}>
+                    Open
+                  </Link>
                   <Link className="fx-mini" href={`/dashboard/trades/new?id=${t.id}`}>
                     {isAi ? "Edit setup" : "Setup & connection"}
                   </Link>

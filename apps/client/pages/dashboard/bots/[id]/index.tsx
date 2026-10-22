@@ -34,12 +34,19 @@ import {
   uptimeLabel,
   whenLabel,
 } from "../../../../lib/botHealthV2";
+import useBotPnl from "../../../../lib/hooks/useBotPnl";
+import {
+  DEFAULT_WINDOW_DAYS,
+  signedMoney,
+  toneClass,
+  winRateLabel,
+} from "../../../../lib/tradingV2Metrics";
 import { BotHealthV2 } from "../../../../types/tradingV2";
 
 /* The rich per-bot view. Live: the bot's own config, the trades that point
    at it, its reliability record (`GET /bots/<id>/health/`) and the decisions
    it has made (`GET /decisions/?bot=`). Still DESIGN ONLY behind a
-   `.fx-preview` ribbon: P&L and open-position state, which have no endpoint
+   `.fx-preview` ribbon: PnL and open-position state, which have no endpoint
    (DASHBOARD_ENDPOINTS.md §1.4 / §1.21).
 
    The health block's one rule: a field named in `health.unavailable` has no
@@ -111,6 +118,12 @@ const BotDetailPage = () => {
     () => trades.filter((t) => t.bot === id),
     [trades, id],
   );
+
+  /* Realised PnL for this bot, de-duplicated by position group — there is no
+     per-bot endpoint, so it is summed from `/trades/{id}/metrics/`. See
+     `useBotPnl` for why a raw sum would double-count. */
+  const { forBot: pnlForBot, asked: pnlAsked } = useBotPnl(axiosToken, trades);
+  const pnl = valid ? pnlForBot(id as number) : null;
 
   const toggleRun = async () => {
     if (!bot) return;
@@ -233,24 +246,57 @@ const BotDetailPage = () => {
             )}
 
             {/* vitals — design's 5-column stat row. Real data doesn't exist for
-                any of these yet (needs per-trade P&L §1.4 + bot health §1.6),
+                any of these yet (needs per-trade PnL §1.4 + bot health §1.6),
                 so each shows an honest "—" with what it's waiting on instead
                 of the design's illustrative numbers. */}
             <div className="fx-vitals rv d1">
+              {/* Summed from this bot's trades, one read per distinct
+                  (pair, account) group. `shared` means another decider sits on
+                  one of those pairs, so the figure covers their fills too. */}
               <div className="fx-v">
-                <span>Net · 30d</span>
-                <b className="mut2">—</b>
-                <i>needs a P&amp;L endpoint</i>
+                <span>Net · {DEFAULT_WINDOW_DAYS}d</span>
+                <b className={toneClass(pnl?.total ?? null, "up5", "dn5")}>
+                  {pnl?.total == null ? "—" : signedMoney(pnl.total)}
+                </b>
+                <i>
+                  {!linkedTrades.length
+                    ? "no trades yet"
+                    : !pnlAsked
+                      ? "reading…"
+                      : pnl?.total == null
+                        ? "not reported yet"
+                        : pnl.read < pnl.of
+                          ? `${pnl.read} of ${pnl.of} pairs read`
+                          : pnl.shared
+                            ? "shares a pair with another decider"
+                            : `across ${pnl.of} pair${pnl.of === 1 ? "" : "s"}`}
+                </i>
               </div>
+              {/* Weighted by each pair's closed trades, not a plain mean — a
+                  pair with 2 closes must not count as much as one with 50.
+                  Withheld entirely unless every pair supplied both a rate and
+                  a count, since there is no honest weight otherwise. */}
               <div className="fx-v">
                 <span>Win rate</span>
-                <b className="mut2">—</b>
-                <i>needs a P&amp;L endpoint</i>
+                <b className={pnl?.winRate == null ? "mut2" : undefined}>
+                  {pnl?.winRate == null ? "—" : winRateLabel(pnl.winRate)}
+                </b>
+                <i>
+                  {!linkedTrades.length
+                    ? "no trades yet"
+                    : !pnlAsked
+                      ? "reading…"
+                      : pnl?.winRate == null
+                        ? "needs a rate and a closed count per pair"
+                        : `of ${pnl.closed?.toLocaleString()} closed`}
+                </i>
               </div>
+              {/* Avg win / loss needs the average winner and loser per pair —
+                  neither is named in the endpoint's description. §1.26. */}
               <div className="fx-v">
                 <span>Avg win / loss</span>
                 <b className="mut2">—</b>
-                <i>needs a P&amp;L endpoint</i>
+                <i>needs avg win and loss per pair</i>
               </div>
               <div className="fx-v">
                 <span>Open now</span>
@@ -271,7 +317,7 @@ const BotDetailPage = () => {
             </div>
             <p className="fx-hint" style={{ marginTop: "10px" }}>
               <span className="fx-preview">
-                <i>◔</i> P&amp;L and open positions land when the backend exposes them
+                <i>◔</i> <b className="fx-kase">PnL</b> and open positions land when the backend exposes them
               </span>
 
               . Answered <b>{health ? health.decisions_total.toLocaleString() : "—"}</b> times in

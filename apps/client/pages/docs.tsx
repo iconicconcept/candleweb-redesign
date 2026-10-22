@@ -349,7 +349,7 @@ export default function DocsPage() {
                     <tr>
                       <td>GET /v1/positions</td>
                       <td>
-                        Open positions with entry, stop and unrealised P&amp;L.
+                        Open positions with entry, stop and unrealised PnL.
                       </td>
                     </tr>
                     <tr>
