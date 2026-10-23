@@ -13,11 +13,11 @@ import { BotDecisionV2, BotDecisionV2Detail, BotDecisionV2Risk } from "../types/
  *    a fill. Calling it one would invent a trade that may never have been
  *    placed.
  *  - **`outcome`** is documented as `additionalProperties` — an open map whose
- *    keys are named nowhere in the schema. So nothing here assumes a key:
- *    `outcomeEntries` renders whatever actually arrives. The design prints a
- *    fill, a stop and a fee under each decision, but inventing those key names
- *    would put a confident wrong number on screen the day the backend spells
- *    one differently. (§3.M13)
+ *    keys are named nowhere in the schema. It carries the gate's verdict, the
+ *    order, a condition id and the position that became. Only the position's
+ *    realised PnL is read (`outcomePnl`); rendering the whole map buried that
+ *    one figure under ids and JSON. Keys are still matched tolerantly, since
+ *    none of them is in the schema. (§3.M13)
  */
 
 /* ------------------------------------------------------------------ *
@@ -71,55 +71,72 @@ export const entryPriceLabel = (d: Pick<BotDecisionV2, "entry_price">): string =
  * Outcome
  * ------------------------------------------------------------------ */
 
-export type OutcomeEntry = { key: string; label: string; value: string };
+/* ------------------------------------------------------------------ *
+ * Outcome
+ * ------------------------------------------------------------------ */
 
-/** `order_filled_price` -> "Order filled price". Keys are unknown ahead of
- *  time, so they are humanised generically rather than mapped one by one. */
-const humanise = (key: string): string => {
-  const words = key.replace(/[_-]+/g, " ").replace(/([a-z\d])([A-Z])/g, "$1 $2").trim();
-  if (!words) return key;
-  return words.charAt(0).toUpperCase() + words.slice(1).toLowerCase();
+/**
+ * `outcome` carries the gate's verdict, the order it placed and the position
+ * that became — nested objects with ids, a condition uuid, fill prices and
+ * timestamps. Dumping all of it into the dialog buried the one thing a person
+ * reads a decision for: whether it made or lost money.
+ *
+ * So only that is read. Everything else stays in the response, unrendered.
+ */
+
+const POSITION_KEYS = ["position", "position_detail", "pos"];
+const PNL_KEYS = ["realised_pnl", "realized_pnl", "pnl", "net_pnl", "realised", "realized"];
+const STATUS_KEYS = ["status", "position_status", "state"];
+
+const asRecord = (v: unknown): Record<string, unknown> | null =>
+  v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
+
+const pick = (bag: Record<string, unknown> | null, keys: string[]): unknown => {
+  if (!bag) return undefined;
+  for (const k of keys) if (bag[k] !== undefined && bag[k] !== null) return bag[k];
+  return undefined;
 };
 
-const scalar = (v: unknown): string | null => {
-  if (v == null || v === "") return null;
-  if (typeof v === "boolean") return v ? "Yes" : "No";
-  if (typeof v === "number") return Number.isFinite(v) ? v.toLocaleString() : null;
-  if (typeof v === "string") return v;
-  return null;
+export type OutcomePnl = {
+  /** True when this decision actually became a position. */
+  placed: boolean;
+  /** "OPEN" / "CLOSED", upper-cased, or null. */
+  status: string | null;
+  /** Realised PnL, or null while the position is still open. */
+  value: number | null;
 };
 
 /**
- * Whatever the backend actually put in `outcome`, as rows ready to render.
+ * What the position this decision opened has realised.
  *
- * Nested objects and arrays are JSON-stringified rather than dropped: an
- * unexpected shape should still be visible to whoever is debugging a bot, and
- * seeing it is how the real key names get documented. Empty values are
- * dropped, since a blank row says nothing.
+ * null while it is still OPEN: an open position has realised nothing yet, and
+ * reporting 0 for one would read as a flat result rather than an unfinished
+ * one.
  */
-export const outcomeEntries = (
+export const outcomePnl = (
   d: Pick<BotDecisionV2, "outcome"> | null | undefined,
-): OutcomeEntry[] => {
-  const outcome = d?.outcome;
-  if (!outcome || typeof outcome !== "object") return [];
-  const out: OutcomeEntry[] = [];
-  for (const [key, raw] of Object.entries(outcome)) {
-    const flat = scalar(raw);
-    if (flat != null) {
-      out.push({ key, label: humanise(key), value: flat });
-      continue;
-    }
-    if (raw != null && typeof raw === "object") {
-      out.push({ key, label: humanise(key), value: JSON.stringify(raw) });
-    }
-  }
-  return out;
+): OutcomePnl => {
+  const outcome = asRecord(d?.outcome);
+  const position = asRecord(pick(outcome, POSITION_KEYS));
+  if (!position) return { placed: false, status: null, value: null };
+
+  const rawStatus = pick(position, STATUS_KEYS);
+  const status = typeof rawStatus === "string" ? rawStatus.toUpperCase() : null;
+
+  const rawPnl = pick(position, PNL_KEYS);
+  const n = typeof rawPnl === "number" ? rawPnl : Number(rawPnl);
+  const value = Number.isFinite(n) && status !== "OPEN" ? n : null;
+
+  return { placed: true, status, value };
 };
 
-/** True when the gate recorded something at all. A HOLD legitimately has
- *  nothing; a BUY or SELL with nothing means the order never happened. */
-export const hasOutcome = (d: Pick<BotDecisionV2, "outcome"> | null | undefined): boolean =>
-  outcomeEntries(d).length > 0;
+/** The one caption the dialog shows for a decision's result. */
+export const outcomePnlCaption = (o: OutcomePnl): string => {
+  if (!o.placed) return "no position opened";
+  if (o.status === "OPEN") return "still open";
+  if (o.value == null) return "not reported";
+  return "realised, after fees";
+};
 
 /* ------------------------------------------------------------------ *
  * Candle records

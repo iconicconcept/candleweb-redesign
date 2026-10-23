@@ -1,5 +1,5 @@
 import { AxiosInstance } from "axios";
-import { Fragment, useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Dialog from "./Dialog";
 import tradingV2Service from "../../../services/tradingV2Service";
 import { error } from "../../alert/Toast";
@@ -12,9 +12,11 @@ import {
   entryPriceLabel,
   idsTidied,
   marketDataIds,
-  outcomeEntries,
+  outcomePnl,
+  outcomePnlCaption,
   riskMeta,
 } from "../../../lib/botDecisionsV2";
+import { signedMoney, toneClass } from "../../../lib/tradingV2Metrics";
 import { BotDecisionV2, BotDecisionV2Detail } from "../../../types/tradingV2";
 
 /**
@@ -204,7 +206,7 @@ const TradeDecisionLog = ({ api, trade, pageSize = 6, refreshKey }: Props) => {
           <div className="fx-dlog">
             {rows.map((d) => {
               const call = callOf(d.decision);
-              const out = outcomeEntries(d);
+              const out = outcomePnl(d);
               const rm = riskMeta(d.risk);
               return (
                 <div key={d.id} className={`fx-de pick9 ${call.row}`} {...rowProps(d.id)}>
@@ -236,7 +238,7 @@ const TradeDecisionLog = ({ api, trade, pageSize = 6, refreshKey }: Props) => {
 
                   {d.rationale && <div className="fx-why2">{d.rationale}</div>}
 
-                  {d.decision === "HOLD" && out.length === 0 ? (
+                  {d.decision === "HOLD" && !out.placed ? (
                     <div className="fx-noorder">
                       No order placed — hold decisions never reach the exchange.
                     </div>
@@ -259,15 +261,17 @@ const TradeDecisionLog = ({ api, trade, pageSize = 6, refreshKey }: Props) => {
                           At <b>{entryPriceLabel(d)}</b>
                         </span>
                       </div>
-                      {/* The gate's record. Keys are whatever the backend
-                          sent — see the note at the top of this file. */}
-                      {out.length > 0 && (
+                      {/* What the position it opened realised — the one part
+                          of `outcome` worth a row. The order, the condition
+                          id and the fill prices stay unrendered. */}
+                      {out.placed && (
                         <div className="fx-outinline">
-                          {out.map((o) => (
-                            <span key={o.key}>
-                              {o.label} <b>{o.value}</b>
-                            </span>
-                          ))}
+                          <span>
+                            Result{" "}
+                            <b className={toneClass(out.value, "up5", "dn5")}>
+                              {out.value == null ? outcomePnlCaption(out) : signedMoney(out.value)}
+                            </b>
+                          </span>
                         </div>
                       )}
                     </>
@@ -358,7 +362,18 @@ const TradeDecisionLog = ({ api, trade, pageSize = 6, refreshKey }: Props) => {
                   {entryPriceLabel(detail)}
                 </b>
               </div>
+              <div className="fx-hz">
+                <span>Result</span>
+                <b className={toneClass(outcomePnl(detail).value, "up5", "dn5")}>
+                  {outcomePnl(detail).value == null
+                    ? "—"
+                    : signedMoney(outcomePnl(detail).value)}
+                </b>
+              </div>
             </div>
+            <p className="fx-hint" style={{ marginTop: 10 }}>
+              {outcomePnlCaption(outcomePnl(detail))}
+            </p>
 
             {detail.think_time_seconds == null && (
               <p className="fx-hint" style={{ marginTop: 12 }}>
@@ -384,32 +399,6 @@ const TradeDecisionLog = ({ api, trade, pageSize = 6, refreshKey }: Props) => {
                 <p className="fx-hint">
                   This bot sent no rationale. It does not have to — but a sentence here is what
                   makes a decision reviewable later.
-                </p>
-              )}
-            </div>
-
-            <div style={{ marginTop: 18 }}>
-              <div className="fx-sh">
-                <h2>What happened next</h2>
-              </div>
-              {outcomeEntries(detail).length > 0 ? (
-                <dl className="fx-outc">
-                  {outcomeEntries(detail).map((o) => (
-                    <Fragment key={o.key}>
-                      <dt>{o.label}</dt>
-                      <dd>{o.value}</dd>
-                    </Fragment>
-                  ))}
-                </dl>
-              ) : detail.decision === "HOLD" ? (
-                <p className="fx-hint" style={{ marginTop: 0 }}>
-                  Nothing — a hold never reaches the exchange. That is the decision working, not
-                  a missing record.
-                </p>
-              ) : (
-                <p className="fx-hint" style={{ marginTop: 0 }}>
-                  This decision has no recorded outcome. Either the gate rejected it before an
-                  order was placed, or nothing was written back.
                 </p>
               )}
             </div>

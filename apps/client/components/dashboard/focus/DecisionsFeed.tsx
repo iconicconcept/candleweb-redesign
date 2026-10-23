@@ -1,5 +1,5 @@
 import { AxiosInstance } from "axios";
-import { Fragment, useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Dialog from "./Dialog";
 import tradingV2Service from "../../../services/tradingV2Service";
 import { error } from "../../alert/Toast";
@@ -15,9 +15,11 @@ import {
   entryPriceLabel,
   idsTidied,
   marketDataIds,
-  outcomeEntries,
+  outcomePnl,
+  outcomePnlCaption,
   riskMeta,
 } from "../../../lib/botDecisionsV2";
+import { signedMoney, toneClass } from "../../../lib/tradingV2Metrics";
 import {
   BotDecisionV2,
   BotDecisionV2Action,
@@ -154,7 +156,7 @@ const DecisionsFeed = ({ api, bot, trade, pageSize = 5, empty, refreshKey }: Pro
      cleaned up. That is tidying, not a bot that saw less than it claimed. */
   const seenIds = marketDataIds(detail);
   const tidied = idsTidied(detail);
-  const outcome = outcomeEntries(detail);
+  const result = outcomePnl(detail);
 
   const rowProps = (id: number) => ({
     role: "button" as const,
@@ -376,7 +378,20 @@ const DecisionsFeed = ({ api, bot, trade, pageSize = 5, empty, refreshKey }: Pro
                   {entryPriceLabel(detail)}
                 </b>
               </div>
+              {/* The one thing `outcome` is read for: what the position this
+                  decision opened actually made. The rest of that field — the
+                  order, the condition id, the fill prices — stays unrendered;
+                  it buried this figure. */}
+              <div className="fx-hz">
+                <span>Result</span>
+                <b className={toneClass(result.value, "up5", "dn5")}>
+                  {result.value == null ? "—" : signedMoney(result.value)}
+                </b>
+              </div>
             </div>
+            <p className="fx-hint" style={{ marginTop: 10 }}>
+              {outcomePnlCaption(result)}
+            </p>
 
             {detail.think_time_seconds == null && (
               <p className="fx-hint" style={{ marginTop: 12 }}>
@@ -402,36 +417,6 @@ const DecisionsFeed = ({ api, bot, trade, pageSize = 5, empty, refreshKey }: Pro
                 <p className="fx-hint">
                   This bot sent no rationale. It does not have to — but a sentence here is what
                   makes a decision reviewable later.
-                </p>
-              )}
-            </div>
-
-            {/* What the gate did with it. The field is an OPEN map — its keys
-                are named nowhere in the schema — so this renders whatever
-                arrived rather than a fixed fill/stop/fee row. Inventing those
-                key names is how a confident wrong number gets on screen. */}
-            <div style={{ marginTop: 18 }}>
-              <div className="fx-sh">
-                <h2>What happened next</h2>
-              </div>
-              {outcome.length > 0 ? (
-                <dl className="fx-outc">
-                  {outcome.map((o) => (
-                    <Fragment key={o.key}>
-                      <dt>{o.label}</dt>
-                      <dd>{o.value}</dd>
-                    </Fragment>
-                  ))}
-                </dl>
-              ) : detail.decision === "HOLD" ? (
-                <p className="fx-hint" style={{ marginTop: 0 }}>
-                  Nothing — a hold never reaches the exchange. That is the decision working, not
-                  a missing record.
-                </p>
-              ) : (
-                <p className="fx-hint" style={{ marginTop: 0 }}>
-                  This decision has no recorded outcome. Either the gate rejected it before an
-                  order was placed, or nothing was written back.
                 </p>
               )}
             </div>
