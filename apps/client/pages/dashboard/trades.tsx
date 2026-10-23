@@ -15,6 +15,7 @@ import { TrashIcon } from "../../components/dashboard/focus/icons";
 import { PortfolioMetricsV2, TradeMetricsV2, TradeV2, TradeV2Status } from "../../types/tradingV2";
 import { BalanceProp } from "../../types/user";
 import { indicatorChips } from "../../lib/tradingV2Indicators";
+import useOpenPositions from "../../lib/hooks/useOpenPositions";
 import {
   DEFAULT_WINDOW_DAYS,
   REALISED_FIELDS,
@@ -88,6 +89,25 @@ const TradesPage = () => {
      else on the page reads it, and a stale PnL is worse than no PnL. */
   const [metrics, setMetrics] = useState<PortfolioMetricsV2 | null>(null);
   const fetchedRef = useRef(false);
+
+  /* What is actually deployed right now — `GET /positions/?status=open`.
+     This is money on the venue, which is not the same as allocated capital:
+     an allocation is a ceiling, a position is a fill. Valued at the mark. */
+  const {
+    rows: positions,
+    asked: positionsAsked,
+    failed: positionsFailed,
+  } = useOpenPositions(axiosToken, { status: "open" });
+  const deployed = useMemo(() => {
+    if (!positionsAsked || positionsFailed || positions.length === 0) return null;
+    let total: number | null = null;
+    for (const p of positions) {
+      const qty = typeof p.qty === "number" ? p.qty : null;
+      const mark = typeof p.mark_price === "number" ? p.mark_price : null;
+      if (qty != null && mark != null) total = (total ?? 0) + qty * mark;
+    }
+    return total;
+  }, [positions, positionsAsked, positionsFailed]);
 
   /* Per-row "PnL · 30D" — one `GET /trading_v2/trades/{id}/metrics/` per row
      shown. These are NEVER summed into the band above: positions match by
@@ -242,19 +262,16 @@ const TradesPage = () => {
           </Link>
         </div>
 
-        {/* ---- performance overview ----
-             Capital allocated, Free to allocate and Net · 30d are live; only
-             "In open positions" is still waiting on an endpoint, so the
-             ribbon names that one thing rather than writing the whole band
-             off as a preview. */}
+        {/* ---- performance overview ---- every cell is live now: capital
+             and free to allocate from the trades and the balance, Net · 30d
+             from `GET /metrics/`, and what is actually deployed from
+             `GET /positions/?status=open`. */}
         <section className="fx-mom rv d2" style={{ marginTop: "clamp(20px,2.6vw,30px)", paddingTop: "22px" }}>
           <div className="fx-sh">
             <h2>
               How your trades are doing
             </h2>
-            <span className="fx-preview">
-              <i>◔</i> Open positions need an endpoint
-            </span>
+
           </div>
           <div className="fx-cap2" style={{ marginTop: 0 }}>
             <div className="fx-cp">
@@ -264,8 +281,16 @@ const TradesPage = () => {
             </div>
             <div className="fx-cp">
               <span>In open positions</span>
-              <b className="mut2">—</b>
-              <i>not available yet</i>
+              <b className={deployed == null ? "mut2" : undefined}>
+                {deployed == null ? "—" : dollarFormat(deployed)}
+              </b>
+              <i>
+                {positionsFailed
+                  ? "couldn't read positions"
+                  : !positionsAsked
+                    ? "reading…"
+                    : `${positions.length} open position${positions.length === 1 ? "" : "s"}`}
+              </i>
             </div>
             <div className="fx-cp">
               <span>Free to allocate</span>

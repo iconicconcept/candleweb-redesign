@@ -97,6 +97,11 @@ const WIN_RATE_KEYS = ["win_rate", "winrate", "win_rate_pct", "win_pct"];
    either: percent of what — allocated capital, starting equity, deployed
    capital? — is the backend's call, and equity is null today anyway. */
 const REALISED_PCT_KEYS = [
+  /* The DOCUMENTED name, and the reason this cell showed money for so long:
+     "realised_pnl comes with realised_return_pct". It leads the list so the
+     real field always wins over the guesses that follow it. */
+  "realised_return_pct",
+  "realized_return_pct",
   "realised_pnl_pct",
   "realized_pnl_pct",
   "pnl_pct_30d",
@@ -155,8 +160,10 @@ export const atRiskPct = (m: PortfolioMetricsV2 | null | undefined) =>
 export const closedCount = (m: PortfolioMetricsV2 | TradeMetricsV2 | null | undefined) =>
   pickNumber(m, CLOSED_KEYS);
 
-/** Open positions right now — the "3 positions" caption. Not a list: there is
- *  no positions endpoint, only (perhaps) this count. */
+/** Open positions right now — the "3 positions" caption, as the METRICS
+ *  endpoint counts them. `GET /positions/?status=open` is the list and the
+ *  better source; pages that have both prefer the list, so the caption and
+ *  the rows below it cannot disagree. */
 export const openPositionCount = (m: PortfolioMetricsV2 | null | undefined) =>
   pickNumber(m, OPEN_POSITIONS_KEYS);
 

@@ -23,6 +23,8 @@ import {
   whenLabel,
 } from "../../lib/botHealthV2";
 import useBotPnl from "../../lib/hooks/useBotPnl";
+import useOpenPositions from "../../lib/hooks/useOpenPositions";
+import { commonQuote, forBotId, openPnlTotal, posMoney } from "../../lib/positionsV2";
 import { DEFAULT_WINDOW_DAYS, signedMoney, toneClass } from "../../lib/tradingV2Metrics";
 
 const BotsPage = () => {
@@ -71,6 +73,13 @@ const BotsPage = () => {
      the whole account, then attributed to the bots that touch each group — so
      a pair two bots share costs one request, not two. See `useBotPnl`. */
   const { forBot: pnlForBot, asked: pnlAsked } = useBotPnl(axiosToken, trades);
+  /* One positions request for the whole list, attributed per bot by `bot_id`
+     rather than one request per row. */
+  const {
+    rows: positions,
+    asked: positionsAsked,
+    failed: positionsFailed,
+  } = useOpenPositions(axiosToken, { status: "open" });
 
   /* `running` = bots that are not paused; `connected` = bots actually
      answering. Both come from the fleet endpoint; the local status list is
@@ -336,6 +345,8 @@ const BotsPage = () => {
             /* In flight is its own state, distinct from "no figure": only a
                bot that HAS trades can be waiting on one. */
             const pnlLoading = botTrades.length > 0 && !pnlAsked;
+            const botOpen = forBotId(positions, b.id);
+            const botOpenPnl = openPnlTotal(botOpen);
             return (
               <div key={b.id} className={`fx-bcard ${meta.dead ? "dead" : ""} ${b.status === "PAUSED" ? "off5" : ""}`}>
                 <div className="fx-bl1">
@@ -370,6 +381,23 @@ const BotsPage = () => {
                   <div className="fx-bm">
                     <span>Auto-pause at</span>
                     <b>{b.auto_pause_after_n_fails || "—"}</b>
+                  </div>
+                  {/* What this bot has on the venue right now. Positions carry
+                      `bot_id`, so this is a count, not an inference. */}
+                  <div className="fx-bm">
+                    <span>Open now</span>
+                    <b className={botOpen.length ? undefined : "mut"}>
+                      {!positionsAsked || positionsFailed ? "—" : botOpen.length}
+                    </b>
+                    <div style={{ marginTop: 4, fontSize: "11px", color: "var(--fx-t3)" }}>
+                      {positionsFailed
+                        ? "couldn't read positions"
+                        : !positionsAsked
+                          ? "reading…"
+                          : botOpen.length === 0
+                            ? "nothing on the venue"
+                            : `${botOpenPnl == null ? "—" : posMoney(botOpenPnl, commonQuote(botOpen))} unrealised`}
+                    </div>
                   </div>
                   {/* Realised PnL, de-duplicated by position group. `shared`
                       means another decider trades one of this bot's pairs on

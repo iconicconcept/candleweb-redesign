@@ -20,6 +20,10 @@ import {
   BotDecisionV2Detail,
   BotDecisionsV2Page,
   BotDecisionsV2Query,
+  TradingStatusV2,
+  PositionV2,
+  PositionsV2Page,
+  PositionsV2Query,
   BotHealthV2,
   FleetHealthV2,
   PortfolioMetricsV2,
@@ -27,7 +31,7 @@ import {
   TradeMetricsV2,
   TradeMetricsV2Query,
 } from "../types/tradingV2";
-import { unwrapV2, unwrapPageV2 } from "../lib/tradingV2Shape";
+import { unwrapV2, unwrapPageV2, unwrapDataV2 } from "../lib/tradingV2Shape";
 
 const BASE = "/trading_v2/trades/";
 
@@ -510,6 +514,64 @@ const getPortfolioMetrics = async (
   }
 };
 
+/** GET /trading_v2/positions/ — positions with their orders and fills.
+ *
+ *  `?status=open` is the open-positions card; no filter is every position,
+ *  open and closed, for "All positions". One book per call — the caller's
+ *  current one unless `book` names another, and the response says which.
+ *
+ *  Never sum `at_risk` across these without checking each row's
+ *  `unavailable`: a position with no stop reports null, not zero. */
+const listPositions = async (
+  api: AxiosInstance,
+  query: PositionsV2Query = {},
+): Promise<PositionsV2Page> => {
+  const params: Record<string, string | number> = {};
+  if (query.book) params.book = query.book;
+  if (query.status) params.status = query.status;
+  if (query.trade != null) params.trade = query.trade;
+  if (query.venue) params.venue = query.venue;
+  if (query.limit != null) params.limit = query.limit;
+  if (query.offset != null) params.offset = query.offset;
+  try {
+    const { data } = await api.get("/trading_v2/positions/", { params });
+    const page = unwrapPageV2<PositionV2>(data);
+    return {
+      book: data?.book ?? null,
+      as_of: data?.as_of ?? null,
+      count: page.count,
+      results: page.results,
+    };
+  } catch (err: any) {
+    throw new Error(getErrorMessage(err));
+  }
+};
+
+/** GET /trading_v2/positions/{id}/ — one position, inside `data`. */
+const getPosition = async (api: AxiosInstance, id: number): Promise<PositionV2> => {
+  try {
+    const { data } = await api.get(`/trading_v2/positions/${id}/`);
+    return unwrapDataV2<PositionV2>(data);
+  } catch (err: any) {
+    throw new Error(getErrorMessage(err));
+  }
+};
+
+/** GET /trading_v2/status/ — the hero's three chips.
+ *
+ *  No parameters. `overall` is "down" when a stop could be missed or nothing
+ *  can reach KuCoin, "degraded" when something else is wrong, else "ok".
+ *  The exchange check is one read-only call to KuCoin cached for a minute, so
+ *  a revoked key surfaces here within a minute. */
+const getStatus = async (api: AxiosInstance): Promise<TradingStatusV2> => {
+  try {
+    const { data } = await api.get("/trading_v2/status/");
+    return unwrapV2<TradingStatusV2>(data);
+  } catch (err: any) {
+    throw new Error(getErrorMessage(err));
+  }
+};
+
 /** GET /trading_v2/trades/{id}/metrics/ — PnL and risk for one trade.
  *
  *  Positions are matched by venue and symbol, NOT by a foreign key, so two
@@ -554,6 +616,9 @@ const tradingV2Service = {
   getFleetHealth,
   getPortfolioMetrics,
   getTradeMetrics,
+  getStatus,
+  listPositions,
+  getPosition,
 };
 
 export default tradingV2Service;

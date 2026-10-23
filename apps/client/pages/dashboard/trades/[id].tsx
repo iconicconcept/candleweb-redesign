@@ -10,6 +10,8 @@ import { isAuthorizationHeaderSet } from "../../../utils/check_auth";
 import DashboardShell from "../../../components/dashboard/focus/DashboardShell";
 import TopBar from "../../../components/dashboard/focus/TopBar";
 import TradeDecisionLog from "../../../components/dashboard/focus/TradeDecisionLog";
+import OpenPositionsList from "../../../components/dashboard/focus/OpenPositionsList";
+import useOpenPositions from "../../../lib/hooks/useOpenPositions";
 import { indicatorChips } from "../../../lib/tradingV2Indicators";
 import { TradeMetricsV2, TradeV2, TradeV2Status } from "../../../types/tradingV2";
 import {
@@ -59,14 +61,15 @@ const CTA_STYLE = { flex: "0 0 auto", padding: "11px 18px", fontSize: "13.5px" }
  * it keeps winning over this dynamic one — `/dashboard/trades/new` is never
  * parsed as an id.
  *
- * Every section of the design is present. Three cannot be filled yet and say
- * so rather than showing an invented number:
+ * Every section of the design is present. The open position — size, entry,
+ * mark, stop and unrealised, with the stop-distance track — is live on
+ * `GET /positions/?trade=<id>`, an exact filter: positions carry `trade_id`,
+ * unlike `/trades/{id}/metrics/`, which matches by venue and symbol and so
+ * reports the same positions for two trades on one pair.
  *
- *  - **Open position** (size / entry / mark / stop / unrealised and the
- *    stop-distance track). No endpoint exists: `trading_v2` has none,
- *    `/api/bot/position/state/` answers 403 "API key is required" because it
- *    is the AI client's own reconciliation route, and there is no `Position`
- *    schema in the API at all. §1.21.
+ * Two things still cannot be filled and say so rather than showing an
+ * invented number:
+ *
  *  - **The order under each decision**, and the band's "N became orders".
  *    That is `outcome` on `GET /decisions/{id}/` — detail-only and typed
  *    `additionalProperties: {}`. P3 §3.M13.
@@ -150,6 +153,15 @@ const TradeDetailPage = () => {
   const net = pnlCellParts(pct, amount);
   const wins = metricRead(metrics, WIN_RATE_FIELDS, winRate(metrics));
   const risk = riskNowParts(metrics);
+
+  /* This trade's open positions. `?trade=` is an EXACT filter — positions
+     carry `trade_id` — unlike `/trades/{id}/metrics/`, which matches by venue
+     and symbol and so reports the same positions for two trades on one pair. */
+  const {
+    rows: tradePositions,
+    asked: tradePositionsAsked,
+    failed: tradePositionsFailed,
+  } = useOpenPositions(axiosToken, { status: "open", trade: valid ? (id as number) : undefined });
   const closed = closedCount(metrics);
 
   /* `closed` is null until the count is reported, and a null must not read as
@@ -271,7 +283,15 @@ const TradeDetailPage = () => {
               <div className="fx-cp">
                 <span>Allocated</span>
                 <b>{plainMoney(allocated)}</b>
-                <i>needs open-position data</i>
+                {/* Allocation is a ceiling; a position is money actually on
+                    the venue. The caption says which of the two is deployed. */}
+                <i>
+                  {!tradePositionsAsked || tradePositionsFailed
+                    ? "the ceiling for this trade"
+                    : tradePositions.length === 0
+                      ? "none deployed yet"
+                      : `${tradePositions.length} position${tradePositions.length === 1 ? "" : "s"} open`}
+                </i>
               </div>
               <div className="fx-cp">
                 <span>Closed trades</span>
@@ -318,20 +338,38 @@ const TradeDetailPage = () => {
               </p>
             )}
 
-            {/* ---- open position ---- */}
+            {/* ---- open position ---- live on `GET /positions/?trade=<id>`,
+                 which is an exact filter: positions carry `trade_id`, unlike
+                 the metrics endpoint's venue+symbol matching. */}
             <section className="fx-sec rv d2">
               <div className="fx-sh">
-                <h2>Open position</h2>
-                <span className="fx-preview">
-                  <i>◔</i> Needs an open-position endpoint
-                </span>
+                <h2>
+                  Open position
+                  {tradePositions.length > 1 && (
+                    <span className="sub2">{tradePositions.length} open</span>
+                  )}
+                </h2>
               </div>
-              <div className="fx-flat2" style={{ marginTop: 0 }}>
-                <b>Not available.</b> Size, entry, mark price, stop and unrealised PnL for a live
-                position have no read endpoint on <code>trading_v2</code> — there is no{" "}
-                <code>Position</code> schema in the API at all. What the armed stops would cost is
-                below.
-              </div>
+              {tradePositionsFailed ? (
+                <div className="fx-failmsg" style={{ marginTop: 0 }}>
+                  <b>Couldn&rsquo;t load this trade&rsquo;s positions.</b> {tradePositionsFailed}
+                </div>
+              ) : !tradePositionsAsked ? (
+                <p className="fx-hint" style={{ padding: "14px 4px" }}>
+                  Loading…
+                </p>
+              ) : (
+                <OpenPositionsList
+                  positions={tradePositions}
+                  empty={
+                    <>
+                      <b>Nothing open on this trade.</b> It opens a position when its decider says
+                      so and the gate lets the order through — what the armed stops would cost is
+                      below.
+                    </>
+                  }
+                />
+              )}
             </section>
 
             {/* ---- how this trade is configured ---- */}

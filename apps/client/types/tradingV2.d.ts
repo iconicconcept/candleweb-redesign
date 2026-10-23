@@ -131,6 +131,57 @@ export interface TradeV2Payload {
 }
 
 /* ------------------------------------------------------------------ *
+ * Status (v2) — `GET /api/trading_v2/status/`
+ *
+ * The hero's three chips: is KuCoin connected, is monitoring active, are the
+ * bots answering. The response is documented as "No response body", so every
+ * field below is OPTIONAL and read through `lib/tradingV2Status.ts` rather
+ * than trusted — a chip that cannot be read says so instead of claiming the
+ * reassuring state.
+ * ------------------------------------------------------------------ */
+
+export type StatusV2Overall = "ok" | "degraded" | "down";
+
+/** One finding, as a stable code plus a human message. */
+export interface StatusV2Issue {
+  code?: string;
+  message?: string;
+}
+
+/** A worker heartbeat. `age_seconds` is how long ago the last one was. */
+export interface StatusV2Process {
+  alive?: boolean;
+  age_seconds?: number | null;
+}
+
+export interface TradingStatusV2 {
+  overall?: StatusV2Overall;
+  issues?: StatusV2Issue[];
+  exchange?: {
+    connected?: boolean;
+    name?: string;
+    venue?: string;
+    [k: string]: unknown;
+  };
+  monitoring?: {
+    /** True only when the price monitor, the feed and the execution worker
+     *  are all beating, firing is not paused, and every market holding a stop
+     *  is watched. Anything less is false — it is not a partial score. */
+    active?: boolean;
+    paused?: boolean;
+    processes?: Record<string, StatusV2Process>;
+    [k: string]: unknown;
+  };
+  bots?: {
+    answering?: number;
+    total?: number;
+    not_responding?: number;
+    [k: string]: unknown;
+  };
+  [k: string]: unknown;
+}
+
+/* ------------------------------------------------------------------ *
  * Bot decisions (v2) — `/api/trading_v2/decisions/`
  *
  * What a user's own bot answered when Candleweb handed it a candle.
@@ -424,4 +475,126 @@ export interface PortfolioMetricsV2Query {
 /** GET /trades/<id>/metrics/ — filters. */
 export interface TradeMetricsV2Query {
   window_days?: number;
+}
+
+/* ------------------------------------------------------------------ *
+ * Positions (v2) — `/api/trading_v2/positions/`
+ *
+ * The endpoint the whole dashboard was waiting on (§1.21). Reading rules,
+ * each of which is a way to get this wrong:
+ *
+ *  - **`unavailable` is PER POSITION.** A position with no stop has
+ *    `at_risk: null`, NOT zero, with a reason beside it. Summing nulls as
+ *    zeroes reports a reassuringly small risk for an unprotected book, which
+ *    is the single most dangerous mistake available here.
+ *  - **A null WITHOUT a reason does not apply**, rather than being unknown:
+ *    `exit_price` on an open position is null because an open position has no
+ *    exit, and that is not a gap to apologise for.
+ *  - **`stop_price` vs `derived_stop`.** `stop_price` is the stop that fires
+ *    first — the tightest armed stop or trail, which an agent may have moved
+ *    above the exchange backstop. `derived_stop` is the level the backstop
+ *    holds, and `at_risk` is measured against THAT.
+ *  - **`side` is always BUY.** Trading is spot and long-only, so no position
+ *    opens with a sell; the design's "sell" pill cannot occur.
+ *  - **Open figures are before fees**, because the closing fee is not known
+ *    until the close happens.
+ *  - Money is in the row's own `quote_currency`, not a account-wide currency.
+ * ------------------------------------------------------------------ */
+
+export type PositionV2Status = "OPEN" | "CLOSED";
+export type PositionV2Book = "DEMO" | "LIVE";
+export type PositionV2OrderRole = "ENTRY" | "CLOSE" | "BACKSTOP";
+
+export interface PositionV2Fill {
+  venue_trade_id?: string | null;
+  qty?: number | null;
+  price?: number | null;
+  fee?: number | null;
+  fee_currency?: string | null;
+  ts?: string | null;
+}
+
+export interface PositionV2Order {
+  client_order_id?: string | null;
+  venue_order_id?: string | null;
+  /** What the order was for. BACKSTOP is the stop resting on the exchange. */
+  role?: PositionV2OrderRole | null;
+  type?: string | null;
+  side?: string | null;
+  status?: string | null;
+  requested_qty?: number | null;
+  filled_qty?: number | null;
+  avg_fill_price?: number | null;
+  limit_price?: number | null;
+  created_at?: string | null;
+  terminal_at?: string | null;
+  fills?: PositionV2Fill[] | null;
+}
+
+export interface PositionV2 {
+  position_id: number;
+  status?: PositionV2Status | null;
+  book?: PositionV2Book | null;
+  venue?: string | null;
+  symbol?: string | null;
+  base_currency?: string | null;
+  quote_currency?: string | null;
+  /** Always "BUY" — spot, long-only. */
+  side?: string | null;
+  qty?: number | null;
+  trade_id?: number | null;
+  bot_id?: number | null;
+  bot_name?: string | null;
+  decider_type?: string | null;
+  opened_at?: string | null;
+  /** null on an open position — does not apply, not unknown. */
+  closed_at?: string | null;
+  entry_price?: number | null;
+  protection_status?: string | null;
+  /** The level the exchange backstop holds. `at_risk` is measured to this. */
+  derived_stop?: number | null;
+  /** The latest stored candle CLOSE, not a live tick. */
+  mark_price?: number | null;
+  mark_price_as_of?: string | null;
+  /** Before fees — the closing fee is unknown until the close. */
+  open_pnl?: number | null;
+  open_return_pct?: number | null;
+  /** The stop that fires first: tightest armed stop or trail. */
+  stop_price?: number | null;
+  stop_kind?: string | null;
+  distance_to_stop?: number | null;
+  distance_to_stop_pct?: number | null;
+  /** Where price sits between the stop (0) and the entry (1), clamped. This
+   *  is the design's marker position, already computed — never re-derive it. */
+  stop_gauge?: number | null;
+  /** What this loses if the stop fills at the backstop. null (with a reason)
+   *  when there is no stop — never zero. */
+  at_risk?: number | null;
+  exit_price?: number | null;
+  realised_pnl?: number | null;
+  realised_fees?: number | null;
+  realised_return_pct?: number | null;
+  fees_other?: Record<string, number> | null;
+  orders?: PositionV2Order[] | null;
+  /** Field name → the backend's own sentence. Per position. */
+  unavailable?: BotHealthV2Unavailable;
+}
+
+/** GET /positions/ — `count` is the TOTAL, for paging. */
+export interface PositionsV2Page {
+  book?: PositionV2Book | null;
+  as_of?: string | null;
+  count: number;
+  results: PositionV2[];
+}
+
+/** GET /positions/ — filters. All optional. */
+export interface PositionsV2Query {
+  book?: "demo" | "live";
+  status?: "open" | "closed";
+  trade?: number;
+  venue?: string;
+  /** default 25, max 100 */
+  limit?: number;
+  offset?: number;
 }

@@ -36,6 +36,9 @@ import {
 } from "../../../../lib/botHealthV2";
 import useBotPnl from "../../../../lib/hooks/useBotPnl";
 import useBotDecisionStats from "../../../../lib/hooks/useBotDecisionStats";
+import useOpenPositions from "../../../../lib/hooks/useOpenPositions";
+import OpenPositionsList from "../../../../components/dashboard/focus/OpenPositionsList";
+import { forBotId, riskRollup } from "../../../../lib/positionsV2";
 import {
   DEFAULT_WINDOW_DAYS,
   signedMoney,
@@ -46,11 +49,13 @@ import { BotHealthV2 } from "../../../../types/tradingV2";
 
 /* The rich per-bot view. Live: the bot's own config, the trades that point
    at it, its reliability record (`GET /bots/<id>/health/`) and the decisions
-   it has made (`GET /decisions/?bot=`). Still DESIGN ONLY behind a
-   `.fx-preview` ribbon: open-position state, which has no endpoint
-   (DASHBOARD_ENDPOINTS.md §1.21). PnL is live, summed per position group
-   from `/trades/{id}/metrics/`, and review readiness is driven by
-   `/decisions/?bot=<id>`.
+   it has made (`GET /decisions/?bot=`). PnL is summed per position group from
+   `/trades/{id}/metrics/`, review readiness is driven by
+   `/decisions/?bot=<id>`, and what the bot holds right now comes from
+   `GET /positions/?status=open`, attributed by each position's `bot_id`.
+
+   Still without a source: "Avg win / loss" (the endpoint names no `avg_win`
+   or `avg_loss`) and "Suggestions applied" (no bot-review endpoint).
 
    The health block's one rule: a field named in `health.unavailable` has no
    measurement yet and renders as "Not measured yet" — never as 0, and never
@@ -138,6 +143,16 @@ const BotDetailPage = () => {
      carries no `prompt_updated_at`, and ANY edit moves it, so the meter below
      says "last edited" rather than claiming to know the prompt changed. */
   const decisions = useBotDecisionStats(axiosToken, valid ? (id as number) : null, bot?.updated_at);
+
+  /* What this bot has open on the venue — `GET /positions/?status=open`,
+     filtered to this bot by `bot_id`, which positions carry directly. */
+  const {
+    rows: allPositions,
+    asked: positionsAsked,
+    failed: positionsFailed,
+  } = useOpenPositions(axiosToken, { status: "open" });
+  const botPositions = valid ? forBotId(allPositions, id as number) : [];
+  const botRisk = riskRollup(botPositions);
 
   const toggleRun = async () => {
     if (!bot) return;
@@ -326,10 +341,25 @@ const BotDetailPage = () => {
                 <b className="mut2">—</b>
                 <i>needs avg win and loss per pair</i>
               </div>
+              {/* Positions carry `bot_id`, so this is an exact count of what
+                  THIS bot has on the venue right now — not an inference from
+                  its trades. */}
               <div className="fx-v">
                 <span>Open now</span>
-                <b className="mut2">—</b>
-                <i>needs open-position data</i>
+                <b className={botPositions.length ? undefined : "mut2"}>
+                  {!positionsAsked || positionsFailed ? "—" : botPositions.length}
+                </b>
+                <i>
+                  {positionsFailed
+                    ? "couldn't read positions"
+                    : !positionsAsked
+                      ? "reading…"
+                      : botPositions.length === 0
+                        ? "nothing on the venue"
+                        : botRisk.unprotected > 0
+                          ? `${botRisk.unprotected} with no stop`
+                          : "all have a stop armed"}
+                </i>
               </div>
               <div className="fx-v">
                 <span>Reply time</span>
@@ -344,9 +374,7 @@ const BotDetailPage = () => {
               </div>
             </div>
             <p className="fx-hint" style={{ marginTop: "10px" }}>
-              <span className="fx-preview">
-                <i>◔</i> Open positions need an endpoint
-              </span>
+
 
               . Answered <b>{health ? health.decisions_total.toLocaleString() : "—"}</b> times in
               all, <b>{health ? health.decisions_7d.toLocaleString() : "—"}</b> this week.
@@ -699,6 +727,36 @@ const BotDetailPage = () => {
                     . Each trade&rsquo;s own pull and decision URLs are on that trade&rsquo;s setup
                     screen.
                   </p>
+                </div>
+
+                {/* what this bot has on the venue right now. A trade is a
+                    setup; a position is money — they are listed separately so
+                    the two are never read as the same thing. */}
+                <div style={{ marginTop: "26px" }}>
+                  <div className="fx-sh">
+                    <h2>
+                      Open positions <span className="sub2">{botPositions.length}</span>
+                    </h2>
+                  </div>
+                  {positionsFailed ? (
+                    <div className="fx-failmsg" style={{ marginTop: 0 }}>
+                      <b>Couldn&rsquo;t load positions.</b> {positionsFailed}
+                    </div>
+                  ) : !positionsAsked ? (
+                    <p className="fx-hint" style={{ padding: "14px 4px" }}>
+                      Loading…
+                    </p>
+                  ) : (
+                    <OpenPositionsList
+                      positions={botPositions}
+                      empty={
+                        <>
+                          <b>Nothing open from this bot.</b> It opens a position when it answers
+                          BUY and the gate lets the order through.
+                        </>
+                      }
+                    />
+                  )}
                 </div>
 
                 {/* trades this bot runs — live */}

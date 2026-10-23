@@ -9367,3 +9367,27 @@ button.fx-pay9:disabled {
   color: var(--fx-t1);
   font-weight: 500;
 }
+
+/* ---- open positions: the no-stop row -------------------------------------
+   A position with no stop has nothing to gauge, and drawing an empty rail
+   reads as "fine" at a glance. It says so instead, in the colour the rest of
+   the sheet uses for "look at this". */
+.fx-nostop {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--fx-mono);
+  font-size: 9px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--fx-amber2);
+  border: 1px solid rgba(255, 194, 77, 0.45);
+  background: rgba(255, 194, 77, 0.09);
+  border-radius: 99px;
+  padding: 3px 9px;
+}
+/* The row is an <a> when the position links to its trade, so it needs the
+   grid and colour the <div> form gets from `.fx-row`. */
+a.fx-row {
+  color: inherit;
+  text-decoration: none;
+}
