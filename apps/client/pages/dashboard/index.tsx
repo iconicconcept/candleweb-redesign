@@ -19,7 +19,7 @@ import DecisionsFeed from "../../components/dashboard/focus/DecisionsFeed";
 import { STATUS_META } from "../../lib/botV2Labels";
 import { BalanceProp } from "../../types/user";
 import { FleetHealthV2, PortfolioMetricsV2, TradingStatusV2 } from "../../types/tradingV2";
-import { chipClass, statusBanner, statusChips } from "../../lib/tradingV2Status";
+import { chipClass, statusChips } from "../../lib/tradingV2Status";
 import useOpenPositions from "../../lib/hooks/useOpenPositions";
 import OpenPositionsList from "../../components/dashboard/focus/OpenPositionsList";
 import {
@@ -208,7 +208,6 @@ const DashboardPage = () => {
     failed: statusFailed,
     botsNotResponding: failingBots.length,
   });
-  const banner = statusBanner(status);
 
   /* The bot the momentum section is "about" (and named in its heading) — the
      healthiest working one: ACTIVE before PAUSED before FAILING, then the most
@@ -430,24 +429,6 @@ const DashboardPage = () => {
 
         {loaded && !isEmpty && (
           <>
-            {/* `overall: "down"` means a stop could be missed or nothing can
-                reach the venue — a different order of problem from
-                "degraded", and the one thing on this page that outranks the
-                equity figure, so it sits above it. */}
-            {banner && (
-              <div
-                className={banner.tone === "bad" ? "fx-failmsg" : "fx-soft warn5"}
-                style={{ marginTop: "clamp(18px,2.4vw,28px)" }}
-              >
-                <b>
-                  {banner.tone === "bad"
-                    ? "Trading is not fully protected right now."
-                    : "Something needs looking at."}
-                </b>{" "}
-                {banner.text}
-              </div>
-            )}
-
             {/* ---- hero: balance + status ---- */}
             <section className="fx-hero rv" style={{ marginTop: "clamp(18px,2.4vw,28px)" }}>
               {/* The design's three chips, now read from `/status/` rather
