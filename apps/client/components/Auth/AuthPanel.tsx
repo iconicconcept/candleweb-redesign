@@ -670,7 +670,7 @@ function WalletChoices({
     : undefined;
   return (
     <div className="auth-choices">
-      <button
+      {/* <button
         type="button"
         className="auth-gbtn"
         disabled={busy || blocked}
@@ -679,7 +679,7 @@ function WalletChoices({
       >
         <GoogleMark />
         {mode === "login" ? "Continue with Google" : "Sign up with Google"}
-      </button>
+      </button> */}
       <div className="auth-wsel">
         <button
           type="button"
