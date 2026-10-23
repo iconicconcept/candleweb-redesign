@@ -1,5 +1,5 @@
 import { AxiosInstance } from "axios";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import Dialog from "./Dialog";
 import tradingV2Service from "../../../services/tradingV2Service";
 import { error } from "../../alert/Toast";
@@ -11,9 +11,18 @@ import {
   whenLabel,
 } from "../../../lib/botHealthV2";
 import {
+  RISK_FILTERS,
+  entryPriceLabel,
+  idsTidied,
+  marketDataIds,
+  outcomeEntries,
+  riskMeta,
+} from "../../../lib/botDecisionsV2";
+import {
   BotDecisionV2,
   BotDecisionV2Action,
   BotDecisionV2Detail,
+  BotDecisionV2Risk,
 } from "../../../types/tradingV2";
 
 /**
@@ -66,6 +75,7 @@ const DecisionsFeed = ({ api, bot, trade, pageSize = 5, empty, refreshKey }: Pro
   const [rows, setRows] = useState<BotDecisionV2[]>([]);
   const [count, setCount] = useState(0);
   const [kind, setKind] = useState<BotDecisionV2Action | "all">("all");
+  const [risk, setRisk] = useState<BotDecisionV2Risk | "all">("all");
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState<string | null>(null);
@@ -88,6 +98,7 @@ const DecisionsFeed = ({ api, bot, trade, pageSize = 5, empty, refreshKey }: Pro
           bot,
           trade,
           decision: kind === "all" ? undefined : kind,
+          risk: risk === "all" ? undefined : risk,
           limit: pageSize,
           offset,
         });
@@ -106,7 +117,7 @@ const DecisionsFeed = ({ api, bot, trade, pageSize = 5, empty, refreshKey }: Pro
         }
       }
     },
-    [api, bot, trade, kind, pageSize],
+    [api, bot, trade, kind, risk, pageSize],
   );
 
   // First page, and again whenever the filter or the scope changes.
@@ -141,7 +152,9 @@ const DecisionsFeed = ({ api, bot, trade, pageSize = 5, empty, refreshKey }: Pro
   /* `market_data_ids` can be SHORTER than `market_data_count`: the count is
      frozen when the decision is made and the links go when old market data is
      cleaned up. That is tidying, not a bot that saw less than it claimed. */
-  const tidied = detail != null && detail.market_data_ids.length < detail.market_data_count;
+  const seenIds = marketDataIds(detail);
+  const tidied = idsTidied(detail);
+  const outcome = outcomeEntries(detail);
 
   const rowProps = (id: number) => ({
     role: "button" as const,
@@ -158,7 +171,7 @@ const DecisionsFeed = ({ api, bot, trade, pageSize = 5, empty, refreshKey }: Pro
   return (
     <>
       {/* The filter only earns its place once there is enough to sift. */}
-      {(count > pageSize * 2 || kind !== "all") && (
+      {(count > pageSize * 2 || kind !== "all" || risk !== "all") && (
         <div className="fx-tfilter" style={{ marginBottom: 12 }}>
           {FILTERS.map((f) => (
             <button
@@ -166,6 +179,20 @@ const DecisionsFeed = ({ api, bot, trade, pageSize = 5, empty, refreshKey }: Pro
               type="button"
               className={`fx-mini ${kind === f.value ? "go" : ""}`}
               onClick={() => setKind(f.value)}
+            >
+              {f.label}
+            </button>
+          ))}
+          {/* The bot's own rating, not ours — so it sifts, it does not rank. */}
+          <span className="fx-src" style={{ margin: "0 2px 0 6px" }}>
+            |
+          </span>
+          {RISK_FILTERS.map((f) => (
+            <button
+              key={f.value}
+              type="button"
+              className={`fx-mini ${risk === f.value ? "go" : ""}`}
+              onClick={() => setRisk(f.value)}
             >
               {f.label}
             </button>
@@ -195,10 +222,10 @@ const DecisionsFeed = ({ api, bot, trade, pageSize = 5, empty, refreshKey }: Pro
 
       {!failed && loaded && rows.length === 0 && (
         <div className="fx-flat2" style={{ marginTop: 0 }}>
-          {kind !== "all" ? (
+          {kind !== "all" || risk !== "all" ? (
             <>
-              <b>No {decisionMeta(kind).label.toLowerCase()} decisions.</b> A bot that only ever
-              holds still has its answers recorded — try another filter.
+              <b>Nothing matches that filter.</b> A bot that only ever holds still has its
+              answers recorded, and risk is whatever the bot itself rated — try widening it.
             </>
           ) : (
             (empty ?? (
@@ -237,6 +264,7 @@ const DecisionsFeed = ({ api, bot, trade, pageSize = 5, empty, refreshKey }: Pro
                   <p>
                     {d.bot_name} saw {d.candles_seen} candle{d.candles_seen === 1 ? "" : "s"}
                     {d.confidence != null && <> · {confidenceLabel(d.confidence)} confident</>}
+                    {riskMeta(d.risk) && <> · {riskMeta(d.risk)!.label.toLowerCase()}</>}
                     {d.saw_stale_data && (
                       <>
                         {" · "}
@@ -331,6 +359,23 @@ const DecisionsFeed = ({ api, bot, trade, pageSize = 5, empty, refreshKey }: Pro
                 <span>Candles seen</span>
                 <b>{detail.candles_seen}</b>
               </div>
+              {/* The bot's OWN rating — labelled as its word, not a verdict
+                  Candleweb reached. */}
+              <div className="fx-hz">
+                <span>Bot rated risk</span>
+                <b className={detail.risk == null ? "mut2" : undefined}>
+                  {riskMeta(detail.risk)?.label ?? "—"}
+                </b>
+              </div>
+              {/* The price it QUOTED when deciding. Not a fill: an order may
+                  never have been placed, and one that was filled at whatever
+                  the venue gave. */}
+              <div className="fx-hz">
+                <span>Price when decided</span>
+                <b className={entryPriceLabel(detail) === "—" ? "mut2" : undefined}>
+                  {entryPriceLabel(detail)}
+                </b>
+              </div>
             </div>
 
             {detail.think_time_seconds == null && (
@@ -361,32 +406,59 @@ const DecisionsFeed = ({ api, bot, trade, pageSize = 5, empty, refreshKey }: Pro
               )}
             </div>
 
-            {/* <div style={{ marginTop: 18 }}>
+            {/* What the gate did with it. The field is an OPEN map — its keys
+                are named nowhere in the schema — so this renders whatever
+                arrived rather than a fixed fill/stop/fee row. Inventing those
+                key names is how a confident wrong number gets on screen. */}
+            <div style={{ marginTop: 18 }}>
+              <div className="fx-sh">
+                <h2>What happened next</h2>
+              </div>
+              {outcome.length > 0 ? (
+                <dl className="fx-outc">
+                  {outcome.map((o) => (
+                    <Fragment key={o.key}>
+                      <dt>{o.label}</dt>
+                      <dd>{o.value}</dd>
+                    </Fragment>
+                  ))}
+                </dl>
+              ) : detail.decision === "HOLD" ? (
+                <p className="fx-hint" style={{ marginTop: 0 }}>
+                  Nothing — a hold never reaches the exchange. That is the decision working, not
+                  a missing record.
+                </p>
+              ) : (
+                <p className="fx-hint" style={{ marginTop: 0 }}>
+                  This decision has no recorded outcome. Either the gate rejected it before an
+                  order was placed, or nothing was written back.
+                </p>
+              )}
+            </div>
+
+            <div style={{ marginTop: 18 }}>
               <div className="fx-sh">
                 <h2>
-                  Candle records it looked at{" "}
-                  <span className="sub2">{detail.market_data_ids.length}</span>
+                  Candle records it looked at <span className="sub2">{seenIds.length}</span>
                 </h2>
               </div>
               <p className="fx-hint" style={{ marginTop: 0 }}>
                 {tidied ? (
                   <>
                     This decision was made against <b>{detail.market_data_count}</b> stored records;{" "}
-                    <b>{detail.market_data_ids.length}</b> are still linked. Some candle records
-                    have since been cleaned up — the bot did see all {detail.market_data_count}.
+                    <b>{seenIds.length}</b> are still linked. Some have since been cleaned up — the
+                    bot did see all {detail.market_data_count}.
                   </>
                 ) : (
                   <>
-                    Oldest first. These are the stored rows behind the{" "}
-                    <b>{detail.candles_seen}</b> candles at this trade&rsquo;s timeframe, which is
-                    why there can be more of them than candles.
+                    Oldest first. These are the stored rows behind the <b>{detail.candles_seen}</b>{" "}
+                    candles at this trade&rsquo;s timeframe, which is why there can be more of them
+                    than candles.
                   </>
                 )}
               </p>
-              {detail.market_data_ids.length > 0 && (
-                <pre className="fx-pre">{detail.market_data_ids.join(", ")}</pre>
-              )}
-            </div> */}
+              {seenIds.length > 0 && <pre className="fx-pre">{seenIds.join(", ")}</pre>}
+            </div>
           </>
         )}
       </Dialog>

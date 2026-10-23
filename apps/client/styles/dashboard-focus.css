@@ -9320,3 +9320,50 @@ button.fx-pay9:disabled {
     animation: none;
   }
 }
+
+/* ---- decision risk + outcome ---------------------------------------------
+   `.fx-st4` had live4/pause4/fail4 only; a bot's MEDIUM risk rating is
+   neither good nor bad, so it needs the amber the chips already use. Without
+   this the badge rendered with a bare 1px border and no colour at all. */
+.fx-st4.warn4 {
+  color: var(--fx-amber2);
+  border-color: rgba(255, 194, 77, 0.45);
+  background: rgba(255, 194, 77, 0.09);
+}
+
+/* The gate's record under a decision. Keys are NOT known ahead of time — the
+   field is an open map — so this is a definition list that grows to whatever
+   arrived, never a fixed row of named slots. */
+.fx-outc {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 7px 14px;
+  margin-top: 10px;
+  font-family: var(--fx-mono);
+  font-size: 11.5px;
+}
+.fx-outc dt {
+  color: var(--fx-t3);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.fx-outc dd {
+  margin: 0;
+  color: var(--fx-t1);
+  overflow-wrap: anywhere;
+}
+/* Inline form for the log row's outcome column, where there is room for a
+   couple of pairs and no more. */
+.fx-outinline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 8px;
+  font-family: var(--fx-mono);
+  font-size: 11px;
+  color: var(--fx-t3);
+}
+.fx-outinline b {
+  color: var(--fx-t1);
+  font-weight: 500;
+}

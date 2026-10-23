@@ -35,6 +35,7 @@ import {
   whenLabel,
 } from "../../../../lib/botHealthV2";
 import useBotPnl from "../../../../lib/hooks/useBotPnl";
+import useBotDecisionStats from "../../../../lib/hooks/useBotDecisionStats";
 import {
   DEFAULT_WINDOW_DAYS,
   signedMoney,
@@ -46,12 +47,19 @@ import { BotHealthV2 } from "../../../../types/tradingV2";
 /* The rich per-bot view. Live: the bot's own config, the trades that point
    at it, its reliability record (`GET /bots/<id>/health/`) and the decisions
    it has made (`GET /decisions/?bot=`). Still DESIGN ONLY behind a
-   `.fx-preview` ribbon: PnL and open-position state, which have no endpoint
-   (DASHBOARD_ENDPOINTS.md §1.4 / §1.21).
+   `.fx-preview` ribbon: open-position state, which has no endpoint
+   (DASHBOARD_ENDPOINTS.md §1.21). PnL is live, summed per position group
+   from `/trades/{id}/metrics/`, and review readiness is driven by
+   `/decisions/?bot=<id>`.
 
    The health block's one rule: a field named in `health.unavailable` has no
    measurement yet and renders as "Not measured yet" — never as 0, and never
    as a green 100%. A bot nobody has called has not proved anything. */
+
+/* The design's meter is 20 segments wide, and 20 answers against one prompt
+   is also about where a review stops being noise — so the segment count and
+   the threshold are the same number on purpose. */
+const REVIEW_AT = 20;
 
 const BotDetailPage = () => {
   const router = useRouter();
@@ -125,6 +133,12 @@ const BotDetailPage = () => {
   const { forBot: pnlForBot, asked: pnlAsked } = useBotPnl(axiosToken, trades);
   const pnl = valid ? pnlForBot(id as number) : null;
 
+  /* How much this bot has decided — `GET /decisions/?bot=<id>`. `updated_at`
+     is the closest thing to "when the prompt last changed": the bot record
+     carries no `prompt_updated_at`, and ANY edit moves it, so the meter below
+     says "last edited" rather than claiming to know the prompt changed. */
+  const decisions = useBotDecisionStats(axiosToken, valid ? (id as number) : null, bot?.updated_at);
+
   const toggleRun = async () => {
     if (!bot) return;
     setBusy(true);
@@ -149,6 +163,20 @@ const BotDetailPage = () => {
     !health || isUnavailable(health.unavailable, "days_without_failure")
       ? { value: null, caption: NOT_MEASURED }
       : failureStreakParts(health.days_without_failure, health.last_failure_at);
+  /* Milestones count CLOSED trades. `pnl.closed` is the weighted total the
+     per-trade metrics reported across this bot's position groups, and it is
+     null unless every group supplied one — a partial count would mark a
+     milestone reached on half the evidence. */
+  const closedSoFar = pnl?.closed ?? 0;
+  const closedKnown = pnl?.closed != null;
+  const reached = (n: number) => closedKnown && closedSoFar >= n;
+  const milestoneNote = (n: number) => {
+    if (!closedKnown) return pnlAsked ? "Needs a closed count per pair" : "Reading…";
+    if (closedSoFar >= n) return "Reached";
+    const left = n - closedSoFar;
+    return `${left.toLocaleString()} closed trade${left === 1 ? "" : "s"} to go`;
+  };
+
   const bars = dailyReplyBars(health?.daily_replies);
   const dots = recentReplyDots(health?.daily_replies);
 
@@ -317,16 +345,18 @@ const BotDetailPage = () => {
             </div>
             <p className="fx-hint" style={{ marginTop: "10px" }}>
               <span className="fx-preview">
-                <i>◔</i> <b className="fx-kase">PnL</b> and open positions land when the backend exposes them
+                <i>◔</i> Open positions need an endpoint
               </span>
 
               . Answered <b>{health ? health.decisions_total.toLocaleString() : "—"}</b> times in
               all, <b>{health ? health.decisions_7d.toLocaleString() : "—"}</b> this week.
             </p>
 
-            {/* review readiness — the design's trade-count meter, streaks and
-                milestone checklist all need bot decision history (§1.5) that
-                doesn't exist yet. Only "Prompt stored" is real today. */}
+            {/* review readiness. The meter counts DECISIONS, not trades: the
+                decisions list is what exists per bot, and a decision is not a
+                trade — a HOLD places nothing. The milestones count CLOSED
+                trades, which come from the per-trade metrics already summed
+                into `pnl`. Both are labelled as what they actually count. */}
             <section
               className="fx-mom rv d2"
               style={{ marginTop: "clamp(26px,3.2vw,36px)", paddingTop: 24 }}
@@ -335,25 +365,54 @@ const BotDetailPage = () => {
                 <h2>
                   Review readiness <span className="sub2">on the current prompt</span>
                 </h2>
-                <span className="fx-preview">
-                  <i>◔</i> Needs bot decision history
-                </span>
+                {decisions.failed && (
+                  <span className="fx-preview">
+                    <i>◔</i> Couldn&rsquo;t read decisions
+                  </span>
+                )}
               </div>
               <div className="fx-momgrid">
                 <div>
                   <div className="fx-meter">
                     <div className="fx-mh">
-                      <b>Trades since the prompt last changed</b>
-                      <span>—</span>
+                      <b>Decisions since this bot was last edited</b>
+                      <span className={decisions.sinceCount == null ? "mut3" : undefined}>
+                        {decisions.sinceCount == null
+                          ? decisions.asked
+                            ? "—"
+                            : "reading…"
+                          : `${decisions.sinceCount}${decisions.sinceCapped ? "+" : ""} of ${REVIEW_AT}`}
+                      </span>
                     </div>
                     <div className="fx-seg">
-                      {Array.from({ length: 20 }).map((_, i) => (
-                        <i key={i} />
-                      ))}
+                      {Array.from({ length: REVIEW_AT }).map((_, i) => {
+                        const done = decisions.sinceCount ?? 0;
+                        return <i key={i} className={i < done ? "f" : i === done ? "nx" : ""} />;
+                      })}
                     </div>
                     <p className="fx-mnote">
-                      Counting trades against the current prompt needs closed-trade history, which
-                      is not available yet.
+                      {decisions.sinceCount == null ? (
+                        decisions.failed ? (
+                          "Couldn't read this bot's decisions just now."
+                        ) : (
+                          "Counting what this bot has answered since its last edit."
+                        )
+                      ) : (
+                        <>
+                          A review reads best on at least <b>{REVIEW_AT}</b> answers against the
+                          same prompt. This counts decisions, not trades — a <code>HOLD</code> is
+                          an answer but places nothing. The bot record has no
+                          &ldquo;prompt changed&rdquo; stamp, so this runs from the last time
+                          <em> anything</em> on the bot was edited.
+                          {decisions.total != null && (
+                            <>
+                              {" "}
+                              It has answered <b>{decisions.total.toLocaleString()}</b> times in
+                              all.
+                            </>
+                          )}
+                        </>
+                      )}
                     </p>
                   </div>
                   <div className="fx-streaks2">
@@ -411,8 +470,15 @@ const BotDetailPage = () => {
                   <div className="fx-unlock">
                     <h4>This bot&rsquo;s milestones</h4>
                     <p className="us">
-                      Each one opens something real. The counts need closed-trade history, which is
-                      not available yet.
+                      {closedKnown ? (
+                        <>
+                          Each one opens something real. <b>{closedSoFar.toLocaleString()}</b>{" "}
+                          closed trade{closedSoFar === 1 ? "" : "s"} so far
+                          {pnl?.shared ? ", including pairs shared with another decider" : ""}.
+                        </>
+                      ) : (
+                        "Each one opens something real. The closed-trade counts arrive with this bot's per-trade metrics."
+                      )}
                     </p>
                     <div className={`fx-ul ${bot.prompt ? "got3" : ""}`}>
                       <i>{bot.prompt ? "✓" : "1"}</i>
@@ -421,16 +487,18 @@ const BotDetailPage = () => {
                         <span>{bot.prompt ? "Review can read it" : "Add one from settings"}</span>
                       </div>
                     </div>
-                    <div className="fx-ul">
-                      <i>2</i>
+                    <div className={`fx-ul ${reached(1) ? "got3" : ""}`}>
+                      <i>{reached(1) ? "✓" : "2"}</i>
                       <div>
                         <b>First trade closed</b>
+                        <span>{milestoneNote(1)}</span>
                       </div>
                     </div>
-                    <div className="fx-ul">
-                      <i>3</i>
+                    <div className={`fx-ul ${reached(100) ? "got3" : ""}`}>
+                      <i>{reached(100) ? "✓" : "3"}</i>
                       <div>
                         <b>100 trades</b>
+                        <span>{milestoneNote(100)}</span>
                       </div>
                     </div>
                     <div className="fx-ul">
@@ -440,10 +508,10 @@ const BotDetailPage = () => {
                       </div>
                     </div>
                     <div className="fx-ul">
-                      <i>&#128274;</i>
+                      <i>{reached(250) ? "✓" : "🔒"}</i>
                       <div>
                         <b>Shareable record</b>
-                        <span>At 250 closed trades</span>
+                        <span>{reached(250) ? "Unlocked" : milestoneNote(250)}</span>
                       </div>
                     </div>
                   </div>

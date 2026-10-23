@@ -140,6 +140,11 @@ export interface TradeV2Payload {
 
 export type BotDecisionV2Action = "BUY" | "SELL" | "HOLD";
 
+/** The bot's OWN rating of a decision, and a `?risk=` filter on the list.
+ *  Self-reported: Candleweb does not score this, so it says what the bot
+ *  thought, not whether the trade was actually risky. */
+export type BotDecisionV2Risk = "LOW" | "MEDIUM" | "HIGH";
+
 export interface BotDecisionV2 {
   id: number;
   trade: number;
@@ -150,8 +155,23 @@ export interface BotDecisionV2 {
   decision: BotDecisionV2Action;
   /** 0–100, or null — a bot doesn't have to send one. */
   confidence: number | null;
+  /** The bot's own risk rating. Optional — a bot need not send one. */
+  risk: BotDecisionV2Risk | null;
   /** Free text written by the user's own bot. Can be empty. */
   rationale: string;
+  /** The price the bot quoted when it decided, as a decimal string. This is
+   * NOT a fill: an order may never have been placed, and one that was filled
+   * at whatever the venue gave. */
+  entry_price: string | number | null;
+  /**
+   * "The gate's verdict, the order it placed, and the position it became."
+   *
+   * Documented as `additionalProperties` — an OPEN map whose keys are named
+   * nowhere in the schema. Nothing may assume a key exists; `outcomeEntries`
+   * renders whatever actually arrives, so a shape change cannot put a wrong
+   * number on screen. (§3.M13)
+   */
+  outcome: Record<string, unknown> | null;
   /** Candles at the trade's timeframe — this is the number to show users. */
   candles_seen: number;
   /** Stored rows behind those candles. Larger than `candles_seen` above 1m;
@@ -173,7 +193,10 @@ export interface BotDecisionV2 {
  * links go when old market data is cleaned up. That is tidying, not a bot
  * that saw less than it claimed. */
 export interface BotDecisionV2Detail extends BotDecisionV2 {
-  market_data_ids: number[];
+  /** Typed loosely on purpose: the prose calls it a list, oldest first, while
+   * the schema renders it as a string. `marketDataIds` accepts either and is
+   * the only place that has to care. */
+  market_data_ids: number[] | string | null;
 }
 
 /** GET /decisions/ — filters. All optional. */
@@ -181,6 +204,7 @@ export interface BotDecisionsV2Query {
   bot?: number;
   trade?: number;
   decision?: BotDecisionV2Action;
+  risk?: BotDecisionV2Risk;
   /** default 25, max 100 */
   limit?: number;
   offset?: number;

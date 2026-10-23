@@ -1,5 +1,5 @@
 import { AxiosInstance } from "axios";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import Dialog from "./Dialog";
 import tradingV2Service from "../../../services/tradingV2Service";
 import { error } from "../../alert/Toast";
@@ -8,6 +8,13 @@ import {
   secondsLabel,
   whenLabel,
 } from "../../../lib/botHealthV2";
+import {
+  entryPriceLabel,
+  idsTidied,
+  marketDataIds,
+  outcomeEntries,
+  riskMeta,
+} from "../../../lib/botDecisionsV2";
 import { BotDecisionV2, BotDecisionV2Detail } from "../../../types/tradingV2";
 
 /**
@@ -21,11 +28,13 @@ import { BotDecisionV2, BotDecisionV2Detail } from "../../../types/tradingV2";
  *
  *  - the time, the call, the confidence and the rationale all come from the
  *    decision itself.
- *  - the **order** line does not. The design prints a fill, a stop and a fee
- *    under each decision; that lives in `outcome` on `GET /decisions/{id}/`,
- *    which is detail-only and documented as `additionalProperties: {}` — an
- *    undocumented shape. Until it is documented (P3 §3.M13) every row says
- *    what it actually knows instead.
+ *  - the **order** line comes from `outcome`, which the list row carries too
+ *    (the detail endpoint is "everything the list gives, plus
+ *    `market_data_ids`"). The design prints a named fill, stop and fee; the
+ *    field is an OPEN map whose keys are named nowhere in the schema, so the
+ *    row renders the pairs that actually arrived rather than three invented
+ *    key names. A shape change then shows different labels, not a wrong
+ *    number under the right one. (§3.M13)
  *  - a **HOLD** is the exception: a hold places nothing by definition, so
  *    those rows carry the design's own sentence, which is simply true.
  *
@@ -59,9 +68,7 @@ const logStamp = (iso: string) => {
   return `${d.toLocaleDateString([], { day: "numeric", month: "short" })} ${time}`;
 };
 
-/* The design's row tone and badge per call. `skip3` / `x3` is the gate's
-   "Rejected", which needs `outcome` — nothing renders it yet, but the mapping
-   is here so it is one line when that lands. */
+/* The design's row tone and badge per call. */
 const CALL = {
   BUY: { row: "buy3", badge: "b3", label: "Buy" },
   SELL: { row: "sell3", badge: "s4", label: "Sell" },
@@ -197,12 +204,22 @@ const TradeDecisionLog = ({ api, trade, pageSize = 6, refreshKey }: Props) => {
           <div className="fx-dlog">
             {rows.map((d) => {
               const call = callOf(d.decision);
+              const out = outcomeEntries(d);
+              const rm = riskMeta(d.risk);
               return (
                 <div key={d.id} className={`fx-de pick9 ${call.row}`} {...rowProps(d.id)}>
                   <div className="fx-deh">
                     <span className="tt2">{logStamp(d.decided_at)}</span>
                     <span className={`fx-act2 ${call.badge}`}>{call.label}</span>
                     <ConfidenceDots confidence={d.confidence} />
+                    {rm && (
+                      <span
+                        className={`fx-st4 ${rm.cls}`}
+                        title="The bot's own rating of this decision — not Candleweb's assessment."
+                      >
+                        {rm.label}
+                      </span>
+                    )}
                     {/* `.fx-deout` is the design's outcome column — what the
                         order did. It needs `outcome`; stale data is the one
                         thing we DO know here and is worth the same slot. */}
@@ -219,25 +236,41 @@ const TradeDecisionLog = ({ api, trade, pageSize = 6, refreshKey }: Props) => {
 
                   {d.rationale && <div className="fx-why2">{d.rationale}</div>}
 
-                  {d.decision === "HOLD" ? (
+                  {d.decision === "HOLD" && out.length === 0 ? (
                     <div className="fx-noorder">
                       No order placed — hold decisions never reach the exchange.
                     </div>
                   ) : (
-                    <div className="fx-order2">
-                      <span>
-                        Saw{" "}
-                        <b>
-                          {d.candles_seen} candle{d.candles_seen === 1 ? "" : "s"}
-                        </b>
-                      </span>
-                      <span>
-                        Answered in <b>{secondsLabel(d.think_time_seconds)}</b>
-                      </span>
-                      <span>
-                        On <b>{d.timeframe}</b>
-                      </span>
-                    </div>
+                    <>
+                      <div className="fx-order2">
+                        <span>
+                          Saw{" "}
+                          <b>
+                            {d.candles_seen} candle{d.candles_seen === 1 ? "" : "s"}
+                          </b>
+                        </span>
+                        <span>
+                          Answered in <b>{secondsLabel(d.think_time_seconds)}</b>
+                        </span>
+                        <span>
+                          On <b>{d.timeframe}</b>
+                        </span>
+                        <span>
+                          At <b>{entryPriceLabel(d)}</b>
+                        </span>
+                      </div>
+                      {/* The gate's record. Keys are whatever the backend
+                          sent — see the note at the top of this file. */}
+                      {out.length > 0 && (
+                        <div className="fx-outinline">
+                          {out.map((o) => (
+                            <span key={o.key}>
+                              {o.label} <b>{o.value}</b>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               );
@@ -313,6 +346,18 @@ const TradeDecisionLog = ({ api, trade, pageSize = 6, refreshKey }: Props) => {
                 <span>Candles seen</span>
                 <b>{detail.candles_seen}</b>
               </div>
+              <div className="fx-hz">
+                <span>Bot rated risk</span>
+                <b className={detail.risk == null ? "mut2" : undefined}>
+                  {riskMeta(detail.risk)?.label ?? "—"}
+                </b>
+              </div>
+              <div className="fx-hz">
+                <span>Price when decided</span>
+                <b className={entryPriceLabel(detail) === "—" ? "mut2" : undefined}>
+                  {entryPriceLabel(detail)}
+                </b>
+              </div>
             </div>
 
             {detail.think_time_seconds == null && (
@@ -340,6 +385,59 @@ const TradeDecisionLog = ({ api, trade, pageSize = 6, refreshKey }: Props) => {
                   This bot sent no rationale. It does not have to — but a sentence here is what
                   makes a decision reviewable later.
                 </p>
+              )}
+            </div>
+
+            <div style={{ marginTop: 18 }}>
+              <div className="fx-sh">
+                <h2>What happened next</h2>
+              </div>
+              {outcomeEntries(detail).length > 0 ? (
+                <dl className="fx-outc">
+                  {outcomeEntries(detail).map((o) => (
+                    <Fragment key={o.key}>
+                      <dt>{o.label}</dt>
+                      <dd>{o.value}</dd>
+                    </Fragment>
+                  ))}
+                </dl>
+              ) : detail.decision === "HOLD" ? (
+                <p className="fx-hint" style={{ marginTop: 0 }}>
+                  Nothing — a hold never reaches the exchange. That is the decision working, not
+                  a missing record.
+                </p>
+              ) : (
+                <p className="fx-hint" style={{ marginTop: 0 }}>
+                  This decision has no recorded outcome. Either the gate rejected it before an
+                  order was placed, or nothing was written back.
+                </p>
+              )}
+            </div>
+
+            <div style={{ marginTop: 18 }}>
+              <div className="fx-sh">
+                <h2>
+                  Candle records it looked at{" "}
+                  <span className="sub2">{marketDataIds(detail).length}</span>
+                </h2>
+              </div>
+              <p className="fx-hint" style={{ marginTop: 0 }}>
+                {idsTidied(detail) ? (
+                  <>
+                    Made against <b>{detail.market_data_count}</b> stored records;{" "}
+                    <b>{marketDataIds(detail).length}</b> are still linked. Some have since been
+                    cleaned up — the bot did see all {detail.market_data_count}.
+                  </>
+                ) : (
+                  <>
+                    Oldest first — the stored rows behind the <b>{detail.candles_seen}</b> candles
+                    at this trade&rsquo;s timeframe, which is why there can be more of them than
+                    candles.
+                  </>
+                )}
+              </p>
+              {marketDataIds(detail).length > 0 && (
+                <pre className="fx-pre">{marketDataIds(detail).join(", ")}</pre>
               )}
             </div>
           </>

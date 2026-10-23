@@ -433,6 +433,7 @@ const listDecisions = async (
   if (query.bot != null) params.bot = query.bot;
   if (query.trade != null) params.trade = query.trade;
   if (query.decision) params.decision = query.decision;
+  if (query.risk) params.risk = query.risk;
   if (query.limit != null) params.limit = query.limit;
   if (query.offset != null) params.offset = query.offset;
   try {
