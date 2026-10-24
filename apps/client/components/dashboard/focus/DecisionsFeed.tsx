@@ -421,7 +421,7 @@ const DecisionsFeed = ({ api, bot, trade, pageSize = 5, empty, refreshKey }: Pro
               )}
             </div>
 
-            <div style={{ marginTop: 18 }}>
+            {/* <div style={{ marginTop: 18 }}>
               <div className="fx-sh">
                 <h2>
                   Candle records it looked at <span className="sub2">{seenIds.length}</span>
@@ -443,7 +443,7 @@ const DecisionsFeed = ({ api, bot, trade, pageSize = 5, empty, refreshKey }: Pro
                 )}
               </p>
               {seenIds.length > 0 && <pre className="fx-pre">{seenIds.join(", ")}</pre>}
-            </div>
+            </div> */}
           </>
         )}
       </Dialog>

@@ -558,7 +558,7 @@ const DashboardPage = () => {
                     >
                       {pctLabel(drawdownPct)}
                     </b>
-                    <i>peak to trough</i>
+                    {/* <i>peak to trough</i> */}
                   </div>
 
                   {/* `at_risk_now` counts only stops ARMED on the venue, so a
@@ -568,7 +568,7 @@ const DashboardPage = () => {
                     <span>At risk now</span>
                     <b className={atRisk.read.available && atRisk.read.value != null ? "" : "mut2"}>
                       {atRiskShare.available && atRiskShare.value != null
-                        ? pctLabel(atRiskShare.value)
+                        ? `${Math.abs(atRiskShare.value).toFixed(2)}%`
                         : atRisk.label}
                     </b>
                     <i>

@@ -403,7 +403,7 @@ const TradeDecisionLog = ({ api, trade, pageSize = 6, refreshKey }: Props) => {
               )}
             </div>
 
-            <div style={{ marginTop: 18 }}>
+            {/* <div style={{ marginTop: 18 }}>
               <div className="fx-sh">
                 <h2>
                   Candle records it looked at{" "}
@@ -428,7 +428,7 @@ const TradeDecisionLog = ({ api, trade, pageSize = 6, refreshKey }: Props) => {
               {marketDataIds(detail).length > 0 && (
                 <pre className="fx-pre">{marketDataIds(detail).join(", ")}</pre>
               )}
-            </div>
+            </div> */}
           </>
         )}
       </Dialog>
