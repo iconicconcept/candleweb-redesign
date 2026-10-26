@@ -47,6 +47,7 @@ import {
   openPositionCount,
   pctLabel,
   plainMoney,
+  pnlCellParts,
   realisedPct,
   realisedPnl,
   riskNowParts,
@@ -158,10 +159,14 @@ const DashboardPage = () => {
      `unavailable`: a field named there renders the backend's own reason and
      never a zero — `account_equity`, `change_today` and `max_drawdown` are in
      it on every response today. */
-  const equity = metricRead(metrics, "account_equity", metricNum(metrics?.account_equity));
+    const equity = metricRead(metrics, "account_equity", metricNum(metrics?.account_equity));
   const changeToday = metricRead(metrics, "change_today", metricNum(metrics?.change_today));
   const changePct = metricRead(metrics, CHANGE_TODAY_PCT_FIELDS, changeTodayPct(metrics));
-  const drawdown = metricRead(metrics, "max_drawdown", metricNum(metrics?.max_drawdown));
+  const drawdown = metricRead(
+    metrics,
+    ["max_drawdown_pct", "max_drawdown"],
+    metricNum(metrics?.max_drawdown_pct),
+  );
   const openPnl = metricRead(metrics, UNREALISED_FIELDS, unrealisedPnl(metrics));
   const realisedAmt = metricRead(metrics, REALISED_FIELDS, realisedPnl(metrics));
   const realised = metricRead(metrics, REALISED_PCT_FIELDS, realisedPct(metrics));
@@ -170,14 +175,42 @@ const DashboardPage = () => {
   const closed = closedCount(metrics);
   const openPositions = openPositionCount(metrics);
 
-  /* The hero reads as the design draws it: every cell carries a figure, so an
-     unmeasured `change_today` or `max_drawdown` shows 0 rather than a dash and
-     a paragraph. The endpoint's own guidance is the opposite — "Show the
-     reason, not a zero" — because a real 0.00% and "no snapshots yet" are
-     different states and this collapses them. The reason is kept on the
-     element's `title` so it is still reachable on hover rather than lost. */
-  const todayMoney = changeToday.available && changeToday.value != null ? changeToday.value : 0;
-  const drawdownPct = drawdown.available && drawdown.value != null ? drawdown.value : 0;
+  /* A figure the backend could not measure is null here, never 0: a real
+     0.00% and "not measured" are different states. The reason stays on the
+     element's `title`. */
+  const todayMoney = changeToday.available ? changeToday.value : null;
+  const todayPct = changePct.available ? changePct.value : null;
+  const drawdownPct = drawdown.available ? drawdown.value : null;
+  const realisedPctVal = realised.available ? realised.value : null;
+
+  /* Zero is only honest when nothing is exposed AND nothing is unprotected:
+     an unprotected position adds nothing to the figure, so it stays unknown. */
+  const atRiskAmt = atRisk.read.available ? atRisk.read.value : null;
+  const nothingAtRisk = atRiskAmt === 0 && atRisk.unprotected === 0;
+  const atRiskPctVal =
+    atRiskShare.available && atRiskShare.value != null
+      ? atRiskShare.value
+      : nothingAtRisk
+        ? 0
+        : null;
+
+  const ddRange = (() => {
+    const a = metrics?.max_drawdown_peak_at;
+    const b = metrics?.max_drawdown_trough_at;
+    if (!a || !b) return null;
+    const pa = new Date(a);
+    const pb = new Date(b);
+    const day = (d: Date) => d.toLocaleDateString("en-US", { day: "numeric", month: "short" });
+    if (day(pa) === day(pb)) {
+      const h = Math.max(1, Math.round((pb.getTime() - pa.getTime()) / 3600000));
+      return `${day(pa)} · ${h}h`;
+    }
+    return `${day(pa)}–${day(pb)}`;
+  })();
+
+  const curveRead = metricRead(metrics, "equity_curve", null);
+  const heroPath =
+    (curveRead.available ? equityCurvePath(metrics?.equity_curve) : null) ?? HERO_PATH;
 
   const totalBalance = useMemo(
     () =>
@@ -446,7 +479,7 @@ const DashboardPage = () => {
               </div>
 
               <div className="fx-hero-chart">
-                <HeroChart path={HERO_PATH} />
+                <HeroChart path={heroPath} />
               </div>
 
               <div className="fx-hero-in">
@@ -475,13 +508,14 @@ const DashboardPage = () => {
                     own sentence. `.fx-delta` carries its own 15px top margin,
                     so only the fallback needs a wrapper. */}
                 <span
-                  className={`fx-delta ${todayMoney < 0 ? "dn2" : ""}`}
+                  className={`fx-delta ${todayMoney != null && todayMoney < 0 ? "dn2" : ""}`}
                   title={changeToday.available ? undefined : changeToday.reason}
                 >
-                  {todayMoney < 0 ? "↘" : "↗"} {signedMoney(todayMoney)} today
-                  {changePct.available && changePct.value != null
-                    ? ` · ${pctLabel(changePct.value)}`
-                    : ""}
+                  {todayMoney == null
+                    ? "today's change not provided"
+                    : `${todayMoney < 0 ? "↘" : "↗"} ${signedMoney(todayMoney)} today${
+                        todayPct != null ? ` · ${pctLabel(todayPct)}` : ""
+                      }`}
                 </span>
 
                 {/* The design's four: Open PnL, Realised · 30d, Max drawdown,
@@ -520,67 +554,59 @@ const DashboardPage = () => {
                     </i>
                   </div>
 
-                  {/* Percentage leads, as in the design; the money becomes the
-                      caption when there is no closed count to put there. */}
+                  {/* Realised · 30d — percentage only. No percentage, no figure. */}
                   <div className="fx-ss">
                     <span>Realised · {DEFAULT_WINDOW_DAYS}d</span>
                     <b
-                      className={toneClass(
-                        realised.available && realised.value != null
-                          ? realised.value
-                          : realisedAmt.available
-                            ? realisedAmt.value
-                            : null,
-                        "up3",
-                        "dn3",
-                      )}
+                      className={realisedPctVal != null ? toneClass(realisedPctVal, "up3", "dn3") : "mut2"}
+                      title={realisedPctVal != null ? undefined : realised.reason}
                     >
-                      {realised.available && realised.value != null
-                        ? pctLabel(realised.value)
-                        : realisedAmt.available && realisedAmt.value != null
-                          ? signedMoney(realisedAmt.value)
-                          : "—"}
+                      {realisedPctVal != null ? pctLabel(realisedPctVal) : "—"}
                     </b>
                     <i>
-                      {closed != null
-                        ? `${closed.toLocaleString()} closed`
-                        : realisedAmt.available && realisedAmt.value != null
-                          ? signedMoney(realisedAmt.value)
-                          : "from fills"}
+                      {realisedPctVal == null
+                        ? (closed === 0 ? "no closed trades" : "not provided")
+                        : closed != null
+                          ? `${closed.toLocaleString()} closed`
+                          : realisedAmt.available && realisedAmt.value != null
+                            ? signedMoney(realisedAmt.value)
+                            : "from fills"}
                     </i>
                   </div>
 
                   <div className="fx-ss">
                     <span>Max drawdown</span>
                     <b
-                      className={drawdownPct < 0 ? "dn3" : "mut2"}
+                      className={drawdownPct != null && drawdownPct < 0 ? "dn3" : "mut2"}
                       title={drawdown.available ? undefined : drawdown.reason}
                     >
-                      {pctLabel(drawdownPct)}
+                      {drawdownPct != null ? pctLabel(drawdownPct) : "—"}
                     </b>
-                    {/* <i>peak to trough</i> */}
+                    <i>{drawdownPct == null ? "not provided" : ddRange ?? "peak to trough"}</i>
                   </div>
-
-                  {/* `at_risk_now` counts only stops ARMED on the venue, so a
-                      position with no stop adds nothing. The unprotected count
-                      travels with it everywhere — see `riskNowParts`. */}
+                  {/* `at_risk_now` counts only stops ARMED on the venue, so a position with
+                      no stop adds nothing. The percentage is the backend's own figure and is
+                      never derived here. With no percentage, the cell says so rather than
+                      showing a dollar fallback. */}
                   <div className="fx-ss">
                     <span>At risk now</span>
-                    <b className={atRisk.read.available && atRisk.read.value != null ? "" : "mut2"}>
-                      {atRiskShare.available && atRiskShare.value != null
-                        ? `${Math.abs(atRiskShare.value).toFixed(2)}%`
-                        : atRisk.label}
+                    <b
+                      className={atRiskPctVal != null ? "" : "mut2"}
+                      title={atRiskPctVal != null ? undefined : atRiskShare.reason}
+                    >
+                      {atRiskPctVal != null ? `${Math.abs(atRiskPctVal).toFixed(2)}%` : "—"}
                     </b>
                     <i>
-                      {atRiskShare.available &&
-                      atRiskShare.value != null &&
-                      atRisk.read.value != null
-                        ? `≈ ${plainMoney(atRisk.read.value)}`
-                        : atRisk.unprotected != null && atRisk.unprotected > 0
-                          ? `${atRisk.unprotected} unprotected`
+                      {atRiskPctVal == null
+                        ? atRisk.unprotected != null && atRisk.unprotected > 0
+                          ? `not provided · ${atRisk.unprotected} unprotected`
+                          : "not provided"
+                        : atRiskAmt != null
+                          ? `≈ ${plainMoney(atRiskAmt)}`
                           : "armed stops"}
                     </i>
                   </div>
+                  
                 </div>
 
               </div>
@@ -896,3 +922,30 @@ const DashboardPage = () => {
 };
 
 export default DashboardPage;
+
+/** SVG path for the hero chart from `equity_curve`, in the same 900×240
+ *  space as the placeholder. Null when there is nothing real to draw. */
+export const equityCurvePath = (
+  curve: { t: string; equity: number | string }[] | null | undefined,
+  width = 900,
+  top = 30,
+  bottom = 210,
+  maxPoints = 60,
+): string | null => {
+  if (!curve || curve.length < 2) return null;
+  const step = Math.max(1, Math.ceil(curve.length / maxPoints));
+  const vals = curve
+    .filter((_, i) => i % step === 0 || i === curve.length - 1)
+    .map((p) => Number(p.equity))
+    .filter(Number.isFinite);
+  if (vals.length < 2) return null;
+  const min = Math.min(...vals);
+  const span = Math.max(...vals) - min;
+  return vals
+    .map((v, i) => {
+      const x = (i / (vals.length - 1)) * width;
+      const y = span === 0 ? (top + bottom) / 2 : bottom - ((v - min) / span) * (bottom - top);
+      return `${i === 0 ? "M" : "L"}${x.toFixed(1)} ${y.toFixed(1)}`;
+    })
+    .join(" ");
+};

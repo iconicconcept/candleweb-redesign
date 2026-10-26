@@ -409,6 +409,7 @@ export interface PortfolioMetricsV2 {
   max_drawdown: MetricsV2Number;
   /** From stops armed on the venue. A position with no stop adds zero, so
    *  never show this without `unprotected_positions`. */
+  max_drawdown_pct: MetricsV2Number;
   at_risk_now: MetricsV2Number;
   /** Open positions with no stop armed. The caveat that makes `at_risk_now`
    *  honest; `0` here is good news and worth stating. */
@@ -431,6 +432,18 @@ export interface PortfolioMetricsV2 {
   wins?: number | null;
   losses?: number | null;
   trades_closed?: number | null;
+
+    book?: "DEMO" | "LIVE" | null;
+  realised_return_pct?: MetricsV2Number;
+  at_risk_pct?: MetricsV2Number;
+  closed_positions?: number | null;
+  open_positions?: number | null;
+  max_drawdown_usdt?: MetricsV2Number;
+  max_drawdown_peak_at?: string | null;
+  max_drawdown_trough_at?: string | null;
+  max_drawdown_recovered_at?: string | null;
+  equity_baseline_at?: string | null;
+  equity_curve?: { t: string; equity: number | string }[];
 }
 
 /**

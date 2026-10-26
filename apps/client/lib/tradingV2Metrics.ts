@@ -143,7 +143,7 @@ const CHANGE_TODAY_PCT_KEYS = [
   "daily_pct",
 ];
 const AT_RISK_PCT_KEYS = ["at_risk_now_pct", "at_risk_pct", "risk_pct_now", "exposure_pct"];
-const CLOSED_KEYS = ["trades_closed", "closed_trades", "positions_closed", "closed_count"];
+const CLOSED_KEYS = ["closed_positions", "trades_closed", "closed_trades", "positions_closed", "closed_count"];
 const OPEN_POSITIONS_KEYS = ["open_positions", "positions_open", "open_position_count"];
 
 /** Today's change as a percentage — the second half of the hero's delta pill. */
