@@ -139,6 +139,41 @@ export const outcomePnlCaption = (o: OutcomePnl): string => {
 };
 
 /* ------------------------------------------------------------------ *
+ * Why an entry did not happen
+ * ------------------------------------------------------------------ */
+
+export type EntryOutcome = {
+  /** The verdict, upper-cased — "REFUSED", "PLACED", … — or null. */
+  code: string | null;
+  /** True when the gate turned this decision away. */
+  refused: boolean;
+  /** The backend's own sentence for why. */
+  detail: string | null;
+};
+
+/**
+ * The gate's verdict on a decision that wanted to open a position.
+ *
+ * "No position opened" is true of a HOLD, of a BUY the gate refused, and of a
+ * BUY that simply failed — three different things that the caption alone
+ * cannot tell apart. A refusal in particular is not a fault in the bot: the
+ * commonest one now is a live BUY on a plan without live trading, and the
+ * backend writes the reason out in full. Showing that sentence is the
+ * difference between "your bot did nothing" and "your plan stopped it".
+ */
+export const entryOutcome = (
+  d: Pick<BotDecisionV2, "outcome"> | null | undefined,
+): EntryOutcome => {
+  const outcome = asRecord(d?.outcome);
+  if (!outcome) return { code: null, refused: false, detail: null };
+  const raw = outcome.entry_outcome;
+  const code = typeof raw === "string" ? raw.toUpperCase() : null;
+  const rawDetail = outcome.entry_outcome_detail;
+  const detail = typeof rawDetail === "string" && rawDetail.trim() ? rawDetail.trim() : null;
+  return { code, refused: code === "REFUSED", detail };
+};
+
+/* ------------------------------------------------------------------ *
  * Candle records
  * ------------------------------------------------------------------ */
 

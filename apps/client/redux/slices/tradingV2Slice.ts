@@ -1,9 +1,23 @@
 import { createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
 import tradingV2Service from "../../services/tradingV2Service";
-import { TradeV2, BotV2 } from "../../types/tradingV2";
+import { BookV2Param, TradeV2, BotV2 } from "../../types/tradingV2";
 
 interface TradingV2State {
+  /**
+   * Which book the cached rows below belong to.
+   *
+   * `trades` is book-scoped — a Live dashboard must not list demo trades, nor
+   * add their allocation into its capital — but this slice outlives the page
+   * that filled it, so without this the rows from one book stay on screen
+   * after the Settings switch flips, and keep being summed. `setBookV2`
+   * clears them the moment the book changes; see `useBookSync`.
+   *
+   * Bots are not themselves book-scoped, but every figure attached to one is,
+   * so they are cleared alongside rather than left wearing the other book's
+   * numbers.
+   */
+  book: BookV2Param | null;
   trades: TradeV2[];
   tradesLoaded: boolean;
   tradesLoading: boolean;
@@ -21,6 +35,7 @@ interface TradingV2State {
 }
 
 const initialState: TradingV2State = {
+  book: null,
   trades: [],
   tradesLoaded: false,
   tradesLoading: false,
@@ -35,6 +50,31 @@ export const tradingV2Slice = createSlice({
   name: "tradingV2",
   initialState,
   reducers: {
+    /**
+     * Name the book these rows belong to, clearing them if it changed.
+     *
+     * Idempotent on purpose: it is dispatched from every dashboard page on
+     * every render of the shell, so the common case has to be a no-op. Only a
+     * genuine change throws anything away — and when it does it resets the
+     * `loaded` flags too, so a page shows its loading state rather than the
+     * other book's rows while the refetch is in the air. Clearing the rows
+     * but keeping `loaded` would read as "you have no trades", which is the
+     * one wrong answer here.
+     */
+    setBookV2: (state, action: PayloadAction<BookV2Param>) => {
+      if (state.book === action.payload) return;
+      const first = state.book === null;
+      state.book = action.payload;
+      /* First sighting is not a change: the slice starts with no book, and
+         wiping here would discard a fetch that a page had already started. */
+      if (first) return;
+      state.trades = [];
+      state.tradesLoaded = false;
+      state.tradesError = null;
+      state.bots = [];
+      state.botsLoaded = false;
+      state.botsError = null;
+    },
     setTradesV2: (state, action: PayloadAction<TradeV2[]>) => {
       state.trades = action.payload;
       state.tradesLoaded = true;
@@ -97,6 +137,7 @@ export const tradingV2Slice = createSlice({
 });
 
 export const {
+  setBookV2,
   setTradesV2,
   upsertTradeV2,
   removeTradeV2,

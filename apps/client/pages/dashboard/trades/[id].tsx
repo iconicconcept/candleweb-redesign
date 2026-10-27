@@ -18,20 +18,20 @@ import {
   DEFAULT_WINDOW_DAYS,
   REALISED_FIELDS,
   REALISED_PCT_FIELDS,
-  WIN_RATE_FIELDS,
   closedCount,
-  matchedByNote,
   metricRead,
   plainMoney,
   pnlCellParts,
   realisedPct,
   realisedPnl,
   riskNowParts,
-  sharesPositionsWith,
   toneClass,
-  winRate,
+  unattributedNote,
   winRateLabel,
 } from "../../../lib/tradingV2Metrics";
+import { confidenceRule, tradeRecord, tradeTitle } from "../../../lib/tradingV2Trades";
+import usePoll, { POLL } from "../../../lib/hooks/usePoll";
+import { useRevalidateEffect } from "../../../lib/hooks/useRevalidate";
 
 const STATUS_META: Record<TradeV2Status, { label: string; cls: string }> = {
   RUNNING: { label: "Running", cls: "on5" },
@@ -63,9 +63,10 @@ const CTA_STYLE = { flex: "0 0 auto", padding: "11px 18px", fontSize: "13.5px" }
  *
  * Every section of the design is present. The open position — size, entry,
  * mark, stop and unrealised, with the stop-distance track — is live on
- * `GET /positions/?trade=<id>`, an exact filter: positions carry `trade_id`,
- * unlike `/trades/{id}/metrics/`, which matches by venue and symbol and so
- * reports the same positions for two trades on one pair.
+ * `GET /positions/?trade=<id>`. `/trades/{id}/metrics/` now agrees with it:
+ * it counts only the positions this trade opened, so the venue+symbol
+ * caveat that used to sit under the band is gone, replaced by
+ * `unattributed_positions` — what is in NEITHER figure.
  *
  * Two things still cannot be filled and say so rather than showing an
  * invented number:
@@ -77,9 +78,11 @@ const CTA_STYLE = { flex: "0 0 auto", padding: "11px 18px", fontSize: "13.5px" }
  *    confidence. Same `outcome` dependency, one request per decision, and
  *    bucket averages belong server-side. P3 §3.M14.
  *
- * The design's title is a trade *name* ("ETH momentum"). `TradeV2` has no
- * `name` field in the live schema, so the pair leads here exactly as it does
- * in the list. P3 §3.M12.
+ * The design's title is a trade *name* ("ETH momentum"), and the trade now
+ * carries one. `display_name` is what goes on screen — it falls back to
+ * "ETHUSDT · 15m" on its own when the user named nothing — so the pair and
+ * timeframe move to the line beneath, where they are stated whether or not
+ * the title happens to contain them.
  */
 const TradeDetailPage = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -137,6 +140,12 @@ const TradeDetailPage = () => {
     loadMetrics();
   }, [loadMetrics]);
 
+  /* This trade's own figures move when one of its orders fills or its
+     position closes — both arrive as notifications. The interval is the net
+     under anything that does not. */
+  useRevalidateEffect(["trades", "positions", "metrics"], loadMetrics);
+  usePoll(loadMetrics, POLL.trades);
+
   useEffect(() => {
     if (!valid || !isAuthorizationHeaderSet(axiosToken)) return;
     tradingV2Service
@@ -151,8 +160,14 @@ const TradeDetailPage = () => {
   const pct = metricRead(metrics, REALISED_PCT_FIELDS, realisedPct(metrics));
   const amount = metricRead(metrics, REALISED_FIELDS, realisedPnl(metrics));
   const net = pnlCellParts(pct, amount);
-  const wins = metricRead(metrics, WIN_RATE_FIELDS, winRate(metrics));
   const risk = riskNowParts(metrics);
+
+  /* The trade row now carries its own all-time record — `closed_trades`,
+     `wins`, `losses`, `win_rate` — so these two tiles no longer wait on the
+     metrics call. The row's figures are all-time; the metrics call is
+     windowed, which is why the row leads and the window only fills in behind
+     it. A null `win_rate` means nothing has closed, NOT 0%. */
+  const record = trade ? tradeRecord(trade) : null;
 
   /* This trade's open positions. `?trade=` is an EXACT filter — positions
      carry `trade_id` — unlike `/trades/{id}/metrics/`, which matches by venue
@@ -162,17 +177,24 @@ const TradeDetailPage = () => {
     asked: tradePositionsAsked,
     failed: tradePositionsFailed,
   } = useOpenPositions(axiosToken, { status: "open", trade: valid ? (id as number) : undefined });
-  const closed = closedCount(metrics);
+  /* Two different counts, deliberately. The trade row's `closed_trades` is
+     ALL TIME and is what the milestones below measure — a milestone must not
+     un-reach itself when a 30-day window rolls past. `closedCount(metrics)`
+     is the same figure inside the window, and captions the windowed Net. */
+  const closedAllTime = trade?.closed_trades ?? null;
+  const closedInWindow = closedCount(metrics);
+  const closed = closedAllTime ?? closedInWindow;
 
   /* `closed` is null until the count is reported, and a null must not read as
      "not yet" — an unmet milestone and an unknown one say different things. */
   const hasEnoughHistory = closed != null && closed >= ENOUGH_HISTORY;
   const hasComparison = closed != null && closed >= COMPARISON_AT;
 
-  /* Positions are matched by venue+symbol, so any other trade on this pair
-     and account reports the SAME positions. */
-  const twins = trade ? sharesPositionsWith(trade, trades) : [];
-  const matchNote = matchedByNote(metrics, twins.length > 0);
+  /* A trade's metrics now count only the positions IT opened, so there is no
+     longer a caveat about twins on the same pair. What is left to say is
+     what is NOT in the figures: positions on this market that no trade
+     opened at all. */
+  const unattributed = unattributedNote(metrics);
 
   const chips = trade ? indicatorChips(trade.indicators) : [];
   const meta = trade ? STATUS_META[trade.status] ?? STATUS_META.PAUSED : null;
@@ -204,7 +226,17 @@ const TradeDetailPage = () => {
     }
   };
 
-  const title = trade?.pair_name || (trade ? `Pair #${trade.pair}` : "Trade");
+  const title = tradeTitle(trade);
+  /* The title may now be the user's own words ("ETH momentum"), so the pair
+     and timeframe can no longer be assumed to be visible in it. */
+  const pairLine = trade ? `${trade.pair_name || `Pair #${trade.pair}`} · ${trade.timeframe}` : "";
+  /* A demo trade has no exchange account, and needs none — paper orders never
+     reach a venue. Saying so is better than "Account #null". */
+  const venueLine = trade
+    ? trade.exchange_account == null
+      ? "demo · no exchange needed"
+      : trade.exchange_name || `Account #${trade.exchange_account}`
+    : "";
 
   return (
     <>
@@ -272,8 +304,7 @@ const TradeDetailPage = () => {
                 <span className={`fx-run2 ${meta.cls}`}>{meta.label}</span>
                 <span className={`fx-byb ${isAi ? "ai2" : ""}`}>● {decider}</span>
                 <span className="fx-src">
-                  {title} · {trade.timeframe} ·{" "}
-                  {trade.exchange_name || `Account #${trade.exchange_account}`}
+                  {pairLine} · {venueLine}
                 </span>
               </div>
             </div>
@@ -293,13 +324,15 @@ const TradeDetailPage = () => {
                       : `${tradePositions.length} position${tradePositions.length === 1 ? "" : "s"} open`}
                 </i>
               </div>
+              {/* All-time, off the trade row itself — not the 30-day window
+                  the Net tile reads. */}
               <div className="fx-cp">
                 <span>Closed trades</span>
-                <b className={closed == null ? "mut2" : undefined}>
-                  {closed == null ? "—" : closed.toLocaleString()}
+                <b className={closedAllTime == null ? "mut2" : undefined}>
+                  {closedAllTime == null ? "—" : closedAllTime.toLocaleString()}
                 </b>
                 <i>
-                  {closed == null
+                  {closedAllTime == null
                     ? "not reported yet"
                     : `since ${new Date(trade.created_at).toLocaleDateString(undefined, {
                         day: "numeric",
@@ -309,12 +342,10 @@ const TradeDetailPage = () => {
               </div>
               <div className="fx-cp">
                 <span>Win rate</span>
-                <b className={wins.available && wins.value != null ? undefined : "mut2"}>
-                  {wins.available ? winRateLabel(wins.value) : "—"}
+                <b className={record?.rate == null ? "mut2" : undefined}>
+                  {record?.rate == null ? "—" : winRateLabel(record.rate)}
                 </b>
-                <i>
-                  {wins.available && wins.value != null ? "of closed trades" : "not reported yet"}
-                </i>
+                <i>{record?.caption ?? "not reported yet"}</i>
               </div>
               <div className="fx-cp">
                 <span>Net · {DEFAULT_WINDOW_DAYS}d</span>
@@ -332,9 +363,9 @@ const TradeDetailPage = () => {
               </div>
             </div>
 
-            {matchNote && (
+            {unattributed && (
               <p className="fx-hint" style={{ marginTop: "12px" }}>
-                {matchNote}
+                {unattributed}
               </p>
             )}
 
@@ -401,7 +432,19 @@ const TradeDetailPage = () => {
                   <span>Direction</span>
                   <b>{DIRECTION_LABEL[trade.direction] || trade.direction}</b>
                 </div>
+                {/* The gate that decides whether a decision is acted on at
+                    all. "Above" is the part worth spelling out — at 60, a 60
+                    is held and only a 61 trades — and it applies to a SELL
+                    closing a position as well as a BUY opening one. */}
+                <div className="fx-cg">
+                  <span>Acts above</span>
+                  <b>{trade.min_confidence == null ? "—" : `${trade.min_confidence} confidence`}</b>
+                </div>
               </div>
+              <p className="fx-hint" style={{ marginTop: "10px" }}>
+                {confidenceRule(trade.min_confidence)} Confidence is self-reported by your
+                decider — Candleweb doesn&rsquo;t calibrate it.
+              </p>
 
               <div className="fx-ind2" style={{ marginTop: "12px" }}>
                 {chips.length ? (

@@ -1,6 +1,6 @@
 import Head from "next/head";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { dollarFormat } from "ui";
 import { AppDispatch, RootState } from "../../redux/store";
@@ -12,7 +12,7 @@ import DashboardShell from "../../components/dashboard/focus/DashboardShell";
 import TopBar from "../../components/dashboard/focus/TopBar";
 import Dialog from "../../components/dashboard/focus/Dialog";
 import { TrashIcon } from "../../components/dashboard/focus/icons";
-import { PortfolioMetricsV2, TradeMetricsV2, TradeV2, TradeV2Status } from "../../types/tradingV2";
+import { PortfolioMetricsV2, TradeV2, TradeV2Status } from "../../types/tradingV2";
 import { BalanceProp } from "../../types/user";
 import { indicatorChips } from "../../lib/tradingV2Indicators";
 import useOpenPositions from "../../lib/hooks/useOpenPositions";
@@ -25,7 +25,12 @@ import {
   realisedPct,
   realisedPnl,
   toneClass,
+  winRateLabel,
 } from "../../lib/tradingV2Metrics";
+import { confidenceRule, tradeRecord, tradeTitle } from "../../lib/tradingV2Trades";
+import useBook from "../../lib/hooks/useBook";
+import usePoll, { POLL } from "../../lib/hooks/usePoll";
+import { useRevalidateEffect } from "../../lib/hooks/useRevalidate";
 
 const STATUS_META: Record<TradeV2Status, { label: string; cls: string }> = {
   RUNNING: { label: "Running", cls: "on5" },
@@ -42,10 +47,6 @@ const DIRECTION_LABEL: Record<string, string> = {
 type Filter = "all" | "running" | "paused";
 
 const IND_LIMIT = 10;
-
-/* Each row costs one `GET /trading_v2/trades/{id}/metrics/`. A long list is
-   capped rather than opening the page on a request per trade. */
-const PER_TRADE_METRIC_CAP = 20;
 
 const IndicatorChips = ({ chips }: { chips: string[] }) => {
   const [open, setOpen] = useState(false);
@@ -80,6 +81,10 @@ const TradesPage = () => {
     (state: RootState) => state.tradingV2,
   );
   const { balance } = useSelector((state: RootState) => state.user);
+  /* Every list and figure on this page answers for ONE book. A Live
+     dashboard must not list demo trades, nor add their allocation into the
+     Capital Allocated band. */
+  const book = useBook();
 
   const [filter, setFilter] = useState<Filter>("all");
   const [busyId, setBusyId] = useState<number | null>(null);
@@ -88,7 +93,10 @@ const TradesPage = () => {
   /* Account-wide money — `GET /trading_v2/metrics/`. Local state: nothing
      else on the page reads it, and a stale PnL is worse than no PnL. */
   const [metrics, setMetrics] = useState<PortfolioMetricsV2 | null>(null);
-  const fetchedRef = useRef(false);
+  /* Holds the book it last fetched for, not a bare boolean: flipping the
+     Demo/Live switch has to re-ask, and "we already fetched" would otherwise
+     leave the other book's trades on screen. */
+  const fetchedRef = useRef<string | null>(null);
 
   /* What is actually deployed right now — `GET /positions/?status=open`.
      This is money on the venue, which is not the same as allocated capital:
@@ -97,7 +105,7 @@ const TradesPage = () => {
     rows: positions,
     asked: positionsAsked,
     failed: positionsFailed,
-  } = useOpenPositions(axiosToken, { status: "open" });
+  } = useOpenPositions(axiosToken, { status: "open", book });
   const deployed = useMemo(() => {
     if (!positionsAsked || positionsFailed || positions.length === 0) return null;
     let total: number | null = null;
@@ -109,31 +117,46 @@ const TradesPage = () => {
     return total;
   }, [positions, positionsAsked, positionsFailed]);
 
-  /* Per-row "PnL · 30D" — one `GET /trading_v2/trades/{id}/metrics/` per row
-     shown. These are NEVER summed into the band above: positions match by
-     venue and symbol, so two trades on one pair and account report the same
-     money, and adding the rows would count it twice. The band reads the
-     account-wide endpoint, which has already resolved that overlap. */
-  const [rowMetrics, setRowMetrics] = useState<Record<number, TradeMetricsV2 | null>>({});
-  const [rowsAsked, setRowsAsked] = useState(false);
-  const rowsRef = useRef<string>("");
+  /* The per-row "PnL · 30D" cell used to cost one
+     `GET /trading_v2/trades/{id}/metrics/` per row — up to twenty requests to
+     open this page. The trade row now carries its own record (`closed_trades`,
+     `wins`, `losses`, `win_rate`), so the cell is filled from the list
+     response that is already in hand and the fan-out is gone. That record is
+     all-time rather than windowed, which is why the cell says so. */
 
-  useEffect(() => {
-    if (!isAuthorizationHeaderSet(axiosToken) || fetchedRef.current) return;
-    fetchedRef.current = true;
-    dispatch(tradingV2Service.listTrades(axiosToken));
-    if (!balance || balance.length === 0) dispatch(userService.getBalance(axiosToken));
-    /* The band's "Net · 30d" is the PnL across EVERY trade, so it comes from
-       the account-wide `GET /trading_v2/metrics/` rather than from summing
-       the rows. Summing per-trade metrics would double-count: positions match
-       by venue and symbol, so two trades on one pair and account report the
-       same positions. The portfolio endpoint has already resolved that. */
-    tradingV2Service
-      .getPortfolioMetrics(axiosToken, { window_days: DEFAULT_WINDOW_DAYS })
+  /* The band's "Net · 30d" is the PnL across EVERY trade in this book, so it
+     comes from the account-wide `GET /trading_v2/metrics/` rather than from
+     summing the rows. A callback, so a poll or a notification can re-read it
+     without re-dispatching the trades list and the balance alongside. */
+  const loadMetrics = useCallback(() => {
+    if (!isAuthorizationHeaderSet(axiosToken)) return;
+    return tradingV2Service
+      .getPortfolioMetrics(axiosToken, { book, window_days: DEFAULT_WINDOW_DAYS })
       .then(setMetrics)
       .catch(() => setMetrics(null));
+  }, [axiosToken, book]);
+
+  const loadTrades = useCallback(() => {
+    if (!isAuthorizationHeaderSet(axiosToken)) return;
+    dispatch(tradingV2Service.listTrades({ api: axiosToken, book }));
+  }, [axiosToken, dispatch, book]);
+
+  useEffect(() => {
+    if (!isAuthorizationHeaderSet(axiosToken)) return;
+    if (fetchedRef.current === book) return;
+    fetchedRef.current = book;
+    loadTrades();
+    if (!balance || balance.length === 0) dispatch(userService.getBalance(axiosToken));
+    loadMetrics();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [axiosToken, dispatch]);
+  }, [axiosToken, dispatch, book]);
+
+  /* A fill, a close or a trade starting changes both the list and the band.
+     The intervals are the net under anything that arrives silently. */
+  useRevalidateEffect("trades", loadTrades);
+  useRevalidateEffect("metrics", loadMetrics);
+  usePoll(loadTrades, POLL.trades);
+  usePoll(loadMetrics, POLL.metrics);
 
   const totalBalance = useMemo(
     () =>
@@ -148,56 +171,6 @@ const TradesPage = () => {
     if (filter === "paused") return trades.filter((t) => t.status !== "RUNNING");
     return trades;
   }, [trades, filter]);
-
-  /* The exact ids the effect below will ask for, shared with the render so
-     the two can never disagree about which rows were requested — a row left
-     out of the capped set must say so, not sit on "reading…" forever. */
-  const metricIds = useMemo(
-    () => shown.slice(0, PER_TRADE_METRIC_CAP).map((t) => t.id),
-    [shown],
-  );
-
-  useEffect(() => {
-    if (!isAuthorizationHeaderSet(axiosToken)) return;
-    const key = metricIds.join(",");
-    if (rowsRef.current === key) return;
-    rowsRef.current = key;
-    if (!metricIds.length) {
-      setRowMetrics({});
-      setRowsAsked(true);
-      return;
-    }
-    let live = true;
-    let landed = false;
-    Promise.all(
-      metricIds.map((id) =>
-        tradingV2Service
-          .getTradeMetrics(axiosToken, id, { window_days: DEFAULT_WINDOW_DAYS })
-          .then((m) => [id, m] as const)
-          .catch(() => [id, null] as const),
-      ),
-    ).then((pairs) => {
-      if (!live) return;
-      const next: Record<number, TradeMetricsV2 | null> = {};
-      pairs.forEach(([id, m]) => {
-        next[id] = m;
-      });
-      landed = true;
-      setRowMetrics(next);
-      setRowsAsked(true);
-    });
-    return () => {
-      live = false;
-      /* If the effect re-runs before the answer lands — a new `trades`
-         array from Redux, or a filter click, is enough, since both rebuild
-         `metricIds` — this cleanup discards the reply. The guard above must
-         then be released, or the next run skips the request as "already
-         asked" while its only result was just thrown away, and the cell
-         reads "reading…" until a reload. Released only when nothing landed,
-         so a completed fetch is not re-issued. */
-      if (!landed && rowsRef.current === key) rowsRef.current = "";
-    };
-  }, [axiosToken, metricIds]);
 
   const runningCount = trades.filter((t) => t.status === "RUNNING").length;
   const capitalAllocated = trades.reduce((s, t) => s + (parseFloat(t.allocated_amount) || 0), 0);
@@ -361,26 +334,31 @@ const TradesPage = () => {
             const isAi = t.decider_type === "CANDLE_AI";
             const decider = isAi ? "CandleAI" : t.bot_name || "Own bot";
             const chips = indicatorChips(t.indicators);
-            /* This row's own PnL. A PnL cell is a percentage over an amount
-               per the design, so `pnlCellParts` leads with the percentage and
-               drops to the money when the response carries no percentage. */
-            const rowAsked = metricIds.includes(t.id);
-            const rm = rowMetrics[t.id];
-            const rowPnl = pnlCellParts(
-              metricRead(rm, REALISED_PCT_FIELDS, realisedPct(rm)),
-              metricRead(rm, REALISED_FIELDS, realisedPnl(rm)),
-            );
+            /* This trade's own record, straight off the list response. A null
+               `win_rate` means nothing has closed yet, which is NOT 0% — a
+               trade that lost everything it closed and one that has closed
+               nothing must not read the same. */
+            const record = tradeRecord(t);
             return (
               <div
                 key={t.id}
                 className={`fx-tcard ${t.status === "ERROR" ? "hot" : ""} ${!running && t.status !== "ERROR" ? "off5" : ""}`}
               >
                 <div className="fx-tl1">
-                  <span className="tn2">{t.pair_name || `Pair #${t.pair}`}</span>
+                  {/* `display_name` — the user's own name for the trade, or
+                      "ETHUSDT · 15m" when they gave none. Never `name`, which
+                      is blank on most rows. */}
+                  <span className="tn2">{tradeTitle(t)}</span>
                   <span className={`fx-run2 ${meta.cls}`}>{meta.label}</span>
                   <span className={`fx-byb ${isAi ? "ai2" : ""}`}>● {decider}</span>
+                  {/* The pair is repeated here because the title above may now
+                      be words of the user's own that never mention it. A demo
+                      trade has no exchange and needs none. */}
                   <span className="tsp2">
-                    {t.timeframe} · {t.exchange_name || `Account #${t.exchange_account}`}
+                    {t.pair_name || `Pair #${t.pair}`} · {t.timeframe} ·{" "}
+                    {t.exchange_account == null
+                      ? "demo"
+                      : t.exchange_name || `Account #${t.exchange_account}`}
                   </span>
                 </div>
 
@@ -395,23 +373,30 @@ const TradesPage = () => {
                     <b>{parseFloat(t.risk_pct)}%</b>
                     <em>max size {t.max_size_pct}%</em>
                   </div>
+                  {/* The gate on this trade's decisions. Worth a cell of its
+                      own: it is the setting that decides whether the bot's
+                      answers are acted on at all. */}
+                  <div className="fx-tm2">
+                    <span>Acts above</span>
+                    <b className={t.min_confidence == null ? "mut2" : undefined}>
+                      {t.min_confidence == null ? "—" : t.min_confidence}
+                    </b>
+                    <em title={confidenceRule(t.min_confidence)}>confidence</em>
+                  </div>
                   <div className="fx-tm2">
                     <span>Direction</span>
                     <b>{DIRECTION_LABEL[t.direction] || t.direction}</b>
                     <em>{t.trailing_stop ? "trailing stop" : "fixed stop"}</em>
                   </div>
+                  {/* The trade's all-time record, off the list response —
+                      no per-row request. Not a 30-day window: this is what
+                      the trade has actually done since it was set up. */}
                   <div className="fx-tm2">
-                    <span className="fx-kase">PnL · 30D</span>
-                    <b className={rowAsked && rowsAsked ? toneClass(rowPnl.tone, "up5", "dn5") : "mut2"}>
-                      {!rowAsked || !rowsAsked ? "—" : rowPnl.figure}
+                    <span className="fx-kase">WIN RATE</span>
+                    <b className={record.rate == null ? "mut2" : undefined}>
+                      {record.rate == null ? "—" : winRateLabel(record.rate)}
                     </b>
-                    <em>
-                      {!rowAsked
-                        ? `beyond the first ${PER_TRADE_METRIC_CAP} rows`
-                        : !rowsAsked
-                          ? "reading…"
-                          : rowPnl.caption}
-                    </em>
+                    <em>{record.caption}</em>
                   </div>
                   <div className="fx-tm2 wide2">
                     <span>Indicators sent</span>

@@ -7,6 +7,9 @@ import { AppDispatch } from "../../redux/store";
 import notificationService from "../../services/notificationService";
 import useAxiosAuth from "./useAxiosAuth";
 import { isAuthorizationHeaderSet } from "../../utils/check_auth";
+import { RevalidateKey, revalidate } from "../../redux/slices/revalidateSlice";
+import { triggersFor, warnUnmatchedType } from "../notificationTriggers";
+import { Result } from "../../types/notification";
 
 /**
  * Keeps the header bell's unread count live.
@@ -40,7 +43,21 @@ import { isAuthorizationHeaderSet } from "../../utils/check_auth";
  * A failed poll is deliberately silent: the next tick retries, and a toast
  * every 4s on a flaky connection would be worse than a stale badge.
  */
-export const NOTIFICATION_POLL_MS = 4000;
+/**
+ * 15s, per the trading API's own guidance.
+ *
+ * It was 4s, from when this poll only moved a badge. It is now also the
+ * event bus for the whole dashboard — a new notification refetches the views
+ * it affects — so the interval decides both how fresh the badge is and how
+ * often a burst of refetches can be triggered. 4s was ~900 requests an hour
+ * per open tab before any of that fan-out.
+ *
+ * Nothing is lost by the change: a notification count that is up to 15
+ * seconds old reads identically to a current one, and the events that
+ * actually matter — a fill, a close — refetch the figures the moment this
+ * poll sees them, which is the same 15 seconds.
+ */
+export const NOTIFICATION_POLL_MS = 15000;
 
 /** The one route that owns this slice's pagination — see the note above. */
 const SELF_FETCHING_ROUTES = ["/dashboard/notifications"];
@@ -51,6 +68,21 @@ export default function useNotificationPoll(paused = false) {
   const router = useRouter();
   const inFlight = useRef(false);
 
+  /**
+   * The highest notification id this session has already accounted for.
+   *
+   * `/notification/unread/` has no cursor — it returns everything unread,
+   * every time — so "what is new" has to be worked out here. Ids only go up,
+   * so one watermark is enough.
+   *
+   * `null` means nothing has been seen yet, and the first poll SEEDS it
+   * without firing anything. That distinction is the whole point: a user
+   * opening the dashboard with twelve unread notifications has twelve old
+   * events, not twelve things that just happened, and firing on them would
+   * refetch every view on the page at once on every single page load.
+   */
+  const watermark = useRef<number | null>(null);
+
   const ownsItsOwnFetch = SELF_FETCHING_ROUTES.includes(router.pathname);
 
   const poll = useCallback(async () => {
@@ -59,7 +91,32 @@ export default function useNotificationPoll(paused = false) {
     if (typeof document !== "undefined" && document.hidden) return;
     inFlight.current = true;
     try {
-      await dispatch(notificationService.getNotifications({ api: axiosToken })).unwrap();
+      const page: any = await dispatch(
+        notificationService.getNotifications({ api: axiosToken }),
+      ).unwrap();
+
+      const rows: Result[] = Array.isArray(page?.results) ? page.results : [];
+      const ids = rows.map((r) => Number(r?.id)).filter((n) => Number.isFinite(n));
+      if (!ids.length) return;
+      const highest = Math.max(...ids);
+
+      const seen = watermark.current;
+      watermark.current = seen == null ? highest : Math.max(seen, highest);
+      /* First sighting: seed only. Everything here predates this session. */
+      if (seen == null) return;
+
+      /* Every view any new notification touches, collected before dispatching
+         so a burst — a fill and its close arriving together — causes ONE
+         round of refetches rather than one per notification. */
+      const stale = new Set<RevalidateKey>();
+      rows.forEach((r) => {
+        const id = Number(r?.id);
+        if (!Number.isFinite(id) || id <= seen) return;
+        const keys = triggersFor(r?.notification_type);
+        if (keys) keys.forEach((k) => stale.add(k));
+        else warnUnmatchedType(r?.notification_type);
+      });
+      if (stale.size) dispatch(revalidate(Array.from(stale)));
     } catch {
       /* silent on purpose — see the note above */
     } finally {

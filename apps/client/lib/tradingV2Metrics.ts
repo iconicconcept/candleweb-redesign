@@ -26,15 +26,17 @@ import { isUnavailable, unavailableReason } from "./botHealthV2";
  *    three-digit loss comes out as "$-,125.40". Money is formatted here
  *    instead, magnitude first and the sign reattached — which also keeps this
  *    module free of a `ui` dependency, like `subscriptionV2Format.ts`.
- *  - per-trade figures are matched to positions by venue and symbol, not by
- *    a foreign key, so two trades on one pair and venue report the SAME
- *    positions. They must never be summed — see `matchedByNote`.
+ *  - per-trade figures now count only the positions THAT TRADE opened, so two
+ *    trades on one pair no longer report the same money and each figure can
+ *    be read as that trade's own record. What is left over is
+ *    `unattributed_positions` — see `unattributedNote`.
  *
- * The OpenAPI entries for both endpoints document **no response body**. The
- * fields named in their descriptions are relied on directly; the PnL and
- * win-rate figures are named only in prose, so they are read through the
- * candidate lists below. When the backend confirms the real keys, those
- * lists are the only thing that has to change.
+ * Field names are the backend's documented ones. The tolerant candidate lists
+ * that used to live here, from when both endpoints were documented as "no
+ * response body", are gone: a confirmed name does not need guessing at, and a
+ * list of near-misses hides a real rename behind a plausible dash. Where two
+ * names are still read it is because the API documents both — `closed_trades`
+ * and the older `closed_positions` are the same number.
  */
 
 /* ------------------------------------------------------------------ *
@@ -50,16 +52,15 @@ export const metricNum = (v: MetricsV2Number | undefined): number | null => {
   return Number.isFinite(n) ? n : null;
 };
 
-/** First candidate key that is actually present, as a number. Tries each
- *  spelling in turn: the response shape is undocumented, and British and
- *  American spellings both appear across this API. */
+/** First of the given keys that is actually present, as a number. Most
+ *  figures pass a single documented name; the few that pass two do so because
+ *  the API documents two names for one number. */
 /* `source` is typed `object`, not `Record<string, unknown>`, so the metric
    types pass without a cast at every call site. They are interface types with
    no index signature, and TS refuses `PortfolioMetricsV2 as Record<string,
    unknown>` outright (TS2352) — the repo builds on that error even though the
-   editor let it through. The one assertion that stays is here, where it is
-   honest: these responses are documented as "No response body", so the field
-   names ARE unknown and probing them by string is the whole point. */
+   editor let it through. The assertion stays because reading a field by name
+   is still what this does; what has changed is that the names are known. */
 const pickNumber = (source: object | null | undefined, keys: string[]): number | null => {
   if (!source) return null;
   const bag = source as Record<string, MetricsV2Number | undefined>;
@@ -73,45 +74,15 @@ const pickNumber = (source: object | null | undefined, keys: string[]): number |
   return null;
 };
 
-const REALISED_KEYS = [
-  "realised_pnl",
-  "realized_pnl",
-  "realised",
-  "realized",
-  "pnl_realised",
-  "pnl_realized",
-];
-const UNREALISED_KEYS = [
-  "unrealised_pnl",
-  "unrealized_pnl",
-  "unrealised",
-  "unrealized",
-  "open_pnl",
-  "pnl_unrealised",
-  "pnl_unrealized",
-];
-const WIN_RATE_KEYS = ["win_rate", "winrate", "win_rate_pct", "win_pct"];
+const REALISED_KEYS = ["realised_pnl"];
+const UNREALISED_KEYS = ["unrealised_pnl", "open_pnl"];
+const WIN_RATE_KEYS = ["win_rate"];
 /* The design leads with a PERCENTAGE and puts the money underneath
    ("+2.84%" over "+$232.40"), so the return is a separate figure from the
    realised amount, not something to derive. It cannot be computed here
    either: percent of what — allocated capital, starting equity, deployed
-   capital? — is the backend's call, and equity is null today anyway. */
-const REALISED_PCT_KEYS = [
-  /* The DOCUMENTED name, and the reason this cell showed money for so long:
-     "realised_pnl comes with realised_return_pct". It leads the list so the
-     real field always wins over the guesses that follow it. */
-  "realised_return_pct",
-  "realized_return_pct",
-  "realised_pnl_pct",
-  "realized_pnl_pct",
-  "pnl_pct_30d",
-  "pnl_pct",
-  "realised_pct",
-  "realized_pct",
-  "return_pct",
-  "net_pct",
-  "roi_pct",
-];
+   capital? — is the backend's call. */
+const REALISED_PCT_KEYS = ["realised_return_pct"];
 
 /** Realised PnL over the requested window. */
 export const realisedPnl = (m: PortfolioMetricsV2 | TradeMetricsV2 | null | undefined) =>
@@ -132,19 +103,14 @@ export const realisedPct = (m: PortfolioMetricsV2 | TradeMetricsV2 | null | unde
 
 /* The Overview hero captions each figure with a count or a second unit —
    "+$52.70 / 3 positions", "+2.84% / 41 closed", "18% / ≈ $151",
-   "+$96.40 today · +1.16%". None of those companions are named in the
-   endpoint description either, so they are resolved the same tolerant way.
-   All of these lists are one P3 answer away from being deleted. */
-const CHANGE_TODAY_PCT_KEYS = [
-  "change_today_pct",
-  "change_today_percent",
-  "today_pct",
-  "change_pct_today",
-  "daily_pct",
-];
-const AT_RISK_PCT_KEYS = ["at_risk_now_pct", "at_risk_pct", "risk_pct_now", "exposure_pct"];
-const CLOSED_KEYS = ["closed_positions", "trades_closed", "closed_trades", "positions_closed", "closed_count"];
-const OPEN_POSITIONS_KEYS = ["open_positions", "positions_open", "open_position_count"];
+   "+$96.40 today · +1.16%". */
+const CHANGE_TODAY_PCT_KEYS = ["change_today_pct"];
+const AT_RISK_PCT_KEYS = ["at_risk_pct"];
+/* `closed_trades` is the name across the API now; `closed_positions` is the
+   same number under the older spelling and is still sent by the portfolio
+   and per-trade endpoints. Both are documented, so both are read. */
+const CLOSED_KEYS = ["closed_trades", "closed_positions"];
+const OPEN_POSITIONS_KEYS = ["open_positions"];
 
 /** Today's change as a percentage — the second half of the hero's delta pill. */
 export const changeTodayPct = (m: PortfolioMetricsV2 | null | undefined) =>
@@ -258,10 +224,10 @@ export type MetricRead = {
  * never renders as "$0.00". A field with no value and no reason is simply
  * unknown, and gets a dash.
  *
- * `field` takes several names because the PnL and win-rate keys are not
- * documented: a reason filed under `realized_pnl` must still be found when we
- * read `realised_pnl`. The first name that appears in `unavailable` wins, and
- * the confirmed fields pass a single name as before.
+ * `field` still takes a list because one number can have two documented names
+ * (`closed_trades` / `closed_positions`) and a reason may be filed under
+ * either. The first name that appears in `unavailable` wins; everything else
+ * passes a single name.
  */
 export const metricRead = (
   metrics: { unavailable?: MetricsV2Unavailable } | null | undefined,
@@ -383,84 +349,30 @@ export const riskNowParts = (
  * ------------------------------------------------------------------ */
 
 /**
- * The sentence that keeps a per-trade figure honest.
+ * Positions on this trade's market that NO trade opened.
  *
- * `Position` has no foreign key to a v2 trade, so the endpoint matches by
- * venue and symbol and says so in `positions_matched_by`. Two trades on the
- * same pair and venue therefore report identical positions. Showing the
- * figure without this note invites exactly the wrong conclusion, and summing
- * the figures across trades double-counts.
+ * This replaces the venue+symbol caveat that used to live here. A trade's
+ * figures now count only the positions it opened ITSELF, so two trades on one
+ * pair no longer report the same money and the numbers can finally be read as
+ * this trade's own record. What is left over are positions nothing claims —
+ * opened before the trade existed, or by hand on the venue. They are in no
+ * trade's figures at all, which is worth saying exactly once, next to the
+ * figures they are missing from.
+ *
+ * Returns null when there are none: silence is the correct output for a trade
+ * whose market holds nothing unaccounted for.
  */
-export const matchedByNote = (
+export const unattributedNote = (
   metrics: TradeMetricsV2 | null | undefined,
-  duplicates = false,
 ): string | null => {
-  if (!metrics) return null;
-  const how = metrics.positions_matched_by;
-  if (!how) return null;
-  const base = `Positions matched by ${how} — this trade has no direct link to a position.`;
-  return duplicates
-    ? `${base} Another trade on the same pair and venue reports the same positions, so don't add them up.`
-    : base;
-};
-
-/** Trades sharing a pair and venue get the same positions back, so the UI has
- *  to know which rows those are. Keyed on ids the trade row already carries. */
-export const sharesPositionsWith = (
-  trade: { id: number; pair: number; exchange_account: number },
-  all: { id: number; pair: number; exchange_account: number }[],
-): number[] =>
-  all
-    .filter(
-      (t) =>
-        t.id !== trade.id &&
-        t.pair === trade.pair &&
-        t.exchange_account === trade.exchange_account,
-    )
-    .map((t) => t.id);
-
-type PositionKeyed = { id: number; pair: number; exchange_account: number };
-
-const positionKey = (t: PositionKeyed) => `${t.exchange_account}:${t.pair}`;
-
-/**
- * One trade per distinct (pair, exchange_account) — the unit a position
- * actually belongs to.
- *
- * Because positions are matched by venue and symbol, every trade sharing a
- * pair and account reports the **same** positions. Summing a bot's trades
- * raw therefore counts those positions once per trade; summing one
- * representative per group counts each set exactly once, which is the figure
- * that is actually true. This is what makes a per-bot total possible at all
- * without a per-bot endpoint.
- *
- * It does NOT fix attribution across deciders — see `foreignSharers`.
- */
-export const positionGroups = <T extends PositionKeyed>(trades: T[]): T[] => {
-  const seen = new Set<string>();
-  const out: T[] = [];
-  for (const t of trades) {
-    const k = positionKey(t);
-    if (seen.has(k)) continue;
-    seen.add(k);
-    out.push(t);
-  }
-  return out;
-};
-
-/**
- * Trades from OUTSIDE `mine` that sit on one of its (pair, account) groups.
- *
- * The limit of client-side de-duplication: if another bot — or a CandleAI
- * trade — runs the same pair on the same account, its positions come back
- * inside this group's figures and nothing here can separate them. The total
- * stops being "what this bot did" and becomes "what happened on these pairs".
- * Detectable, so it gets said rather than quietly shipped as a bot's record.
- */
-export const foreignSharers = <T extends PositionKeyed>(mine: T[], all: T[]): T[] => {
-  const keys = new Set(mine.map(positionKey));
-  const ids = new Set(mine.map((t) => t.id));
-  return all.filter((t) => !ids.has(t.id) && keys.has(positionKey(t)));
+  const n = metrics?.unattributed_positions;
+  if (n == null || n <= 0) return null;
+  const one = n === 1;
+  return (
+    `${n} position${one ? "" : "s"} on this market ${one ? "was" : "were"} opened by no trade, ` +
+    `so ${one ? "it is" : "they are"} not in the figures above. ` +
+    `Your account-wide totals still count ${one ? "it" : "them"}.`
+  );
 };
 
 /** The window actually applied, for a "· 30d" style label. Falls back to what

@@ -2,6 +2,8 @@ import { AxiosInstance } from "axios";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Dialog from "./Dialog";
 import tradingV2Service from "../../../services/tradingV2Service";
+import usePoll, { POLL } from "../../../lib/hooks/usePoll";
+import { useRevalidateEffect } from "../../../lib/hooks/useRevalidate";
 import { error } from "../../alert/Toast";
 import {
   confidenceLabel,
@@ -17,10 +19,12 @@ import {
   marketDataIds,
   outcomePnl,
   outcomePnlCaption,
+  entryOutcome,
   riskMeta,
 } from "../../../lib/botDecisionsV2";
 import { signedMoney, toneClass } from "../../../lib/tradingV2Metrics";
 import {
+  BookV2Param,
   BotDecisionV2,
   BotDecisionV2Action,
   BotDecisionV2Detail,
@@ -55,6 +59,9 @@ import {
 
 type Props = {
   api: AxiosInstance;
+  /** Which book to list. Decisions are book-scoped: a Live feed must not show
+   *  what the same bots decided on paper. */
+  book?: BookV2Param;
   /** Narrow the feed to one bot or one trade. Omitted = every bot. */
   bot?: number;
   trade?: number;
@@ -73,7 +80,7 @@ const FILTERS: { value: BotDecisionV2Action | "all"; label: string }[] = [
   { value: "HOLD", label: "Hold" },
 ];
 
-const DecisionsFeed = ({ api, bot, trade, pageSize = 5, empty, refreshKey }: Props) => {
+const DecisionsFeed = ({ api, book, bot, trade, pageSize = 5, empty, refreshKey }: Props) => {
   const [rows, setRows] = useState<BotDecisionV2[]>([]);
   const [count, setCount] = useState(0);
   const [kind, setKind] = useState<BotDecisionV2Action | "all">("all");
@@ -97,6 +104,7 @@ const DecisionsFeed = ({ api, bot, trade, pageSize = 5, empty, refreshKey }: Pro
       setFailed(null);
       try {
         const page = await tradingV2Service.listDecisions(api, {
+          book,
           bot,
           trade,
           decision: kind === "all" ? undefined : kind,
@@ -119,13 +127,58 @@ const DecisionsFeed = ({ api, bot, trade, pageSize = 5, empty, refreshKey }: Pro
         }
       }
     },
-    [api, bot, trade, kind, risk, pageSize],
+    [api, book, bot, trade, kind, risk, pageSize],
   );
 
   // First page, and again whenever the filter or the scope changes.
   useEffect(() => {
     fetchPage(0, false);
   }, [fetchPage, refreshKey]);
+
+  /**
+   * Bring in new decisions without taking away what the reader is looking at.
+   *
+   * The obvious refresh — `fetchPage(0, false)` — would collapse an expanded
+   * list back to the first page, which is the same trap the notifications
+   * poll documents and avoids: someone reading row thirty is snapped back to
+   * row five by an event they did not cause. So it re-reads as many rows as
+   * are currently shown, from the top, and replaces them. The list keeps its
+   * length, gains whatever is new at the front, and the reader's place
+   * survives.
+   *
+   * It stands down while a request is already running, and while a decision's
+   * detail dialog is open — re-rendering the list under an open dialog is
+   * movement the reader did not ask for.
+   */
+  const rowsShown = rows.length;
+  const refresh = useCallback(async () => {
+    if (loading || detailFor != null) return;
+    const run = ++runRef.current;
+    try {
+      const page = await tradingV2Service.listDecisions(api, {
+        book,
+        bot,
+        trade,
+        decision: kind === "all" ? undefined : kind,
+        risk: risk === "all" ? undefined : risk,
+        limit: Math.max(pageSize, rowsShown),
+        offset: 0,
+      });
+      if (run !== runRef.current) return;
+      setRows(page.results);
+      setCount(page.count);
+      setFailed(null);
+    } catch {
+      /* A failed refresh keeps the rows that are already on screen: they were
+         true when they were read, and blanking a readable list because one
+         background request failed is strictly worse. */
+    }
+  }, [api, book, bot, trade, kind, risk, pageSize, rowsShown, loading, detailFor]);
+
+  /* A new decision arrives as a notification; the interval is the net under
+     it for anything that does not. */
+  useRevalidateEffect("decisions", refresh, loaded);
+  usePoll(refresh, POLL.decisions, loaded);
 
   const openDetail = async (id: number) => {
     setDetailFor(id);
@@ -157,6 +210,7 @@ const DecisionsFeed = ({ api, bot, trade, pageSize = 5, empty, refreshKey }: Pro
   const seenIds = marketDataIds(detail);
   const tidied = idsTidied(detail);
   const result = outcomePnl(detail);
+  const refusal = entryOutcome(detail);
 
   const rowProps = (id: number) => ({
     role: "button" as const,
@@ -392,6 +446,18 @@ const DecisionsFeed = ({ api, bot, trade, pageSize = 5, empty, refreshKey }: Pro
             <p className="fx-hint" style={{ marginTop: 10 }}>
               {outcomePnlCaption(result)}
             </p>
+
+            {/* A refused entry is not a bot that did nothing — it is a bot
+                whose order the gate turned away, and the backend says why.
+                The commonest reason now is a live BUY on a plan without live
+                trading. */}
+            {refusal.refused && (
+              <p className="fx-failmsg" style={{ marginTop: 12 }}>
+                <b>This entry was refused.</b>{" "}
+                {refusal.detail ||
+                  "Candleweb's gate turned the order away, so no position was opened."}
+              </p>
+            )}
 
             {detail.think_time_seconds == null && (
               <p className="fx-hint" style={{ marginTop: 12 }}>

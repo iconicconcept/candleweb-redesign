@@ -6182,16 +6182,25 @@ button.fx-ip.more2 {
   font-size: 10.5px;
   color: var(--fx-t3);
 }
+/* The track count follows the CELLS, not a number written here.
+
+   It used to be a fixed five, from before PnL joined this row. The bots list
+   now has six — model, reply timeout, last signal, auto-pause, open now,
+   PnL — so the sixth dropped to a line of its own with four empty tracks
+   beside it, which reads as a rendering fault rather than as a row that
+   outgrew its grid. Hard-coding six instead would only move the fault: the
+   bot detail page shares this class with FOUR cells and would have gained
+   two empty tracks of its own.
+
+   `auto-fit` collapses the tracks nothing occupies, so each page gets as
+   many columns as it has cells and as the width allows — six here, four
+   there — and the row only wraps when there genuinely is not room for a
+   legible column. */
 .fx-bl2 {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px 20px;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 14px 18px;
   align-items: start;
-}
-@media (min-width: 820px) {
-  .fx-bl2 {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-  }
 }
 .fx-bm {
   min-width: 0;
@@ -6210,6 +6219,24 @@ button.fx-ip.more2 {
   font-size: 15px;
   font-weight: 500;
   letter-spacing: -0.01em;
+}
+/* Once the row is wide enough to hold all six columns, each is roughly a
+   sixth of the card — so the values step down to keep a model name or a date
+   on one line rather than wrapping inside its own cell. */
+@media (min-width: 1040px) {
+  .fx-bm b {
+    font-size: 13.5px;
+  }
+}
+/* The second line of a stacked value — the time under a date. Quieter than
+   the value it belongs to, so the pair still reads as one figure. */
+.fx-bm .sub6 {
+  display: block;
+  font-style: normal;
+  font-family: var(--fx-mono);
+  font-size: 11px;
+  color: var(--fx-t3);
+  margin-top: 3px;
 }
 .fx-bm b.up5 {
   color: var(--fx-teal2);
@@ -7463,6 +7490,16 @@ a.nm4:hover {
   color: var(--fx-t3);
   margin-top: 6px;
 }
+/* The loading placeholder sits INSIDE the figure's `b`, where `.fx-sm i`
+   above would otherwise make it a block element at caption size and push the
+   caption down a line. Sized to the headline figure it stands in for, so the
+   row does not jump when the numbers land. */
+.fx-sm b .fx-skel {
+  display: inline-block;
+  width: clamp(76px, 7vw, 104px);
+  height: clamp(20px, 2.3vw, 27px);
+  margin-top: 0;
+}
 .fx-filters {
   display: flex;
   gap: 7px;
@@ -7499,6 +7536,35 @@ a.nm4:hover {
   border-color: transparent;
   font-weight: 600;
 }
+/* The History filters are <select>s now that the options come from the
+   response — a pill that opens a real list, rather than a button that cycles
+   through values the backend may not have any rows for. The pill shape is
+   `.fx-fs` above; these are the bits a native select needs to stop looking
+   like a system widget inside it. */
+select.fx-fs {
+  appearance: none;
+  -webkit-appearance: none;
+  /* Room for the chevron drawn below, which is a background image rather than
+     a pseudo-element: a <select> cannot have children. */
+  padding-right: 30px;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position:
+    right 15px top 51%,
+    right 11px top 51%;
+  background-size:
+    4px 4px,
+    4px 4px;
+  background-repeat: no-repeat;
+  max-width: 190px;
+  text-overflow: ellipsis;
+}
+/* The menu itself is drawn by the OS and inherits nothing, so it needs real
+   colours or a dark theme leaves white-on-white options. */
+select.fx-fs option {
+  background: var(--fx-1, #0b0f0e);
+  color: var(--fx-t1);
+}
 .fx-exp {
   flex: 0 0 auto;
   font-family: var(--fx-mono);
@@ -7511,6 +7577,37 @@ a.nm4:hover {
   padding: 8px 15px;
   cursor: pointer;
 }
+.fx-exp:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+/* Export on a plan that does not include it. Present, as the design has it,
+   but visibly not the live control: neutral rather than teal, since teal
+   here means "this will do something", and it goes to the plans page rather
+   than to a refusal. */
+.fx-exp.lock9 {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--fx-t3);
+  border-color: var(--fx-line2);
+  background: var(--w04);
+  text-decoration: none;
+}
+.fx-exp.lock9:hover {
+  color: var(--fx-t2);
+  border-color: var(--fx-t3);
+}
+.fx-exp.lock9 svg {
+  width: 11px;
+  height: 11px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 .fx-bbar {
   display: flex;
   flex-wrap: wrap;
@@ -7519,11 +7616,32 @@ a.nm4:hover {
   border-top: 1px solid var(--fx-line);
   border-bottom: 1px solid var(--fx-line);
 }
+/* Each cell is a <button> now — clicking a bot filters the page to it — so
+   it needs the button defaults stripped back to the card it looks like. */
 .fx-bb {
   flex: 1 1 190px;
   padding: 2px 20px;
   border-right: 1px solid var(--fx-line);
   min-width: 0;
+  border-top: 0;
+  border-bottom: 0;
+  border-left: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.fx-bb:hover .bt2 b {
+  color: var(--fx-teal2);
+}
+/* The selected bot, when the strip is being used as the filter. */
+.fx-bb[aria-pressed="true"] .bt2 b {
+  color: var(--fx-teal2);
+}
+.fx-bb[aria-pressed="true"] .bt2 i {
+  background: var(--fx-teal);
+  box-shadow: 0 0 7px var(--fx-teal);
 }
 .fx-bb:last-child {
   border-right: 0;
@@ -7570,6 +7688,12 @@ a.nm4:hover {
 .fx-bb .bnums b.dn3 {
   color: var(--fx-rose2);
 }
+/* A figure the response did not carry. Without this it rendered in the full
+   `--fx-t1` of a real number, so a bot with nothing closed looked like a bot
+   reporting a result. */
+.fx-bb .bnums b.mut2 {
+  color: var(--fx-t3);
+}
 @media (max-width: 760px) {
   /* .fx-bb's padding/border-right are a divider between side-by-side desktop
      columns — only ever reset for :first-child. Once the row wraps to one
@@ -7611,6 +7735,18 @@ a.nm4:hover {
   font-size: 14px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
+}
+/* A day's net, toned like every other result on the page. Without these the
+   figure rendered in the body colour whichever way the day went, which is
+   the one thing a day total should never be neutral about. */
+.fx-day .dt2.up3 {
+  color: var(--fx-teal2);
+}
+.fx-day .dt2.dn3 {
+  color: var(--fx-rose2);
+}
+.fx-day .dt2.mut2 {
+  color: var(--fx-t3);
 }
 .fx-hrow {
   display: grid;
@@ -7680,6 +7816,18 @@ a.nm4:hover {
   font-size: 14.5px;
   font-weight: 500;
   white-space: nowrap;
+}
+/* The row's own result. `small` beneath keeps the muted colour whichever way
+   the row went — the money under the percentage is the same result restated,
+   not a second verdict to colour twice. */
+.fx-hres.up3 {
+  color: var(--fx-teal2);
+}
+.fx-hres.dn3 {
+  color: var(--fx-rose2);
+}
+.fx-hres.mut2 {
+  color: var(--fx-t3);
 }
 .fx-hres small {
   display: block;
@@ -9321,6 +9469,64 @@ button.fx-pay9:disabled {
   }
 }
 
+/* ---- loading placeholders in the overview hero ---------------------------
+   Each slot is sized to the figure that will replace it, so the hero does not
+   reflow when the metrics response lands. Sizes are explicit rather than em
+   based because these sit inside `b` and `i` elements whose own font sizes
+   would otherwise decide how tall a placeholder for a 20px figure is. */
+.fx-eq .fx-skel.eq {
+  width: clamp(150px, 20vw, 232px);
+  height: 0.66em;
+  border-radius: 12px;
+  /* the equity figure has `line-height: 1`, so an inline-block on the
+     baseline would otherwise sit low enough to clip the pill below */
+  vertical-align: -0.04em;
+}
+/* `.fx-ss i` is the caption rule (12px, 6px of left margin); a placeholder
+   standing in for the FIGURE must not inherit either. */
+.fx-ss b .fx-skel {
+  width: 68px;
+  height: 15px;
+  margin-left: 0;
+}
+.fx-riskline b .fx-skel {
+  width: 58px;
+  height: 11px;
+  margin-left: 0;
+}
+
+/* A delta pill with nothing in it yet: the teal border is a verdict ("up
+   today"), so the loading pill drops to the neutral line colour and only the
+   real figure earns a colour. */
+.fx-delta.ld2 {
+  border-color: var(--fx-line2);
+  background: var(--w04);
+  color: var(--fx-t3);
+}
+
+/* Likewise a status chip still in flight — grey like the "not reported" one,
+   but its dot pulses so it reads as pending rather than as an answer. */
+.fx-chip.ld4 {
+  color: var(--fx-t3);
+}
+.fx-chip.ld4 i {
+  animation: fx-chip-wait 1.4s ease-in-out infinite;
+}
+@keyframes fx-chip-wait {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fx-chip.ld4 i {
+    animation: none;
+  }
+}
+
 /* ---- decision risk + outcome ---------------------------------------------
    `.fx-st4` had live4/pause4/fail4 only; a bot's MEDIUM risk rating is
    neither good nor bad, so it needs the amber the chips already use. Without
@@ -9364,6 +9570,19 @@ button.fx-pay9:disabled {
   background: rgba(255, 194, 77, 0.09);
   border-radius: 99px;
   padding: 3px 9px;
+}
+/* The opposite of `.fx-nostop`, and the only good news a position's stop can
+   carry: the stop is at or above the entry, so if it fires the position
+   closes at or above what it cost. Teal, small, and under the track rather
+   than in it — it qualifies the marker, it is not a second marker. */
+.fx-lockedin {
+  display: block;
+  margin-top: 3px;
+  font-family: var(--fx-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fx-teal2);
 }
 /* The row is an <a> when the position links to its trade, so it needs the
    grid and colour the <div> form gets from `.fx-row`. */

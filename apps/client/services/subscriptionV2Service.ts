@@ -23,6 +23,7 @@ import {
   SubscriptionV2,
   UsageV2,
 } from "../types/subscriptionV2";
+import { revalidate } from "../redux/slices/revalidateSlice";
 
 const BASE = "/subscription_v2/";
 
@@ -177,6 +178,10 @@ const changePlan = createAsyncThunk("subscriptionV2/changePlan", async (p: PlanC
 /** POST /cancel/ — runs to the end of the paid period (`active_until`) */
 const cancel = createAsyncThunk("subscriptionV2/cancel", async (api: AxiosInstance, thunkApi) => {
   try {
+    /* A plan change moves what the account may do — live trading, exporting,
+       and how far back History is allowed to reach. Both of those are read
+       from entitlements, so both are re-read. */
+    thunkApi.dispatch(revalidate(["entitlements", "history"]));
     return await post(api, "cancel/");
   } catch (err: any) {
     return fail(err, thunkApi);
@@ -186,6 +191,7 @@ const cancel = createAsyncThunk("subscriptionV2/cancel", async (api: AxiosInstan
 /** POST /resume/ — undo a cancellation while the plan is still running */
 const resume = createAsyncThunk("subscriptionV2/resume", async (api: AxiosInstance, thunkApi) => {
   try {
+    thunkApi.dispatch(revalidate(["entitlements", "history"]));
     return await post(api, "resume/");
   } catch (err: any) {
     return fail(err, thunkApi);

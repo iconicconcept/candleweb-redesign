@@ -11,6 +11,12 @@ import {
   patchBotV2,
 } from "../redux/slices/tradingV2Slice";
 import {
+  BookV2Param,
+  BotMetricsV2,
+  BotMetricsV2Query,
+  BotReviewReadinessV2,
+  HistoryV2,
+  HistoryV2Query,
   TradeV2,
   TradeV2Payload,
   BotV2,
@@ -32,6 +38,7 @@ import {
   TradeMetricsV2Query,
 } from "../types/tradingV2";
 import { unwrapV2, unwrapPageV2, unwrapDataV2 } from "../lib/tradingV2Shape";
+import { revalidate } from "../redux/slices/revalidateSlice";
 
 const BASE = "/trading_v2/trades/";
 
@@ -71,12 +78,21 @@ export const getFieldErrors = (err: any): Record<string, string> => {
   return out;
 };
 
-/** GET /trading_v2/trades/ — list my trades */
+/**
+ * GET /trading_v2/trades/ — list my trades, for ONE book.
+ *
+ * Book-scoped as of the v2 update: a Live dashboard no longer lists demo
+ * trades, nor folds their allocation into its Capital Allocated. Callers pass
+ * `{ api, book }`; the bare-instance form is still accepted so a call site
+ * that genuinely wants the server's own switch does not have to invent one.
+ */
 const listTrades = createAsyncThunk(
   "tradingV2/list",
-  async (api: AxiosInstance, thunkApi) => {
+  async (payload: AxiosInstance | { api: AxiosInstance; book?: BookV2Param }, thunkApi) => {
+    const api = "api" in payload ? payload.api : payload;
+    const book = "api" in payload ? payload.book : undefined;
     try {
-      const { data } = await api.get<TradeV2[]>(BASE);
+      const { data } = await api.get<TradeV2[]>(BASE, { params: book ? { book } : {} });
       const trades = Array.isArray(data) ? data : [];
       thunkApi.dispatch(setTradesV2(trades));
       return trades;
@@ -130,6 +146,10 @@ const createTrade = createAsyncThunk(
     try {
       const { data } = await payload.api.post<TradeV2>(BASE, withIds(payload.data));
       thunkApi.dispatch(upsertTradeV2(data));
+      /* Everything that reads the trades list or the status chips, wherever
+         it is mounted. Doing this in the thunk rather than at each call site
+         is what keeps a page from having to know which other pages exist. */
+      thunkApi.dispatch(revalidate(["trades", "status"]));
       success("Trade saved.");
       payload.onSuccess?.(data);
       return data;
@@ -156,6 +176,7 @@ const updateTrade = createAsyncThunk(
     try {
       const { data } = await payload.api.patch<TradeV2>(`${BASE}${payload.id}/`, withIds(payload.data));
       thunkApi.dispatch(upsertTradeV2(data));
+      thunkApi.dispatch(revalidate(["trades", "status"]));
       success("Trade updated.");
       payload.onSuccess?.(data);
       return data;
@@ -174,6 +195,7 @@ const deleteTrade = createAsyncThunk(
     try {
       await payload.api.delete(`${BASE}${payload.id}/`);
       thunkApi.dispatch(removeTradeV2(payload.id));
+      thunkApi.dispatch(revalidate(["trades", "status"]));
       success("Trade deleted.");
       payload.onSuccess?.();
       return payload.id;
@@ -192,6 +214,7 @@ const startTrade = createAsyncThunk(
     try {
       const { data } = await payload.api.post<TradeV2>(`${BASE}${payload.id}/start/`);
       thunkApi.dispatch(upsertTradeV2(data));
+      thunkApi.dispatch(revalidate(["trades", "status"]));
       success("Trade started.");
       payload.onSuccess?.(data);
       return data;
@@ -210,6 +233,7 @@ const pauseTrade = createAsyncThunk(
     try {
       const { data } = await payload.api.post<TradeV2>(`${BASE}${payload.id}/pause/`);
       thunkApi.dispatch(upsertTradeV2(data));
+      thunkApi.dispatch(revalidate(["trades", "status"]));
       success("Trade paused.");
       payload.onSuccess?.(data);
       return data;
@@ -290,6 +314,17 @@ const updateBot = createAsyncThunk(
     try {
       const { data } = await payload.api.patch<BotV2>(`${BOTS}${payload.id}/`, payload.data);
       thunkApi.dispatch(upsertBotV2(data));
+      /* ONLY the prompt, the model and the decision style restart a bot's
+         review-readiness count. Renaming it, or editing its note, webhook,
+         timeout or alerts, does not — so those must not trigger a re-read
+         that would make the meter look as though it had moved. */
+      if (
+        "prompt" in payload.data ||
+        "model_name" in payload.data ||
+        "decision_style" in payload.data
+      ) {
+        thunkApi.dispatch(revalidate(["reviewReadiness"]));
+      }
       success("Bot updated.");
       payload.onSuccess?.(data);
       return data;
@@ -326,6 +361,7 @@ const pauseBot = createAsyncThunk(
     try {
       const { data } = await payload.api.post<BotV2>(`${BOTS}${payload.id}/pause/`);
       thunkApi.dispatch(upsertBotV2(data));
+      thunkApi.dispatch(revalidate(["botHealth", "status"]));
       success("Bot paused.");
       return data;
     } catch (err: any) {
@@ -343,6 +379,7 @@ const resumeBot = createAsyncThunk(
     try {
       const { data } = await payload.api.post<BotV2>(`${BOTS}${payload.id}/resume/`);
       thunkApi.dispatch(upsertBotV2(data));
+      thunkApi.dispatch(revalidate(["botHealth", "status"]));
       success("Bot resumed.");
       return data;
     } catch (err: any) {
@@ -434,6 +471,7 @@ const listDecisions = async (
   // ("bot: Must be an id."), which usually just means the filter state had
   // not been set yet.
   const params: Record<string, string | number> = {};
+  if (query.book) params.book = query.book;
   if (query.bot != null) params.bot = query.bot;
   if (query.trade != null) params.trade = query.trade;
   if (query.decision) params.decision = query.decision;
@@ -504,6 +542,7 @@ const getPortfolioMetrics = async (
   query: PortfolioMetricsV2Query = {},
 ): Promise<PortfolioMetricsV2> => {
   const params: Record<string, string | number> = {};
+  if (query.book) params.book = query.book;
   if (query.venue) params.venue = query.venue;
   if (query.window_days != null) params.window_days = query.window_days;
   try {
@@ -574,9 +613,13 @@ const getStatus = async (api: AxiosInstance): Promise<TradingStatusV2> => {
 
 /** GET /trading_v2/trades/{id}/metrics/ — PnL and risk for one trade.
  *
- *  Positions are matched by venue and symbol, NOT by a foreign key, so two
- *  trades on the same pair and venue get the same positions back. Never sum
- *  these across trades; show `positions_matched_by` instead. */
+ *  Counts only the positions THIS TRADE opened. The old venue+symbol matching
+ *  is gone, and with it the rule that these could never be compared between
+ *  trades. What it does not count is `unattributed_positions` — positions on
+ *  the same market that no trade opened at all.
+ *
+ *  No `book`: a trade's mode is fixed when it is created, so this always
+ *  answers for the trade's own. */
 const getTradeMetrics = async (
   api: AxiosInstance,
   id: number,
@@ -588,6 +631,150 @@ const getTradeMetrics = async (
     const { data } = await api.get(`${BASE}${id}/metrics/`, { params });
     return unwrapV2<TradeMetricsV2>(data);
   } catch (err: any) {
+    throw new Error(getErrorMessage(err));
+  }
+};
+
+/**
+ * GET /trading_v2/bots/{id}/metrics/ — one bot's money, in one book.
+ *
+ * Counts the positions this bot's DECISIONS opened, not every position on the
+ * trades that point at it, so the figures survive a trade's bot being
+ * swapped. It replaces assembling a bot's PnL in the browser out of per-trade
+ * metrics, which double-counted any pair two trades shared and could not
+ * average a winner against a loser at all.
+ */
+const getBotMetrics = async (
+  api: AxiosInstance,
+  id: number,
+  query: BotMetricsV2Query = {},
+): Promise<BotMetricsV2> => {
+  const params: Record<string, string | number> = {};
+  if (query.book) params.book = query.book;
+  if (query.window_days != null) params.window_days = query.window_days;
+  try {
+    const { data } = await api.get(`${BOTS}${id}/metrics/`, { params });
+    return unwrapV2<BotMetricsV2>(data);
+  } catch (err: any) {
+    throw new Error(getErrorMessage(err));
+  }
+};
+
+/**
+ * GET /trading_v2/bots/{id}/review-readiness/ — can this bot be reviewed yet.
+ *
+ * The bar is **20 closed trades on the current prompt**, both books counted —
+ * not 20 decisions, which is a different and much easier thing to reach. Only
+ * a change to the prompt, model or decision style restarts the count, which
+ * is what `prompt_changed_at` marks; `updated_at` moves on any edit at all
+ * and must not be used for it.
+ */
+const getBotReviewReadiness = async (
+  api: AxiosInstance,
+  id: number,
+): Promise<BotReviewReadinessV2> => {
+  try {
+    const { data } = await api.get(`${BOTS}${id}/review-readiness/`);
+    return unwrapV2<BotReviewReadinessV2>(data);
+  } catch (err: any) {
+    throw new Error(getErrorMessage(err));
+  }
+};
+
+/* ================= History (v2) ================= */
+
+const HISTORY = "/trading_v2/history/";
+
+/** Query parameters, built once so the list and the CSV export cannot drift
+ *  apart about what they are showing. An absent filter is never sent: the
+ *  server rejects `?bot=undefined`, and an unset filter usually just means
+ *  the page has not finished mounting. */
+const historyParams = (query: HistoryV2Query): Record<string, string | number> => {
+  const params: Record<string, string | number> = {};
+  if (query.book) params.book = query.book;
+  /* `from`/`to` override `days`, so sending both invites a disagreement
+     between the rows and the heading above them. */
+  if (query.from || query.to) {
+    if (query.from) params.from = query.from;
+    if (query.to) params.to = query.to;
+  } else if (query.days != null) {
+    params.days = query.days;
+  }
+  if (query.tz) params.tz = query.tz;
+  if (query.bot != null) params.bot = query.bot;
+  if (query.trade != null) params.trade = query.trade;
+  if (query.pair) params.pair = query.pair;
+  if (query.exit) params.exit = query.exit;
+  if (query.limit != null) params.limit = query.limit;
+  if (query.offset != null) params.offset = query.offset;
+  return params;
+};
+
+/**
+ * GET /trading_v2/history/ — closed positions, with the summary, the per-bot
+ * strip and the day groups the page shows.
+ *
+ * `summary`, `by_bot` and `days` cover everything the filters match, NOT just
+ * the rows in `results` — so none of them may be recomputed from the page on
+ * screen. A plan that caps the window answers with 30 days and
+ * `record_limited: true` rather than an error.
+ */
+const getHistory = async (api: AxiosInstance, query: HistoryV2Query = {}): Promise<HistoryV2> => {
+  try {
+    const { data } = await api.get(HISTORY, { params: historyParams(query) });
+    const body = unwrapV2<any>(data);
+    const page = unwrapPageV2<HistoryV2["results"][number]>(body);
+    return {
+      ...(body as HistoryV2),
+      summary: body?.summary ?? {},
+      by_bot: Array.isArray(body?.by_bot) ? body.by_bot : [],
+      days: Array.isArray(body?.days) ? body.days : [],
+      count: page.count,
+      results: page.results,
+    };
+  } catch (err: any) {
+    throw new Error(getErrorMessage(err));
+  }
+};
+
+/**
+ * GET /trading_v2/history/export/ — the same rows as CSV, no paging.
+ *
+ * **Desk plan only**: anything else is a 403 carrying the upgrade sentence,
+ * which is thrown here so the caller can show it. Fetched with the auth
+ * header and handed back as a blob, since the browser cannot be sent to a
+ * protected URL directly.
+ */
+const exportHistory = async (
+  api: AxiosInstance,
+  query: HistoryV2Query = {},
+): Promise<{ blob: Blob; filename: string }> => {
+  try {
+    const res = await api.get(`${HISTORY}export/`, {
+      params: historyParams({ ...query, limit: undefined, offset: undefined }),
+      responseType: "blob",
+    });
+    /* The server names the file after the day it was taken; falling back to
+       today keeps a download from landing as "download". */
+    const disposition = String(res.headers?.["content-disposition"] ?? "");
+    const match = disposition.match(/filename="?([^"]+)"?/i);
+    return {
+      blob: res.data as Blob,
+      filename: match?.[1] || `candleweb-history-${new Date().toISOString().slice(0, 10)}.csv`,
+    };
+  } catch (err: any) {
+    /* A blob response type makes an error body a Blob too, so the usual
+       reader finds no `message` on it and would report the raw Axios text
+       instead of the plan sentence the user needs. */
+    const body = (err as AxiosError)?.response?.data as any;
+    if (body instanceof Blob) {
+      try {
+        const parsed = JSON.parse(await body.text());
+        throw new Error(parsed?.message || "Couldn't export your history.");
+      } catch (parseErr: any) {
+        if (parseErr?.message) throw parseErr;
+      }
+    }
     throw new Error(getErrorMessage(err));
   }
 };
@@ -614,6 +801,10 @@ const tradingV2Service = {
   getDecision,
   getBotHealth,
   getFleetHealth,
+  getBotMetrics,
+  getBotReviewReadiness,
+  getHistory,
+  exportHistory,
   getPortfolioMetrics,
   getTradeMetrics,
   getStatus,

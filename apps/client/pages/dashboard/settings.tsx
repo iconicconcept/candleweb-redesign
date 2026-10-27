@@ -17,6 +17,9 @@ import { getFirstAndLastLetter } from "../../utils/constants";
 import ExchangeLogo from "../../components/dashboard/focus/exchanges/ExchangeLogo";
 import { maskEmailUsername } from "../../utils/emailValidate";
 import { success, error, warning } from "../../components/alert/Toast";
+import subscriptionV2Service from "../../services/subscriptionV2Service";
+import { setBookV2 } from "../../redux/slices/tradingV2Slice";
+import { revalidateAll } from "../../redux/slices/revalidateSlice";
 import { setExchangeRecord } from "../../redux/slices/exchangeSlice";
 import { setNotification } from "../../redux/slices/notificationSlice";
 import {
@@ -67,6 +70,10 @@ export default function SettingsDashboard() {
   const { connectWallet } = useEthereum();
 
   const { exchanges, exchangeRecord } = useSelector((state: RootState) => state.exchange);
+  /* `may_open_new_positions` is false on a plan without live trading, and on
+     an unpaid one. It greys the Live button; the server enforces it. */
+  const { entitlements, meLoaded } = useSelector((state: RootState) => state.subscriptionV2);
+  const mayGoLive = entitlements ? entitlements.may_open_new_positions !== false : true;
 
   const [isLive, setIsLive] = useState(false);
   const [confirmLive, setConfirmLive] = useState(false);
@@ -98,6 +105,7 @@ export default function SettingsDashboard() {
 
     dispatch(exchangeServices.getExchangeRecords(axiosToken));
     if (exchanges.length < 1) dispatch(exchangeServices.getExchanges());
+    if (!meLoaded) dispatch(subscriptionV2Service.getMe(axiosToken));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [axiosToken, dispatch]);
 
@@ -115,9 +123,33 @@ export default function SettingsDashboard() {
     setModeBusy(true);
     dispatch(userService.updateUserDemo({ is_live: next, api: axiosToken }))
       .then(async (dt: any) => {
+        /* The server REFUSES this when the plan has no live trading, and a
+           rejected thunk still resolves — `payload` is then the refusal
+           sentence, not a profile. Writing it into the user store put a
+           string where the account should be and left the switch showing
+           Live on an account that had just been told it could not. */
+        if (dt?.meta?.requestStatus === "rejected" || !dt?.payload?.email) {
+          error(
+            typeof dt?.payload === "string"
+              ? dt.payload
+              : "Couldn't change your trading mode. Nothing has changed on your account.",
+          );
+          setIsLive(!!user?.is_live_mode);
+          return;
+        }
         setUser({ ...dt.payload, access_token: user?.access_token });
         await dispatch(exchangeServices.getExchangeRecords(axiosToken));
         success(next ? "Live mode on" : "Back to demo");
+        /* Everything book-scoped has to be re-read: the trades list, the
+           decisions, the positions and every figure derived from them now
+           answer for the other book. `setBookV2` clears the cached rows so
+           no page shows the old book's while the new ones are in the air. */
+        dispatch(setBookV2(next ? "live" : "demo"));
+        /* `setBookV2` clears the cached trades and bots; this tells every
+           view that fetches for itself — positions, metrics, status, the
+           decision feeds, History — to ask again. Nothing on screen answers
+           for this book until they do. */
+        dispatch(revalidateAll());
         dispatch(setActiveTrade([]));
         dispatch(setBalance(""));
         dispatch(setPortfolioTrade({}));
@@ -133,6 +165,14 @@ export default function SettingsDashboard() {
 
   const pickMode = (next: boolean) => {
     if (next === isLive || modeBusy) return;
+    if (next && !mayGoLive) {
+      /* The server refuses it anyway, with its own sentence. Stopping here is
+         a courtesy, not the enforcement. */
+      error(
+        "Live trading isn't part of your current plan. Upgrade to trade with real money — positions already open keep their stops.",
+      );
+      return;
+    }
     if (next) {
       setConfirmLive(true);
       return;
@@ -370,11 +410,16 @@ export default function SettingsDashboard() {
               type="button"
               className={`fx-eb live8 ${isLive ? "sel3" : ""}`}
               aria-pressed={isLive}
-              disabled={modeBusy}
+              disabled={modeBusy || !mayGoLive}
+              title={
+                mayGoLive
+                  ? undefined
+                  : "Live trading is part of the Builder and Desk plans."
+              }
               onClick={() => pickMode(true)}
             >
               <b>Live</b>
-              <span>Real orders, real money</span>
+              <span>{mayGoLive ? "Real orders, real money" : "Not on your plan"}</span>
             </button>
           </div>
           <p className="fx-envnote">
@@ -387,6 +432,18 @@ export default function SettingsDashboard() {
               "New trades are filled on paper at live prices. Your bots are called exactly the same way — only the fill is simulated."
             )}
           </p>
+          {/* The one thing this must never imply: that a plan limit touches
+              money already on the venue. Open positions are always managed,
+              and their stops are always enforced. */}
+          {!mayGoLive && (
+            <p className="fx-hint" style={{ marginTop: "10px" }}>
+              <b>Live trading isn&rsquo;t part of your plan.</b> It comes with Builder and Desk —{" "}
+              <Link href="/dashboard/subscription" style={{ color: "var(--fx-teal2)" }}>
+                see plans
+              </Link>
+              . Positions already open keep their stops either way, and you can still close them.
+            </p>
+          )}
         </section>
 
         <section className="fx-sec">

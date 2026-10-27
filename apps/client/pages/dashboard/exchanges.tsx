@@ -8,6 +8,7 @@ import exchangeServices from "../../services/exchangeService";
 import userService from "../../services/userService";
 import tradingV2Service from "../../services/tradingV2Service";
 import useAxiosAuth from "../../lib/hooks/useAxiosAuth";
+import useBook from "../../lib/hooks/useBook";
 import { isAuthorizationHeaderSet } from "../../utils/check_auth";
 import { success, error } from "../../components/alert/Toast";
 import { setBalance } from "../../redux/slices/userSlice";
@@ -57,6 +58,7 @@ const SAFETY_BADGES = [
 const DashboardExchangesPage = () => {
   const dispatch = useDispatch<AppDispatch>();
   const axiosToken = useAxiosAuth();
+  const book = useBook();
 
   const { exchanges, exchangeRecord } = useSelector((state: RootState) => state.exchange);
   const { balance } = useSelector((state: RootState) => state.user);
@@ -76,7 +78,7 @@ const DashboardExchangesPage = () => {
     dispatch(exchangeServices.getExchangeRecords(axiosToken)).finally(() => setRecordsLoaded(true));
     if (exchanges.length < 1) dispatch(exchangeServices.getExchanges());
     if (!balance || balance.length === 0) dispatch(userService.getBalance(axiosToken));
-    dispatch(tradingV2Service.listTrades(axiosToken));
+    dispatch(tradingV2Service.listTrades({ api: axiosToken, book }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [axiosToken, dispatch]);
 

@@ -7,6 +7,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "../../../../redux/store";
 import tradingV2Service from "../../../../services/tradingV2Service";
 import useAxiosAuth from "../../../../lib/hooks/useAxiosAuth";
+import useBook from "../../../../lib/hooks/useBook";
 import useUserStore from "../../../../lib/hooks/useUserStore";
 import { isAuthorizationHeaderSet } from "../../../../utils/check_auth";
 import { error, success } from "../../../../components/alert/Toast";
@@ -105,6 +106,7 @@ const BotSettingsPage = () => {
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
   const axiosToken = useAxiosAuth();
+  const book = useBook();
   const { bots, trades } = useSelector((state: RootState) => state.tradingV2);
   const { user } = useUserStore((state) => state);
 
@@ -121,7 +123,9 @@ const BotSettingsPage = () => {
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [newKey, setNewKey] = useState<string | null>(null);
   const loadedRef = useRef<number | null>(null);
-  const tradesRef = useRef(false);
+  /* The book the trades list was read for — flipping the switch has to
+     re-ask, so this holds the book rather than a bare "done" flag. */
+  const tradesRef = useRef<string | null>(null);
 
   /* Health drives the live facts the design shows next to the connection
      fields — when this bot was last reached, how long it takes to answer, and
@@ -167,9 +171,9 @@ const BotSettingsPage = () => {
 
   useEffect(() => {
     if (!valid || !isAuthorizationHeaderSet(axiosToken)) return;
-    if (!tradesRef.current) {
-      tradesRef.current = true;
-      dispatch(tradingV2Service.listTrades(axiosToken));
+    if (tradesRef.current !== book) {
+      tradesRef.current = book;
+      dispatch(tradingV2Service.listTrades({ api: axiosToken, book }));
     }
     if (!bot && loadedRef.current !== id) {
       loadedRef.current = id;
@@ -179,7 +183,7 @@ const BotSettingsPage = () => {
       healthFetchedRef.current = id;
       loadHealth();
     }
-  }, [valid, id, bot, axiosToken, dispatch, loadHealth]);
+  }, [valid, id, bot, axiosToken, dispatch, loadHealth, book]);
 
   useEffect(() => {
     if (bot && form === null) setForm(fromBot(bot));

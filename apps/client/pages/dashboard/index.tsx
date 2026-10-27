@@ -1,6 +1,6 @@
 import Head from "next/head";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { dollarFormat } from "ui";
 import { AppDispatch, RootState } from "../../redux/store";
@@ -21,6 +21,9 @@ import { BalanceProp } from "../../types/user";
 import { FleetHealthV2, PortfolioMetricsV2, TradingStatusV2 } from "../../types/tradingV2";
 import { chipClass, statusChips } from "../../lib/tradingV2Status";
 import useOpenPositions from "../../lib/hooks/useOpenPositions";
+import useBook from "../../lib/hooks/useBook";
+import usePoll, { POLL } from "../../lib/hooks/usePoll";
+import { useRevalidateEffect } from "../../lib/hooks/useRevalidate";
 import OpenPositionsList from "../../components/dashboard/focus/OpenPositionsList";
 import {
   commonQuote,
@@ -87,6 +90,11 @@ const DashboardPage = () => {
   );
   const { balance } = useSelector((state: RootState) => state.user);
   const { exchangeRecord } = useSelector((state: RootState) => state.exchange);
+  /* Every figure on this page answers for ONE book — the Settings switch.
+     Flipping it re-runs the fetch effect below and `useOpenPositions`, and
+     clears the cached trades and bots (see `useBookSync`), so nothing from
+     the other book survives the switch. */
+  const book = useBook();
   /* Setup step 1 is "subscribe to a plan" — a new account has no subscription
      at all (even the free plan has to be chosen), so this is a real step
      rather than a formality. `isLivePlan` counts any plan, free included,
@@ -94,7 +102,10 @@ const DashboardPage = () => {
      actually ends. */
   const { subscription, meLoaded } = useSelector((state: RootState) => state.subscriptionV2);
   const hasPlan = isLivePlan(subscription);
-  const fetchedRef = useRef(false);
+  /* The book it last fetched for, not a bare boolean: flipping the switch has
+     to re-ask, and "already fetched" would strand the other book's figures on
+     screen. */
+  const fetchedRef = useRef<string | null>(null);
 
   const [fleet, setFleet] = useState<FleetHealthV2 | null>(null);
 
@@ -104,7 +115,9 @@ const DashboardPage = () => {
      and a stale PnL is worse than no PnL. */
   const [metrics, setMetrics] = useState<PortfolioMetricsV2 | null>(null);
   const [metricsAsked, setMetricsAsked] = useState(false);
+  const [balanceAsked, setBalanceAsked] = useState(false);
   const [status, setStatus] = useState<TradingStatusV2 | null>(null);
+  const [statusAsked, setStatusAsked] = useState(false);
   const [statusFailed, setStatusFailed] = useState(false);
 
   /* The fleet's streak is its WORST bot, not an average. The fleet payload has
@@ -118,30 +131,31 @@ const DashboardPage = () => {
           fleet.failed_30d != null && fleet.failed_30d > 0 ? "yes" : null,
         );
 
-  useEffect(() => {
-    if (!isAuthorizationHeaderSet(axiosToken) || fetchedRef.current) return;
-    fetchedRef.current = true;
-    dispatch(tradingV2Service.listBots(axiosToken));
-    dispatch(tradingV2Service.listTrades(axiosToken));
-    if (!balance || balance.length === 0) dispatch(userService.getBalance(axiosToken));
-    if (exchangeRecord.length === 0) dispatch(exchangeServices.getExchangeRecords(axiosToken));
-    if (!meLoaded) dispatch(subscriptionV2Service.getMe(axiosToken));
-    tradingV2Service
-      .getFleetHealth(axiosToken)
-      .then(setFleet)
-      .catch(() => setFleet(null));
-    /* Read on its own: a metrics failure must not cost the page its bot
-       health, and vice versa. */
-    tradingV2Service
-      .getPortfolioMetrics(axiosToken, { window_days: DEFAULT_WINDOW_DAYS })
+  /* The two reads that keep going after the page has loaded. They are
+     callbacks rather than lines in the mount effect because both are polled
+     and both are re-run when a notification says they moved — and re-running
+     the mount effect to refresh a figure would re-dispatch the bots, the
+     trades and the balance along with it.
+
+     A refresh only ever sets `asked` to true, never back to false: a figure
+     that is already on screen must not flicker to "reading…" because a
+     background poll went out behind it. */
+  const loadMetrics = useCallback(() => {
+    if (!isAuthorizationHeaderSet(axiosToken)) return;
+    return tradingV2Service
+      .getPortfolioMetrics(axiosToken, { book, window_days: DEFAULT_WINDOW_DAYS })
       .then(setMetrics)
       .catch(() => setMetrics(null))
       .finally(() => setMetricsAsked(true));
-    /* The hero's chips — `GET /trading_v2/status/`. Kept separate from the
-       metrics call so a failure in one does not blank the other: a broken
-       status must not hide the equity, and unknown equity must not make the
-       chips claim everything is fine. */
-    tradingV2Service
+  }, [axiosToken, book]);
+
+  /* The hero's chips — `GET /trading_v2/status/`. Kept separate from the
+     metrics call so a failure in one does not blank the other: a broken
+     status must not hide the equity, and unknown equity must not make the
+     chips claim everything is fine. */
+  const loadStatus = useCallback(() => {
+    if (!isAuthorizationHeaderSet(axiosToken)) return;
+    return tradingV2Service
       .getStatus(axiosToken)
       .then((st) => {
         setStatus(st);
@@ -150,9 +164,56 @@ const DashboardPage = () => {
       .catch(() => {
         setStatus(null);
         setStatusFailed(true);
-      });
+      })
+      .finally(() => setStatusAsked(true));
+  }, [axiosToken]);
+
+  useEffect(() => {
+    if (!isAuthorizationHeaderSet(axiosToken) || fetchedRef.current === book) return;
+    fetchedRef.current = book;
+    /* Back to "reading…" rather than leaving the other book's figures up
+       while the new ones are in the air. */
+    setMetricsAsked(false);
+    setStatusAsked(false);
+    dispatch(tradingV2Service.listBots(axiosToken));
+    dispatch(tradingV2Service.listTrades({ api: axiosToken, book }));
+    /* The balance is the hero figure's fallback while `account_equity` stays
+       null, so the hero has to know whether it is still in flight — otherwise
+       an empty `balance` and a failed one look identical and both print a
+       dash the moment the bots land. */
+    if (!balance || balance.length === 0) {
+      dispatch(userService.getBalance(axiosToken)).finally(() => setBalanceAsked(true));
+    } else {
+      setBalanceAsked(true);
+    }
+    if (exchangeRecord.length === 0) dispatch(exchangeServices.getExchangeRecords(axiosToken));
+    if (!meLoaded) dispatch(subscriptionV2Service.getMe(axiosToken));
+    tradingV2Service
+      .getFleetHealth(axiosToken)
+      .then(setFleet)
+      .catch(() => setFleet(null));
+    loadMetrics();
+    loadStatus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [axiosToken, dispatch]);
+  }, [axiosToken, dispatch, book]);
+
+  /* ---- keeping the hero current ----
+     Two mechanisms, and the notification one does the real work: a fill or a
+     close refetches these the moment the poll sees it. The intervals are the
+     net under anything that arrives without a notification — a mark price
+     drifting, an exchange key revoked, a worker that stopped beating. */
+  const reloadTrades = useCallback(() => {
+    if (!isAuthorizationHeaderSet(axiosToken)) return;
+    dispatch(tradingV2Service.listTrades({ api: axiosToken, book }));
+  }, [axiosToken, dispatch, book]);
+
+  useRevalidateEffect("metrics", loadMetrics);
+  useRevalidateEffect("status", loadStatus);
+  useRevalidateEffect("trades", reloadTrades);
+
+  usePoll(loadMetrics, POLL.metrics);
+  usePoll(loadStatus, POLL.status);
+  usePoll(reloadTrades, POLL.trades);
 
   /* Every figure read once, here, so the hero and the risk card cannot
      disagree about what the same response said. `metricRead` is what honours
@@ -194,6 +255,23 @@ const DashboardPage = () => {
         ? 0
         : null;
 
+  /* "Not provided" is a verdict — the backend answered and had nothing. A
+     request that has not come back yet has made no such claim, and printing
+     the verdict early is what made a loading dashboard read like a broken
+     one. Every hero slot below asks the same question before it renders:
+     is this null only because nothing has answered yet? If so it shimmers
+     (`.fx-skel`, sized to the figure it will become, so nothing jumps) and
+     its caption says "reading…" instead. */
+  const metricsPending = !metricsAsked;
+  const equityPending =
+    !(equity.available && equity.value != null) &&
+    !(balance && balance.length) &&
+    (metricsPending || !balanceAsked);
+  const todayPending = todayMoney == null && metricsPending;
+  const realisedPending = realisedPctVal == null && metricsPending;
+  const drawdownPending = drawdownPct == null && metricsPending;
+  const atRiskPending = atRiskPctVal == null && metricsPending;
+
   const ddRange = (() => {
     const a = metrics?.max_drawdown_peak_at;
     const b = metrics?.max_drawdown_trough_at;
@@ -231,9 +309,14 @@ const DashboardPage = () => {
     rows: positions,
     asked: positionsAsked,
     failed: positionsFailed,
-  } = useOpenPositions(axiosToken, { status: "open" });
+  } = useOpenPositions(axiosToken, { status: "open", book });
   const risk = riskRollup(positions);
   const positionsOpenPnl = openPnlTotal(positions);
+  const positionsPending = !positionsAsked && !positionsFailed;
+  /* Open PnL can be answered by either response, so it is only still loading
+     while neither has landed. */
+  const openPnlPending =
+    positionsOpenPnl == null && !openPnl.available && (positionsPending || metricsPending);
 
   /* `botsNotResponding` is the local fallback: if the endpoint does not break
      bots out, the page already knows which of its own bots are failing. */
@@ -277,9 +360,11 @@ const DashboardPage = () => {
   const loadFailed = !loaded && !!(botsError || tradesError);
 
   const retry = () => {
-    fetchedRef.current = false;
+    /* Cleared rather than set to the current book: the effect skips when the
+       two match, so writing `book` here would make "Try again" a no-op. */
+    fetchedRef.current = null;
     dispatch(tradingV2Service.listBots(axiosToken));
-    dispatch(tradingV2Service.listTrades(axiosToken));
+    dispatch(tradingV2Service.listTrades({ api: axiosToken, book }));
   };
   const isEmpty =
     loaded && bots.length === 0 && trades.length === 0 && exchangeRecord.length === 0;
@@ -468,14 +553,26 @@ const DashboardPage = () => {
                   than counted locally: whether the venue is reachable and
                   whether monitoring is beating are claims only the backend can
                   make. A chip that could not be read goes grey — never green.
-                  See `statusChips`. */}
+                  See `statusChips`.
+
+                  While the call is still in flight those same chips would read
+                  "Exchange not reported" — a claim about an answer that has
+                  not arrived. Until it does they hold the row's size and say
+                  what they are waiting on instead. */}
               <div className="fx-chips">
-                {chips.map((c) => (
-                  <span key={c.key} className={`fx-chip ${chipClass(c.tone)}`} title={c.title}>
-                    <i />
-                    {c.label}
-                  </span>
-                ))}
+                {!statusAsked
+                  ? ["exchange", "monitoring"].map((k) => (
+                      <span key={k} className="fx-chip ld4">
+                        <i />
+                        reading {k}…
+                      </span>
+                    ))
+                  : chips.map((c) => (
+                      <span key={c.key} className={`fx-chip ${chipClass(c.tone)}`} title={c.title}>
+                        <i />
+                        {c.label}
+                      </span>
+                    ))}
               </div>
 
               <div className="fx-hero-chart">
@@ -495,11 +592,15 @@ const DashboardPage = () => {
                     : ""}
                 </p>
                 <p className="fx-eq">
-                  {equity.available && equity.value != null
-                    ? plainMoney(equity.value)
-                    : balance && balance.length
-                      ? dollarFormat(totalBalance)
-                      : "—"}
+                  {equityPending ? (
+                    <i className="fx-skel eq" aria-label="Reading your balance" />
+                  ) : equity.available && equity.value != null ? (
+                    plainMoney(equity.value)
+                  ) : balance && balance.length ? (
+                    dollarFormat(totalBalance)
+                  ) : (
+                    "—"
+                  )}
                 </p>
 
                 {/* The delta pill: money and percentage together, per the
@@ -508,14 +609,20 @@ const DashboardPage = () => {
                     own sentence. `.fx-delta` carries its own 15px top margin,
                     so only the fallback needs a wrapper. */}
                 <span
-                  className={`fx-delta ${todayMoney != null && todayMoney < 0 ? "dn2" : ""}`}
-                  title={changeToday.available ? undefined : changeToday.reason}
+                  className={`fx-delta ${
+                    todayPending ? "ld2" : todayMoney != null && todayMoney < 0 ? "dn2" : ""
+                  }`}
+                  title={todayPending || changeToday.available ? undefined : changeToday.reason}
                 >
-                  {todayMoney == null
-                    ? "today's change not provided"
-                    : `${todayMoney < 0 ? "↘" : "↗"} ${signedMoney(todayMoney)} today${
-                        todayPct != null ? ` · ${pctLabel(todayPct)}` : ""
-                      }`}
+                  {todayPending ? (
+                    "reading today's change…"
+                  ) : todayMoney == null ? (
+                    "today's change not provided"
+                  ) : (
+                    `${todayMoney < 0 ? "↘" : "↗"} ${signedMoney(todayMoney)} today${
+                      todayPct != null ? ` · ${pctLabel(todayPct)}` : ""
+                    }`
+                  )}
                 </span>
 
                 {/* The design's four: Open PnL, Realised · 30d, Max drawdown,
@@ -525,17 +632,25 @@ const DashboardPage = () => {
                   <div className="fx-ss">
                     <span className="fx-kase">OPEN PnL</span>
                     <b
-                      className={toneClass(
-                        positionsOpenPnl ?? (openPnl.available ? openPnl.value : null),
-                        "up3",
-                        "dn3",
-                      )}
+                      className={
+                        openPnlPending
+                          ? "mut2"
+                          : toneClass(
+                              positionsOpenPnl ?? (openPnl.available ? openPnl.value : null),
+                              "up3",
+                              "dn3",
+                            )
+                      }
                     >
-                      {positionsOpenPnl != null
-                        ? posMoney(positionsOpenPnl, commonQuote(positions))
-                        : openPnl.available
-                          ? signedMoney(openPnl.value)
-                          : "—"}
+                      {openPnlPending ? (
+                        <i className="fx-skel" aria-label="Reading open PnL" />
+                      ) : positionsOpenPnl != null ? (
+                        posMoney(positionsOpenPnl, commonQuote(positions))
+                      ) : openPnl.available ? (
+                        signedMoney(openPnl.value)
+                      ) : (
+                        "—"
+                      )}
                     </b>
                     {/* Captions stay as short as the design's ("3 positions",
                         "41 closed", "1–4 Aug", "≈ $151"). A reason sentence
@@ -550,7 +665,9 @@ const DashboardPage = () => {
                         ? `${positions.length} position${positions.length === 1 ? "" : "s"}`
                         : openPositions != null
                           ? `${openPositions} position${openPositions === 1 ? "" : "s"}`
-                          : "unrealised"}
+                          : positionsPending || metricsPending
+                            ? "reading…"
+                            : "unrealised"}
                     </i>
                   </div>
 
@@ -559,18 +676,28 @@ const DashboardPage = () => {
                     <span>Realised · {DEFAULT_WINDOW_DAYS}d</span>
                     <b
                       className={realisedPctVal != null ? toneClass(realisedPctVal, "up3", "dn3") : "mut2"}
-                      title={realisedPctVal != null ? undefined : realised.reason}
+                      title={realisedPending || realisedPctVal != null ? undefined : realised.reason}
                     >
-                      {realisedPctVal != null ? pctLabel(realisedPctVal) : "—"}
+                      {realisedPending ? (
+                        <i className="fx-skel" aria-label="Reading realised PnL" />
+                      ) : realisedPctVal != null ? (
+                        pctLabel(realisedPctVal)
+                      ) : (
+                        "—"
+                      )}
                     </b>
                     <i>
-                      {realisedPctVal == null
-                        ? (closed === 0 ? "no closed trades" : "not provided")
-                        : closed != null
-                          ? `${closed.toLocaleString()} closed`
-                          : realisedAmt.available && realisedAmt.value != null
-                            ? signedMoney(realisedAmt.value)
-                            : "from fills"}
+                      {realisedPending
+                        ? "reading…"
+                        : realisedPctVal == null
+                          ? closed === 0
+                            ? "no closed trades"
+                            : "not provided"
+                          : closed != null
+                            ? `${closed.toLocaleString()} closed`
+                            : realisedAmt.available && realisedAmt.value != null
+                              ? signedMoney(realisedAmt.value)
+                              : "from fills"}
                     </i>
                   </div>
 
@@ -578,11 +705,23 @@ const DashboardPage = () => {
                     <span>Max drawdown</span>
                     <b
                       className={drawdownPct != null && drawdownPct < 0 ? "dn3" : "mut2"}
-                      title={drawdown.available ? undefined : drawdown.reason}
+                      title={drawdownPending || drawdown.available ? undefined : drawdown.reason}
                     >
-                      {drawdownPct != null ? pctLabel(drawdownPct) : "—"}
+                      {drawdownPending ? (
+                        <i className="fx-skel" aria-label="Reading max drawdown" />
+                      ) : drawdownPct != null ? (
+                        pctLabel(drawdownPct)
+                      ) : (
+                        "—"
+                      )}
                     </b>
-                    <i>{drawdownPct == null ? "not provided" : ddRange ?? "peak to trough"}</i>
+                    <i>
+                      {drawdownPending
+                        ? "reading…"
+                        : drawdownPct == null
+                          ? "not provided"
+                          : ddRange ?? "peak to trough"}
+                    </i>
                   </div>
                   {/* `at_risk_now` counts only stops ARMED on the venue, so a position with
                       no stop adds nothing. The percentage is the backend's own figure and is
@@ -592,18 +731,26 @@ const DashboardPage = () => {
                     <span>At risk now</span>
                     <b
                       className={atRiskPctVal != null ? "" : "mut2"}
-                      title={atRiskPctVal != null ? undefined : atRiskShare.reason}
+                      title={atRiskPending || atRiskPctVal != null ? undefined : atRiskShare.reason}
                     >
-                      {atRiskPctVal != null ? `${Math.abs(atRiskPctVal).toFixed(2)}%` : "—"}
+                      {atRiskPending ? (
+                        <i className="fx-skel" aria-label="Reading what is at risk" />
+                      ) : atRiskPctVal != null ? (
+                        `${Math.abs(atRiskPctVal).toFixed(2)}%`
+                      ) : (
+                        "—"
+                      )}
                     </b>
                     <i>
-                      {atRiskPctVal == null
-                        ? atRisk.unprotected != null && atRisk.unprotected > 0
-                          ? `not provided · ${atRisk.unprotected} unprotected`
-                          : "not provided"
-                        : atRiskAmt != null
-                          ? `≈ ${plainMoney(atRiskAmt)}`
-                          : "armed stops"}
+                      {atRiskPending
+                        ? "reading…"
+                        : atRiskPctVal == null
+                          ? atRisk.unprotected != null && atRisk.unprotected > 0
+                            ? `not provided · ${atRisk.unprotected} unprotected`
+                            : "not provided"
+                          : atRiskAmt != null
+                            ? `≈ ${plainMoney(atRiskAmt)}`
+                            : "armed stops"}
                     </i>
                   </div>
                   
@@ -825,6 +972,7 @@ const DashboardPage = () => {
                 </div>
                 <DecisionsFeed
                   api={axiosToken}
+                  book={book}
                   pageSize={4}
                   empty={
                     <>
@@ -871,14 +1019,27 @@ const DashboardPage = () => {
                         excluded and counted rather than quietly treated as
                         costing nothing — see `riskRollup`. */}
                     <b className={risk.total != null ? "fx-dn" : "mut2"}>
-                      {risk.total != null
-                        ? `−${posMoneyPlain(risk.total, commonQuote(positions))}`
-                        : "—"}
+                      {positionsPending ? (
+                        <i className="fx-skel" aria-label="Reading your risk" />
+                      ) : risk.total != null ? (
+                        `−${posMoneyPlain(risk.total, commonQuote(positions))}`
+                      ) : (
+                        "—"
+                      )}
                     </b>
                   </div>
                   <div className="fx-riskline">
                     <span>Open positions with no stop</span>
-                    <b className={risk.unprotected > 0 ? "fx-dn" : ""}>{risk.unprotected}</b>
+                    {/* A 0 here would be a claim that every position is
+                        covered — the one claim this card must not make before
+                        the positions have been read. */}
+                    <b className={!positionsPending && risk.unprotected > 0 ? "fx-dn" : ""}>
+                      {positionsPending ? (
+                        <i className="fx-skel" aria-label="Reading unprotected positions" />
+                      ) : (
+                        risk.unprotected
+                      )}
+                    </b>
                   </div>
                   <div className="fx-riskline">
                     <span>Max size per trade</span>
@@ -890,9 +1051,13 @@ const DashboardPage = () => {
                   <div className="fx-riskline">
                     <span>Closest stop</span>
                     <b className={risk.closest?.gauge.near ? "fx-dn" : risk.closest ? "" : "mut2"}>
-                      {risk.closest
-                        ? `${pairLabel(risk.closest.position)} · ${risk.closest.gauge.label}`
-                        : "—"}
+                      {positionsPending ? (
+                        <i className="fx-skel" aria-label="Reading the closest stop" />
+                      ) : risk.closest ? (
+                        `${pairLabel(risk.closest.position)} · ${risk.closest.gauge.label}`
+                      ) : (
+                        "—"
+                      )}
                     </b>
                   </div>
 

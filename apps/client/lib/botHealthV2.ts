@@ -141,6 +141,36 @@ export const decidedAtShort = (iso: string): string => {
 export const whenLabel = (iso: string | null | undefined): string =>
   iso ? new Date(iso).toLocaleString() : "—";
 
+/**
+ * A timestamp split into a short day and a time, for a narrow column.
+ *
+ * `whenLabel` renders the locale's full form — "10/26/2026, 8:55:40 PM" —
+ * which is right inside a sentence and far too wide for a stat cell: on the
+ * bots list it was the single widest value in the row and pushed the whole
+ * grid out of shape. This drops the seconds, shortens the month to three
+ * letters, and keeps the year ONLY when it is not the current one, so the
+ * common case is as narrow as "26 Oct".
+ *
+ * The two parts are returned separately so the caller can stack them, which
+ * costs a line of height instead of a column of width.
+ */
+export const signalStamp = (
+  iso: string | null | undefined,
+): { day: string; time: string } | null => {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const thisYear = d.getFullYear() === new Date().getFullYear();
+  return {
+    day: d.toLocaleDateString(undefined, {
+      day: "numeric",
+      month: "short",
+      ...(thisYear ? {} : { year: "numeric" }),
+    }),
+    time: d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }),
+  };
+};
+
 /** The timeout is clamped to 5s…6h server-side, so it can differ from what
  *  the user typed. Showing the difference prevents a support ticket. */
 export const timeoutDiffers = (

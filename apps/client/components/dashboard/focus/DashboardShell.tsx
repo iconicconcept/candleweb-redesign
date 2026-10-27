@@ -8,6 +8,7 @@ import { isAuthorizationHeaderSet } from "../../../utils/check_auth";
 import notificationService from "../../../services/notificationService";
 import exchangeServices from "../../../services/exchangeService";
 import useNavWalker from "../../../lib/hooks/useNavWalker";
+import { useBookSync } from "../../../lib/hooks/useBook";
 import CheckLogin from "../CheckLogin";
 // import AIAgentChat from "../AIAgentChat";
 import Popover from "./Popover";
@@ -93,6 +94,10 @@ export default function DashboardShell({ active, children }: Props) {
   const moreActive = MORE_LINKS.some((l) => l.key === active);
 
   useNavWalker();
+  /* Every dashboard page sits inside this shell, so one call here keeps the
+     cached trades and bots from surviving a Demo/Live switch — wherever the
+     user happened to flip it. See `useBookSync`. */
+  useBookSync();
 
   useEffect(() => {
     if (!isAuthorizationHeaderSet(axiosToken)) return;

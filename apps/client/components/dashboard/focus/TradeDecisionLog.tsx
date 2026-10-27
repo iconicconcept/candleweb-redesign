@@ -2,6 +2,8 @@ import { AxiosInstance } from "axios";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Dialog from "./Dialog";
 import tradingV2Service from "../../../services/tradingV2Service";
+import usePoll, { POLL } from "../../../lib/hooks/usePoll";
+import { useRevalidateEffect } from "../../../lib/hooks/useRevalidate";
 import { error } from "../../alert/Toast";
 import {
   confidenceLabel,
@@ -14,10 +16,11 @@ import {
   marketDataIds,
   outcomePnl,
   outcomePnlCaption,
+  entryOutcome,
   riskMeta,
 } from "../../../lib/botDecisionsV2";
 import { signedMoney, toneClass } from "../../../lib/tradingV2Metrics";
-import { BotDecisionV2, BotDecisionV2Detail } from "../../../types/tradingV2";
+import { BookV2Param, BotDecisionV2, BotDecisionV2Detail } from "../../../types/tradingV2";
 
 /**
  * The trade-detail "Decisions and orders" log — `candleweb-trade-detail-focus
@@ -47,6 +50,8 @@ import { BotDecisionV2, BotDecisionV2Detail } from "../../../types/tradingV2";
 
 type Props = {
   api: AxiosInstance;
+  /** The trade's own book — a trade's mode is fixed when it is created. */
+  book?: BookV2Param;
   trade: number;
   /** How many to show before "load more". */
   pageSize?: number;
@@ -96,7 +101,7 @@ const ConfidenceDots = ({ confidence }: { confidence: number | null }) => {
   );
 };
 
-const TradeDecisionLog = ({ api, trade, pageSize = 6, refreshKey }: Props) => {
+const TradeDecisionLog = ({ api, book, trade, pageSize = 6, refreshKey }: Props) => {
   const [rows, setRows] = useState<BotDecisionV2[]>([]);
   const [count, setCount] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -117,6 +122,7 @@ const TradeDecisionLog = ({ api, trade, pageSize = 6, refreshKey }: Props) => {
       setFailed(null);
       try {
         const page = await tradingV2Service.listDecisions(api, {
+          book,
           trade,
           limit: pageSize,
           offset,
@@ -135,12 +141,39 @@ const TradeDecisionLog = ({ api, trade, pageSize = 6, refreshKey }: Props) => {
         }
       }
     },
-    [api, trade, pageSize],
+    [api, book, trade, pageSize],
   );
 
   useEffect(() => {
     fetchPage(0, false);
   }, [fetchPage, refreshKey]);
+
+  /* Re-reads as many rows as are on screen rather than just the first page,
+     so a background refresh never collapses a list the reader has expanded —
+     and stands down entirely while a detail dialog is open. Same reasoning
+     as `DecisionsFeed`. */
+  const rowsShown = rows.length;
+  const refresh = useCallback(async () => {
+    if (loading || detailFor != null) return;
+    const run = ++runRef.current;
+    try {
+      const page = await tradingV2Service.listDecisions(api, {
+        book,
+        trade,
+        limit: Math.max(pageSize, rowsShown),
+        offset: 0,
+      });
+      if (run !== runRef.current) return;
+      setRows(page.results);
+      setCount(page.count);
+      setFailed(null);
+    } catch {
+      /* Keeps what is already on screen — it was true when it was read. */
+    }
+  }, [api, book, trade, pageSize, rowsShown, loading, detailFor]);
+
+  useRevalidateEffect("decisions", refresh, loaded);
+  usePoll(refresh, POLL.decisions, loaded);
 
   const openDetail = async (id: number) => {
     setDetailFor(id);
@@ -374,6 +407,18 @@ const TradeDecisionLog = ({ api, trade, pageSize = 6, refreshKey }: Props) => {
             <p className="fx-hint" style={{ marginTop: 10 }}>
               {outcomePnlCaption(outcomePnl(detail))}
             </p>
+
+            {/* A refused entry is not a bot that did nothing — it is a bot
+                whose order the gate turned away, and the backend says why.
+                The commonest reason now is a live BUY on a plan without live
+                trading. */}
+            {entryOutcome(detail).refused && (
+              <p className="fx-failmsg" style={{ marginTop: 12 }}>
+                <b>This entry was refused.</b>{" "}
+                {entryOutcome(detail).detail ||
+                  "Candleweb's gate turned the order away, so no position was opened."}
+              </p>
+            )}
 
             {detail.think_time_seconds == null && (
               <p className="fx-hint" style={{ marginTop: 12 }}>

@@ -82,8 +82,18 @@ const updateUserDemo = createAsyncThunk(
       thunkApi.dispatch(getUser(payload.api)); // Dispatch the setUser action creator from userSlice
       return data; // Return the fetched data
     } catch (err: any) {
-      const e = err as AxiosError; // Cast the error to AxiosError
-      return thunkApi.rejectWithValue((e.response?.data as any).message); // Reject with error message if deleting fails
+      /* The server now REFUSES this when the plan has no live trading, so the
+         rejection carries a sentence a user has to read rather than just a
+         log line. It arrives either as `message` or under the field itself
+         (`is_live_mode: ["…"]`), and a network failure has no body at all —
+         reading `.message` off that threw, which turned a refusal into an
+         unhandled error while the switch still looked as though it worked. */
+      const e = err as AxiosError;
+      const body = e.response?.data as any;
+      const fromField = Array.isArray(body?.is_live_mode) ? body.is_live_mode[0] : null;
+      return thunkApi.rejectWithValue(
+        body?.message || fromField || e.message || "Couldn't change your trading mode."
+      );
     }
   }
 );

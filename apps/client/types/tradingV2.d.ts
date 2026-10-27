@@ -4,6 +4,16 @@
  * (your own bot, or CandleAI) and the risk limits Candleweb enforces.
  */
 
+/**
+ * Which book a call answers for, as the QUERY takes it (lower case).
+ * Responses name the same thing upper case, in their own `book` field.
+ *
+ * Every list and every figure answers for exactly one book. Nothing mixes
+ * them: a Live dashboard must not list demo trades, and must not add their
+ * allocation into its capital either.
+ */
+export type BookV2Param = "demo" | "live";
+
 export type TradeV2Timeframe = "1m" | "5m" | "15m" | "1h" | "4h" | "1d";
 export type TradeV2DeciderType = "OWN_BOT" | "CANDLE_AI";
 export type TradeV2Direction = "BOTH" | "LONG" | "SHORT";
@@ -12,7 +22,23 @@ export type TradeV2Status = "RUNNING" | "PAUSED" | "ERROR";
 /** A trade configuration as returned by the API. */
 export interface TradeV2 {
   id: number;
-  exchange_account: number;
+  /** What the user calls this trade ("ETH momentum"). Optional, max 100. */
+  name?: string;
+  /** `name`, or "ETHUSDT · 15m" when `name` is blank. Read-only, and the one
+   *  to put on screen — never `name`, which is empty on most trades. */
+  display_name?: string;
+  /**
+   * How confident a decision must be before it is acted on: a decision trades
+   * only when its `confidence` is ABOVE this. At 60, a 60 is held and a 61 can
+   * trade. Applies to a BUY opening a position and a SELL closing one.
+   * Required on create; existing trades were given 50.
+   */
+  min_confidence?: number;
+  /**
+   * Null on a DEMO trade, which needs no exchange: paper orders never reach
+   * one. A live trade always has one, and it cannot be removed by an edit.
+   */
+  exchange_account: number | null;
   exchange_name?: string;
   pair: number;
   pair_name?: string;
@@ -38,6 +64,17 @@ export interface TradeV2 {
    * production and the API already returns the right one. */
   candles_url: string | null;
   decision_url: string | null;
+
+  /* --- this trade's own record, in its own book --- */
+
+  /** Closed positions this trade opened, all time. */
+  closed_trades?: number | null;
+  /** Of those, how many made / lost money after fees. */
+  wins?: number | null;
+  losses?: number | null;
+  /** Percent, e.g. 11.11. Null until something has closed — a dash, not 0%. */
+  win_rate?: number | null;
+
   created_at: string;
   updated_at: string;
 }
@@ -116,7 +153,14 @@ export interface BotV2TestResult {
 
 /** Body for POST /trades/ and PATCH /trades/{id}/ (partial for PATCH). */
 export interface TradeV2Payload {
-  exchange_account?: number;
+  /** Optional, max 100. Blank is fine — `display_name` falls back to the pair. */
+  name?: string;
+  /** REQUIRED on create: a whole number from 0 to 99. A partial PATCH that
+   *  leaves it out keeps the trade's current value. */
+  min_confidence?: number;
+  /** Optional for a DEMO trade (send nothing or null). A live trade without
+   *  one is a 400. */
+  exchange_account?: number | null;
   pair?: number;
   timeframe?: TradeV2Timeframe;
   allocated_amount?: string;
@@ -146,6 +190,13 @@ export type StatusV2Overall = "ok" | "degraded" | "down";
 export interface StatusV2Issue {
   code?: string;
   message?: string;
+  /**
+   * True when this is worth saying but is not a fault — a bot holding a
+   * position its own decision opened, or no exchange on a demo-only account.
+   * `overall` only turns `degraded` for the non-informational ones, so an
+   * informational issue is styled neutral and never as a warning.
+   */
+  informational?: boolean;
 }
 
 /** A worker heartbeat. `age_seconds` is how long ago the last one was. */
@@ -161,6 +212,13 @@ export interface TradingStatusV2 {
     connected?: boolean;
     name?: string;
     venue?: string;
+    /**
+     * Whether anything on this account actually needs an exchange: true when
+     * the switch is on Live, a live trade is active, or a live position is
+     * open. On a demo-only account it is false, and a missing exchange is
+     * then informational rather than a red "not connected".
+     */
+    required?: boolean;
     [k: string]: unknown;
   };
   monitoring?: {
@@ -175,7 +233,18 @@ export interface TradingStatusV2 {
   bots?: {
     answering?: number;
     total?: number;
+    running?: number;
     not_responding?: number;
+    not_responding_ids?: number[];
+    /**
+     * Bots holding a position their own decision opened. A bot here is quiet
+     * with something still running, which is NOT the same as one that has
+     * gone silent with nothing to show for it — nothing is waiting on it, the
+     * stop or trail manages the exit. Neutral, never amber.
+     */
+    with_open_positions?: number;
+    with_open_positions_ids?: number[];
+    silent_with_open_positions_ids?: number[];
     [k: string]: unknown;
   };
   [k: string]: unknown;
@@ -250,8 +319,9 @@ export interface BotDecisionV2Detail extends BotDecisionV2 {
   market_data_ids: number[] | string | null;
 }
 
-/** GET /decisions/ — filters. All optional. */
+/** GET /decisions/ — filters. All optional. Book-scoped. */
 export interface BotDecisionsV2Query {
+  book?: BookV2Param;
   bot?: number;
   trade?: number;
   decision?: BotDecisionV2Action;
@@ -416,27 +486,27 @@ export interface PortfolioMetricsV2 {
   unprotected_positions: number | null;
   unavailable?: MetricsV2Unavailable;
 
-  /* --- named in prose, exact keys unconfirmed (see the resolvers) --- */
+  /* --- PnL, risk and win rate --- */
 
+  /** Which book this answers for. */
+  book?: "DEMO" | "LIVE" | null;
   /** The realised window actually applied, if the response echoes it. */
   window_days?: number | null;
   /** The venue filter actually applied, if the response echoes it. */
   venue?: string | null;
 
   realised_pnl?: MetricsV2Number;
-  realized_pnl?: MetricsV2Number;
+  realised_return_pct?: MetricsV2Number;
   unrealised_pnl?: MetricsV2Number;
-  unrealized_pnl?: MetricsV2Number;
   open_pnl?: MetricsV2Number;
+  change_today_pct?: MetricsV2Number;
   win_rate?: MetricsV2Number;
   wins?: number | null;
   losses?: number | null;
-  trades_closed?: number | null;
 
-    book?: "DEMO" | "LIVE" | null;
-  realised_return_pct?: MetricsV2Number;
   at_risk_pct?: MetricsV2Number;
   closed_positions?: number | null;
+  closed_trades?: number | null;
   open_positions?: number | null;
   max_drawdown_usdt?: MetricsV2Number;
   max_drawdown_peak_at?: string | null;
@@ -461,23 +531,142 @@ export interface PortfolioMetricsV2 {
  * body, so the PnL key names are resolved tolerantly.
  */
 export interface TradeMetricsV2 {
-  /** How positions were attributed, e.g. "venue+symbol". Surface it. */
-  positions_matched_by?: string | null;
   window_days?: number | null;
+  book?: "DEMO" | "LIVE" | null;
 
   realised_pnl?: MetricsV2Number;
-  realized_pnl?: MetricsV2Number;
+  realised_return_pct?: MetricsV2Number;
   unrealised_pnl?: MetricsV2Number;
-  unrealized_pnl?: MetricsV2Number;
   open_pnl?: MetricsV2Number;
   win_rate?: MetricsV2Number;
+  wins?: number | null;
+  losses?: number | null;
+  /** Closed positions this trade opened. Same number as `closed_positions`,
+   *  which it replaces. */
+  closed_trades?: number | null;
+  closed_positions?: number | null;
+  open_positions?: number | null;
   at_risk_now?: MetricsV2Number;
   unprotected_positions?: number | null;
+  /**
+   * Positions on this trade's market that NO trade opened.
+   *
+   * It replaces `legacy_positions_matched`, and with it the whole venue+symbol
+   * matching caveat: a trade's figures now count only the positions it opened
+   * itself, so two trades on one pair no longer report the same money and the
+   * figures can be read as this trade's own. These positions are in none of
+   * them — only the account-wide `metrics/` still counts them.
+   */
+  unattributed_positions?: number | null;
   unavailable?: MetricsV2Unavailable;
 }
 
-/** GET /metrics/ — filters. Both optional; `window_days` defaults to 30. */
+/* ------------------------------------------------------------------ *
+ * Bot metrics — `GET /api/trading_v2/bots/<id>/metrics/`
+ *
+ * Counts the positions THIS BOT'S DECISIONS opened — not every position on
+ * the trades that point at it — so the figures stay right even when a trade's
+ * bot is swapped. It is also why nothing here is assembled in the browser any
+ * more: summing per-trade metrics double-counted positions and could not
+ * average a winner against a loser at all.
+ * ------------------------------------------------------------------ */
+
+/** The bot's whole record in this book, ignoring `window_days`. */
+export interface BotMetricsV2AllTime {
+  closed_trades?: number | null;
+  wins?: number | null;
+  losses?: number | null;
+  win_rate?: MetricsV2Number;
+  avg_win?: MetricsV2Number;
+  avg_loss?: MetricsV2Number;
+  realised_pnl?: MetricsV2Number;
+}
+
+export interface BotMetricsV2 {
+  bot_id?: number;
+  book?: "DEMO" | "LIVE" | null;
+  window_days?: number | null;
+
+  realised_pnl?: MetricsV2Number;
+  /** Of the capital the closed positions actually used. */
+  realised_return_pct?: MetricsV2Number;
+  win_rate?: MetricsV2Number;
+  closed_trades?: number | null;
+  wins?: number | null;
+  losses?: number | null;
+  /** Money, after fees. Null when the bot has none of that kind yet. */
+  avg_win?: MetricsV2Number;
+  avg_loss?: MetricsV2Number;
+  open_positions?: number | null;
+  /** `0` here is the "all have a stop armed" caption, and is good news. */
+  unprotected_positions?: number | null;
+  /** Trades pointing at this bot, in this book. */
+  trades_using?: number | null;
+  /** The markets it has closed positions on — "across N pairs". */
+  pairs?: string[] | null;
+  all_time?: BotMetricsV2AllTime;
+  unavailable?: MetricsV2Unavailable;
+}
+
+/** GET /bots/<id>/metrics/ — filters. Both default to the switch / 30. */
+export interface BotMetricsV2Query {
+  book?: "demo" | "live";
+  window_days?: number;
+}
+
+/* ------------------------------------------------------------------ *
+ * Review readiness — `GET /api/trading_v2/bots/<id>/review-readiness/`
+ *
+ * The rule is the plan's: **20 CLOSED TRADES on the current prompt**, both
+ * books counted. Not 20 decisions — the meter used to count those, which is a
+ * different and much easier bar.
+ *
+ * Only a change to the bot's prompt, model or decision style restarts the
+ * count. Renaming it, or editing its note, webhook, timeout or alerts, does
+ * not — which is why `prompt_changed_at` exists and `updated_at` must not be
+ * used for this.
+ * ------------------------------------------------------------------ */
+
+export type BotReviewBlockerCode =
+  | "NO_PROMPT"
+  | "TOO_FEW_CLOSED_TRADES"
+  | "NO_REVIEWS_LEFT"
+  | string;
+
+export interface BotReviewBlockerV2 {
+  code?: BotReviewBlockerCode;
+  message?: string;
+}
+
+export interface BotReviewReadinessV2 {
+  prompt_stored?: boolean;
+  /** When the count started. Also on the bot itself. */
+  prompt_changed_at?: string | null;
+  closed_trades_needed?: number | null;
+  closed_trades_on_prompt?: number | null;
+  closed_trades_by_book?: Partial<Record<"DEMO" | "LIVE", number>> | null;
+  closed_trades_remaining?: number | null;
+  wins?: number | null;
+  losses?: number | null;
+  win_rate?: MetricsV2Number;
+  /** Context beside the bar, never the bar itself. */
+  decisions_on_prompt?: number | null;
+  decisions_on_prompt_by_kind?: Partial<Record<BotDecisionV2Action, number>> | null;
+  decisions_total?: number | null;
+  reviews_available?: number | null;
+  /** Has what a review needs: a stored prompt and enough closed trades. */
+  eligible?: boolean;
+  /** `eligible` AND a review left to spend. */
+  ready?: boolean;
+  /** Everything missing, in order. Show each `message`. */
+  blockers?: BotReviewBlockerV2[];
+}
+
+/** GET /metrics/ — filters. All optional; `window_days` defaults to 30. */
 export interface PortfolioMetricsV2Query {
+  /** Which book to answer for. Omitted, the server uses the Settings switch.
+   *  Anything other than "demo" / "live" is a 400. */
+  book?: BookV2Param;
   /** Limit to one venue. */
   venue?: string;
   /** Realised window. Default 30 server-side; sent explicitly so the figure
@@ -485,7 +674,10 @@ export interface PortfolioMetricsV2Query {
   window_days?: number;
 }
 
-/** GET /trades/<id>/metrics/ — filters. */
+/** GET /trades/<id>/metrics/ — filters.
+ *
+ *  No `book`: a trade's mode is fixed when it is created, so this always
+ *  answers for the trade's OWN book. */
 export interface TradeMetricsV2Query {
   window_days?: number;
 }
@@ -572,16 +764,35 @@ export interface PositionV2 {
   /** Before fees — the closing fee is unknown until the close. */
   open_pnl?: number | null;
   open_return_pct?: number | null;
-  /** The stop that fires first: tightest armed stop or trail. */
+  /** The stop that fires first: tightest armed stop or trail. Null only when
+   *  there is no stop at all. */
   stop_price?: number | null;
-  stop_kind?: string | null;
+  /** `TRAIL`, `STOP_LOSS` or `BACKSTOP`. */
+  stop_kind?: "TRAIL" | "STOP_LOSS" | "BACKSTOP" | string | null;
   distance_to_stop?: number | null;
   distance_to_stop_pct?: number | null;
-  /** Where price sits between the stop (0) and the entry (1), clamped. This
-   *  is the design's marker position, already computed — never re-derive it. */
+  /**
+   * Where price sits on the stop track, 0 at the stop and 1 at the safe end,
+   * clamped. The design's marker position, already computed — never re-derive
+   * it.
+   *
+   * **Null now means there is no stop AT ALL**, and `stop_price` is null too.
+   * It used to go null whenever a trail climbed above the entry, which made
+   * the card shout "NO STOP" over a position that was being protected.
+   */
   stop_gauge?: number | null;
-  /** What this loses if the stop fills at the backstop. null (with a reason)
-   *  when there is no stop — never zero. */
+  /** What the track spans, so the marker can be read correctly:
+   *  - `ENTRY` — the usual: stop (0) → entry (1).
+   *  - `TRAIL_DISTANCE` — stop at or above entry: 0 at the stop, 1 a full
+   *    trail distance above it (price at its high).
+   *  - `LOCKED_IN` — stop above entry with no trail distance known. */
+  stop_gauge_basis?: "ENTRY" | "TRAIL_DISTANCE" | "LOCKED_IN" | null;
+  /** The stop is at or above the entry: if it fires, the position closes at
+   *  or above what it cost. Worth saying — it is good news. */
+  stop_locked_in?: boolean | null;
+  /** What this loses if the stop fills at the backstop. `0` when the stop is
+   *  in profit — a real figure. Null (with a reason) when there is no stop at
+   *  all, which must never be shown as $0 at risk. */
   at_risk?: number | null;
   exit_price?: number | null;
   realised_pnl?: number | null;
@@ -610,4 +821,140 @@ export interface PositionsV2Query {
   /** default 25, max 100 */
   limit?: number;
   offset?: number;
+}
+
+/* ------------------------------------------------------------------ *
+ * History — `GET /api/trading_v2/history/` and `/history/export/`
+ *
+ * Closed positions, with the summary, the per-bot strip and the day groups
+ * the page shows. Three things to read correctly:
+ *
+ *  - **`summary`, `by_bot` and `days` cover EVERYTHING the filters match**,
+ *    not just the page in `results`. Recomputing them from the rows on screen
+ *    would quietly report "last 25 closes" under a 30-day heading.
+ *  - **A row whose sale was never recorded** has `exit_reason: "UNKNOWN"`,
+ *    null results and `unavailable.realised_pnl`. It is counted in
+ *    `summary.positions_missing_fills` and in NO total. Show a dash.
+ *  - **The plan caps the window.** Paper (and no plan) keeps 30 days: asking
+ *    for more returns 30 with `record_limited: true` rather than an error.
+ * ------------------------------------------------------------------ */
+
+export type HistoryV2ExitReason =
+  | "TRAILING_STOP"
+  | "STOP_HIT"
+  | "BOT_CLOSED"
+  | "TAKE_PROFIT"
+  | "SYSTEM_CLOSED"
+  | "MANUAL"
+  | "UNKNOWN";
+
+/** GET /history/ — every parameter optional. */
+export interface HistoryV2Query {
+  book?: BookV2Param;
+  /** A number of days, or "all". Default 30. Overridden by `from`/`to`. */
+  days?: number | "all";
+  /** `YYYY-MM-DD`, inclusive, read in `tz`. */
+  from?: string;
+  to?: string;
+  /** IANA zone. Always send the browser's — the day a trade closed on
+   *  depends on it, and so do the day groups. */
+  tz?: string;
+  /** A bot id, `"candleai"`, or `"none"` for positions no bot opened. */
+  bot?: number | "candleai" | "none";
+  trade?: number;
+  /** `ETHUSDT` or `ETH/USDT`. */
+  pair?: string;
+  exit?: HistoryV2ExitReason;
+  /** `limit` max 100, default 25. */
+  limit?: number;
+  offset?: number;
+}
+
+/** Over everything the filters match — never just the page. */
+export interface HistoryV2Summary {
+  closed_trades?: number | null;
+  win_rate?: MetricsV2Number;
+  wins?: number | null;
+  losses?: number | null;
+  /** Each position's own return, averaged. */
+  avg_win_pct?: MetricsV2Number;
+  avg_loss_pct?: MetricsV2Number;
+  avg_win?: MetricsV2Number;
+  avg_loss?: MetricsV2Number;
+  net_return_pct?: MetricsV2Number;
+  realised_pnl?: MetricsV2Number;
+  /** Null when nothing closed in the window. */
+  best_day?: { date?: string | null; net_pnl?: MetricsV2Number } | null;
+  /** Rows whose sale was never recorded. In no total. */
+  positions_missing_fills?: number | null;
+}
+
+/** One bot in the strip. `key` is what to pass back as `bot=`. */
+export interface HistoryV2BotRow {
+  key?: string;
+  name?: string;
+  closed_trades?: number | null;
+  win_rate?: MetricsV2Number;
+  net_return_pct?: MetricsV2Number;
+  realised_pnl?: MetricsV2Number;
+}
+
+export interface HistoryV2FilterOption {
+  key?: string | number;
+  name?: string;
+}
+
+/** A whole day's figures — not just the rows on this page. */
+export interface HistoryV2Day {
+  date?: string;
+  closed?: number | null;
+  net_pnl?: MetricsV2Number;
+}
+
+export interface HistoryV2Row {
+  position_id?: number;
+  /** Already in `tz`. `date` is its day, for grouping. */
+  closed_at?: string | null;
+  date?: string | null;
+  pair?: string | null;
+  /** Always BUY — spot is long-only, so no SELL badge can appear. */
+  side?: string | null;
+  bot?: { id?: number | null; name?: string } | null;
+  /** Used when `bot` is null: "CandleAI", "Not from a trade", "No bot recorded". */
+  decider?: { key?: string; name?: string } | null;
+  trade?: { id?: number | null; name?: string } | null;
+  entry_price?: MetricsV2Number;
+  exit_price?: MetricsV2Number;
+  held_seconds?: number | null;
+  exit_reason?: HistoryV2ExitReason | string | null;
+  exit_reason_label?: string | null;
+  /** After fees. Null with `unavailable.realised_pnl` when the sale was
+   *  never recorded — a dash, and in no total. */
+  return_pct?: MetricsV2Number;
+  realised_pnl?: MetricsV2Number;
+  unavailable?: MetricsV2Unavailable;
+}
+
+export interface HistoryV2 {
+  book?: "DEMO" | "LIVE" | null;
+  tz?: string | null;
+  /** True when the plan shortened the window that was asked for. */
+  record_limited?: boolean;
+  /** Days the plan keeps. Null = unlimited. */
+  record_days?: number | null;
+  summary: HistoryV2Summary;
+  by_bot: HistoryV2BotRow[];
+  days: HistoryV2Day[];
+  filters?: {
+    bots?: HistoryV2FilterOption[];
+    trades?: HistoryV2FilterOption[];
+    pairs?: HistoryV2FilterOption[];
+    exit_reasons?: HistoryV2FilterOption[];
+  } | null;
+  /** The TOTAL matching rows, for paging — not this page's length. */
+  count: number;
+  offset?: number;
+  results: HistoryV2Row[];
+  /** Carries `earlier_history` when the plan capped the window. */
+  unavailable?: MetricsV2Unavailable;
 }

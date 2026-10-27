@@ -19,13 +19,22 @@ import {
   failureStreakParts,
   isUnavailable,
   pausesCaveat,
+  signalStamp,
   unavailableReason,
-  whenLabel,
 } from "../../lib/botHealthV2";
-import useBotPnl from "../../lib/hooks/useBotPnl";
+import useBotMetrics, { BOT_METRIC_CAP } from "../../lib/hooks/useBotMetrics";
 import useOpenPositions from "../../lib/hooks/useOpenPositions";
+import useBook from "../../lib/hooks/useBook";
+import usePoll, { POLL } from "../../lib/hooks/usePoll";
+import { useRevalidateEffect } from "../../lib/hooks/useRevalidate";
 import { commonQuote, forBotId, openPnlTotal, posMoney } from "../../lib/positionsV2";
-import { DEFAULT_WINDOW_DAYS, signedMoney, toneClass } from "../../lib/tradingV2Metrics";
+import {
+  DEFAULT_WINDOW_DAYS,
+  metricNum,
+  signedMoney,
+  toneClass,
+  winRateLabel,
+} from "../../lib/tradingV2Metrics";
 
 const BotsPage = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -37,7 +46,10 @@ const BotsPage = () => {
   const [busyId, setBusyId] = useState<number | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<BotV2 | null>(null);
   const [fleet, setFleet] = useState<FleetHealthV2 | null>(null);
-  const fetchedRef = useRef(false);
+  /* The book it last fetched for, not a bare boolean — flipping the switch
+     has to re-ask rather than leave the other book's figures up. */
+  const fetchedRef = useRef<string | null>(null);
+  const book = useBook();
 
   /* `GET /bots/health/` — one call for the whole fleet. A user with no bots
      gets zeroes and an empty `bots` array rather than an error, so a null
@@ -53,12 +65,19 @@ const BotsPage = () => {
   }, [axiosToken]);
 
   useEffect(() => {
-    if (!isAuthorizationHeaderSet(axiosToken) || fetchedRef.current) return;
-    fetchedRef.current = true;
+    if (!isAuthorizationHeaderSet(axiosToken) || fetchedRef.current === book) return;
+    fetchedRef.current = book;
     dispatch(tradingV2Service.listBots(axiosToken));
-    dispatch(tradingV2Service.listTrades(axiosToken));
+    dispatch(tradingV2Service.listTrades({ api: axiosToken, book }));
     loadFleet();
-  }, [axiosToken, dispatch, loadFleet]);
+  }, [axiosToken, dispatch, loadFleet, book]);
+
+  /* Fleet health is the one read on this page that is not inside a hook, so
+     it gets its own poll. `useBotMetrics` and `useOpenPositions` keep
+     themselves current. A bot answering or going quiet arrives as a
+     notification; the minute interval covers the rest. */
+  useRevalidateEffect(["botHealth", "botMetrics"], loadFleet);
+  usePoll(loadFleet, POLL.botTiles);
 
   /* Pausing / resuming / removing a bot changes `connected` and `running`
      immediately, so the fleet numbers are re-read rather than left stale. */
@@ -69,17 +88,26 @@ const BotsPage = () => {
   // on-no-reply), which was shown here before real trade data was wired up.
   const tradesForBot = (botId: number) => trades.filter((t) => t.bot === botId);
 
-  /* Realised PnL per bot. Read once per distinct (pair, account) group across
-     the whole account, then attributed to the bots that touch each group — so
-     a pair two bots share costs one request, not two. See `useBotPnl`. */
-  const { forBot: pnlForBot, asked: pnlAsked } = useBotPnl(axiosToken, trades);
+  /* Each bot's own money — `GET /bots/{id}/metrics/` per row, capped. This
+     replaces summing per-trade metrics across position groups: a pair two
+     deciders shared used to report both their fills under each of them, and
+     nothing client-side could separate them. */
+  const {
+    forBot: metricsForBot,
+    asked: metricsAsked,
+    requested: metricsRequested,
+  } = useBotMetrics(
+    axiosToken,
+    bots.map((b) => b.id),
+    book,
+  );
   /* One positions request for the whole list, attributed per bot by `bot_id`
      rather than one request per row. */
   const {
     rows: positions,
     asked: positionsAsked,
     failed: positionsFailed,
-  } = useOpenPositions(axiosToken, { status: "open" });
+  } = useOpenPositions(axiosToken, { status: "open", book });
 
   /* `running` = bots that are not paused; `connected` = bots actually
      answering. Both come from the fleet endpoint; the local status list is
@@ -341,10 +369,16 @@ const BotsPage = () => {
               fb ? { connected: fb.connected, status: fb.status, last_signal: fb.last_signal } : null,
             );
             const botTrades = tradesForBot(b.id);
-            const pnl = pnlForBot(b.id);
-            /* In flight is its own state, distinct from "no figure": only a
-               bot that HAS trades can be waiting on one. */
-            const pnlLoading = botTrades.length > 0 && !pnlAsked;
+            /* `undefined` means this row was beyond the request cap and was
+               never asked for — a different state from "asked and the figure
+               is null", and it must say so rather than sit on "reading…". */
+            const bm = metricsForBot(b.id);
+            const pnlOutOfCap = !metricsRequested(b.id);
+            const pnlLoading = !pnlOutOfCap && !metricsAsked;
+            const netPnl = metricNum(bm?.realised_pnl);
+            const botWinRate = metricNum(bm?.win_rate);
+            const botClosed = bm?.closed_trades ?? null;
+            const stamp = signalStamp(fb?.last_signal);
             const botOpen = forBotId(positions, b.id);
             const botOpenPnl = openPnlTotal(botOpen);
             return (
@@ -372,11 +406,16 @@ const BotsPage = () => {
                   {/* `consecutive_fail_count` used to sit here. It is always
                       0 — nothing increments it — so it is not displayed
                       anywhere; the health endpoint is the real source. */}
+                  {/* Stacked, not inline. The locale's full timestamp was the
+                      widest value in this row by a distance and was what bent
+                      the grid out of shape; a day over a time costs one line
+                      of height instead of a column of width. */}
                   <div className="fx-bm">
                     <span>Last signal</span>
                     <b className={fb?.last_signal ? "" : "mut"}>
-                      {fb ? (fb.last_signal ? whenLabel(fb.last_signal) : "Never") : "—"}
+                      {!fb ? "—" : stamp ? stamp.day : "Never"}
                     </b>
+                    {stamp && <em className="sub6">{stamp.time}</em>}
                   </div>
                   <div className="fx-bm">
                     <span>Auto-pause at</span>
@@ -399,41 +438,39 @@ const BotsPage = () => {
                             : `${botOpenPnl == null ? "—" : posMoney(botOpenPnl, commonQuote(botOpen))} unrealised`}
                     </div>
                   </div>
-                  {/* Realised PnL, de-duplicated by position group. `shared`
-                      means another decider trades one of this bot's pairs on
-                      the same account, so the figure covers their fills too
-                      and nothing client-side can separate them. */}
+                  {/* This bot's own realised PnL, from `/bots/{id}/metrics/`.
+                      It counts the positions THIS BOT'S decisions opened, so
+                      there is no longer a "shares a pair with another
+                      decider" caveat to make — a pair two bots trade now
+                      reports each one's fills under that bot alone. */}
                   <div className="fx-bm">
                     <span className="fx-kase">PnL · {DEFAULT_WINDOW_DAYS}D</span>
-                    <b className={pnlLoading ? "mut" : toneClass(pnl.total, "up5", "dn5", "mut")}>
+                    <b className={pnlLoading ? "mut" : toneClass(netPnl, "up5", "dn5", "mut")}>
                       {pnlLoading ? (
                         <i className="fx-skel" aria-label="Reading PnL" />
-                      ) : pnl.total == null ? (
+                      ) : netPnl == null ? (
                         "—"
                       ) : (
-                        signedMoney(pnl.total)
+                        signedMoney(netPnl)
                       )}
                     </b>
                     {/* a <div>, not a second `.fx-bm span` — that selector
                         would force its own uppercase/mono styling onto this
                         note regardless of the `.fx-preview` class */}
                     <div
-                      className={
-                        !pnlLoading && (pnl.shared || pnl.total == null) ? "fx-preview" : undefined
-                      }
                       style={{ marginTop: 4, fontSize: "11px", color: "var(--fx-t3)" }}
                     >
-                      {botTrades.length === 0
-                        ? "no trades yet"
+                      {pnlOutOfCap
+                        ? `beyond the first ${BOT_METRIC_CAP} bots`
                         : pnlLoading
                           ? "reading…"
-                          : pnl.total == null
-                            ? "not reported yet"
-                            : pnl.read < pnl.of
-                              ? `${pnl.read} of ${pnl.of} pairs read`
-                              : pnl.shared
-                                ? "shares a pair with another decider"
-                                : `across ${pnl.of} pair${pnl.of === 1 ? "" : "s"}`}
+                          : botClosed === 0
+                            ? "nothing closed yet"
+                            : botWinRate != null
+                              ? `${winRateLabel(botWinRate)} of ${(botClosed ?? 0).toLocaleString()} closed`
+                              : botClosed != null
+                                ? `${botClosed.toLocaleString()} closed`
+                                : "not reported yet"}
                     </div>
                   </div>
                 </div>

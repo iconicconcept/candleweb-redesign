@@ -53,6 +53,9 @@ const Track = ({ p }: { p: PositionV2 }) => {
         <text x="0" y="10" fontFamily="var(--fx-mono)" fontSize="7" fill="var(--fx-t3)">
           stop
         </text>
+        {/* Not always "entry": once a trail has climbed past the entry the
+            track spans the stop to the price's high instead, and labelling
+            that end "entry" would put the marker's destination behind it. */}
         <text
           x="100"
           y="10"
@@ -61,9 +64,12 @@ const Track = ({ p }: { p: PositionV2 }) => {
           fontSize="7"
           fill="var(--fx-t3)"
         >
-          entry
+          {gauge.farLabel}
         </text>
       </svg>
+      {/* The one piece of good news a position can carry: if this stop fires,
+          it closes at or above what it cost. */}
+      {gauge.lockedIn && <span className="fx-lockedin">stop in profit</span>}
     </div>
   );
 };

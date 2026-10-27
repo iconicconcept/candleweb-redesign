@@ -16,6 +16,13 @@ import { CheckIcon } from "../../../components/dashboard/focus/icons";
 import ConnectBotPanel from "../../../components/dashboard/focus/ConnectBotPanel";
 import { indicatorChips } from "../../../lib/tradingV2Indicators";
 import {
+  DEFAULT_MIN_CONFIDENCE,
+  MAX_MIN_CONFIDENCE,
+  confidenceError,
+  confidenceRule,
+} from "../../../lib/tradingV2Trades";
+import useBook from "../../../lib/hooks/useBook";
+import {
   TradeV2,
   TradeV2Direction,
   TradeV2DeciderType,
@@ -97,6 +104,14 @@ const DIRECTION_LABELS: Record<TradeV2Direction, string> = {
 };
 
 type FormState = {
+  /** What the user calls this trade. Optional — blank is a real choice, and
+   *  `display_name` falls back to "ETHUSDT · 15m" on its own. */
+  name: string;
+  /** Kept as a STRING, not a number: the field is required and must be able
+   *  to be empty while the user is typing. A numeric 0 would be a valid gate
+   *  and indistinguishable from "nothing entered yet". */
+  min_confidence: string;
+  /** 0 = none picked. Optional on a demo trade, required on a live one. */
   exchange_account: number;
   pair: number;
   timeframe: TradeV2Timeframe;
@@ -112,6 +127,8 @@ type FormState = {
 };
 
 const DEFAULTS: FormState = {
+  name: "",
+  min_confidence: String(DEFAULT_MIN_CONFIDENCE),
   // 0 = none picked yet; the first connected account is filled in on load
   exchange_account: 0,
   pair: PLACEHOLDER_PAIRS[0].id,
@@ -140,7 +157,20 @@ const NewTradePage = () => {
   const editing = editId != null && !Number.isNaN(editId);
 
   const [form, setForm] = useState<FormState>(DEFAULTS);
-  const [environment, setEnvironment] = useState<"demo" | "live">("demo");
+  /**
+   * The book this trade will be created in.
+   *
+   * It is the Settings switch, not a choice made here. This used to be a
+   * local `environment` toggle with two buttons, which was never sent
+   * anywhere: whatever the user picked, the trade was created in whichever
+   * book their switch was on. The control is now a reading of that switch,
+   * with the way to change it.
+   *
+   * It also decides whether an exchange account is required below: paper
+   * orders never reach a venue, so a demo trade needs no keys.
+   */
+  const book = useBook();
+  const isLive = book === "live";
   const [busy, setBusy] = useState<null | "save" | "start">(null);
   const [existing, setExisting] = useState<TradeV2 | null>(null);
   /* Set on a successful create so the user leaves this flow with the pull
@@ -154,7 +184,7 @@ const NewTradePage = () => {
     if (!isAuthorizationHeaderSet(axiosToken) || botsFetchedRef.current) return;
     botsFetchedRef.current = true;
     dispatch(tradingV2Service.listBots(axiosToken));
-    dispatch(tradingV2Service.listTrades(axiosToken));
+    dispatch(tradingV2Service.listTrades({ api: axiosToken, book }));
     if (!balance || balance.length === 0) dispatch(userService.getBalance(axiosToken));
     dispatch(exchangeServices.getExchangeRecords(axiosToken));
     if (exchanges.length < 1) dispatch(exchangeServices.getExchanges());
@@ -170,6 +200,9 @@ const NewTradePage = () => {
       setExisting(t);
       setForm({
         // bare ids even if the API nested them — see toId in tradingV2Service
+        name: t.name ?? "",
+        min_confidence:
+          t.min_confidence == null ? DEFAULTS.min_confidence : String(t.min_confidence),
         exchange_account: toId(t.exchange_account) ?? DEFAULTS.exchange_account,
         pair: toId(t.pair) ?? DEFAULTS.pair,
         timeframe: t.timeframe,
@@ -207,11 +240,14 @@ const NewTradePage = () => {
     [exchangeRecord, exchanges],
   );
 
-  // new trade: default to the first connected account once they load
+  /* New LIVE trade: default to the first connected account once they load.
+     Not on demo — a demo trade needs no exchange, and pre-selecting one would
+     quietly attach keys to a trade that never uses them and make the field
+     look required when it is not. */
   useEffect(() => {
-    if (editing || form.exchange_account || accountOptions.length === 0) return;
+    if (editing || !isLive || form.exchange_account || accountOptions.length === 0) return;
     setForm((f) => ({ ...f, exchange_account: accountOptions[0].id }));
-  }, [editing, form.exchange_account, accountOptions]);
+  }, [editing, isLive, form.exchange_account, accountOptions]);
 
   /* The panel needs the bot's `dev_key`. It is on every bot response, but the
      cached list row can predate the bot being created in this session, so
@@ -299,26 +335,48 @@ const NewTradePage = () => {
     : "Allocate some money and choose who decides. This paragraph will then spell out exactly what " +
       "Candleweb is about to do on your behalf, in the order it will happen.";
 
+  /* Checked here as well as server-side so a bad gate is caught before the
+     round trip, with the same wording the server would answer with. */
+  const confError = confidenceError(form.min_confidence);
+
   const missing = useMemo(() => {
     const m: string[] = [];
-    if (!form.exchange_account) m.push("connect an exchange account");
+    /* A demo trade needs no exchange — paper orders never reach one. Only a
+       live trade is blocked on it. */
+    if (isLive && !form.exchange_account) m.push("connect an exchange account");
     if (!(alloc > 0)) m.push("allocate an amount");
     if (form.indicators.length === 0) m.push("send at least one indicator");
     if (form.decider_type === "OWN_BOT" && !form.bot) m.push("pick a bot");
+    if (confError) m.push("set a confidence from 0 to 99");
     return m;
-  }, [form.exchange_account, alloc, form.indicators.length, form.decider_type, form.bot]);
+  }, [
+    isLive,
+    form.exchange_account,
+    alloc,
+    form.indicators.length,
+    form.decider_type,
+    form.bot,
+    confError,
+  ]);
 
   const sectionsDone = [
-    !!form.exchange_account && !!form.pair,
+    (!isLive || !!form.exchange_account) && !!form.pair,
     alloc > 0,
     form.indicators.length > 0,
-    form.decider_type === "CANDLE_AI" || !!form.bot,
+    (form.decider_type === "CANDLE_AI" || !!form.bot) && !confError,
     true,
   ];
   const doneCount = sectionsDone.filter(Boolean).length;
 
   const buildPayload = (): TradeV2Payload => ({
-    exchange_account: form.exchange_account,
+    /* Trimmed, and sent even when empty: clearing the name on an edit has to
+       reach the server, or `display_name` keeps the old one. */
+    name: form.name.trim(),
+    min_confidence: Number(form.min_confidence),
+    /* `0` is "none picked", not account zero. On demo that is a real answer
+       and the field is left out entirely; on live `missing` has already
+       stopped the save. */
+    exchange_account: form.exchange_account || null,
     pair: form.pair,
     timeframe: form.timeframe,
     allocated_amount: alloc.toFixed(2),
@@ -370,8 +428,12 @@ const NewTradePage = () => {
   };
 
   const onSave = async () => {
-    if (!form.exchange_account) {
-      error("Connect an exchange account before saving this trade.");
+    if (isLive && !form.exchange_account) {
+      error("A live trade needs an exchange account. Connect one, or switch to Demo in Settings.");
+      return;
+    }
+    if (confError) {
+      error(`Confidence: ${confError}`);
       return;
     }
     setBusy("save");
@@ -513,42 +575,64 @@ const NewTradePage = () => {
 
                 <div className="fx-envrow">
                   <span className="fx-fl">Environment</span>
+                  {/* A reading of the Settings switch, not a choice made
+                      here. The two buttons that used to sit in this slot
+                      looked like a per-trade choice and were never sent
+                      anywhere — the trade was created in whichever book the
+                      switch was on regardless, which is the one thing a
+                      control like this must not get wrong. */}
                   <div className="fx-env" role="group" aria-label="Environment">
-                    <button
-                      type="button"
-                      className={`fx-eb ${environment === "demo" ? "sel3" : ""}`}
-                      aria-pressed={environment === "demo"}
-                      onClick={() => setEnvironment("demo")}
-                    >
+                    <span className={`fx-eb ${!isLive ? "sel3" : ""}`} aria-current={!isLive}>
                       <b>Demo</b>
                       <span>Paper money, live prices</span>
-                    </button>
-                    <button
-                      type="button"
-                      className={`fx-eb live8 ${environment === "live" ? "sel3" : ""}`}
-                      aria-pressed={environment === "live"}
-                      onClick={() => setEnvironment("live")}
-                    >
+                    </span>
+                    <span className={`fx-eb live8 ${isLive ? "sel3" : ""}`} aria-current={isLive}>
                       <b>Live</b>
                       <span>Real orders, real money</span>
-                    </button>
+                    </span>
                   </div>
                   <p className="fx-envnote">
-                    {environment === "live" ? (
+                    {isLive ? (
                       <>
-                        <em>Real orders on your exchange account, with real money, from the moment you start it.</em>{" "}
+                        <em>
+                          Real orders on your exchange account, with real money, from the moment
+                          you start it.
+                        </em>{" "}
                         Everything else works the same as demo.
                       </>
                     ) : (
-                      "Orders are filled on paper at the live price. Your bot is called exactly the same way — only the fill is simulated, and nothing reaches the exchange. You can switch this trade to live later."
-                    )}
+                      "Orders are filled on paper at the live price. Your bot is called exactly the same way — only the fill is simulated, and nothing reaches the exchange."
+                    )}{" "}
+                    This follows your account mode —{" "}
+                    <a href="/dashboard/settings">change it in Settings</a>. A trade&rsquo;s mode is
+                    fixed when it is created.
                   </p>
                 </div>
 
-                <div className="fx-fr two2">
+                <div>
+                  <label className="fx-fl" htmlFor="tname">
+                    Name this trade <em>optional</em>
+                  </label>
+                  <div className="fx-inp">
+                    <input
+                      id="tname"
+                      type="text"
+                      maxLength={100}
+                      placeholder={`${pairName} · ${form.timeframe}`}
+                      value={form.name}
+                      onChange={(e) => set("name", e.target.value)}
+                    />
+                  </div>
+                  <p className="fx-hint">
+                    What you&rsquo;ll call it in your lists — &ldquo;ETH momentum&rdquo;. Leave it
+                    blank and it is listed as <code>{pairName} · {form.timeframe}</code>.
+                  </p>
+                </div>
+
+                <div className="fx-fr two2" style={{ marginTop: "16px" }}>
                   <div>
                     <label className="fx-fl" htmlFor="ex">
-                      Exchange account
+                      Exchange account {!isLive && <em>optional on demo</em>}
                     </label>
                     <div className="fx-inp">
                       <select
@@ -556,17 +640,28 @@ const NewTradePage = () => {
                         value={form.exchange_account}
                         onChange={(e) => set("exchange_account", parseInt(e.target.value, 10))}
                       >
-                        {!form.exchange_account && (
-                          <option value={0} disabled>
-                            {accountOptions.length ? "Choose an account" : "No exchange connected"}
-                          </option>
-                        )}
+                        {/* On demo this is a real, selectable choice: paper
+                            orders never reach a venue, so no keys are needed
+                            and the user must not be sent to connect an
+                            exchange before their first demo trade. On live
+                            it stays the disabled prompt it was. */}
+                        <option value={0} disabled={isLive}>
+                          {isLive
+                            ? accountOptions.length
+                              ? "Choose an account"
+                              : "No exchange connected"
+                            : "None — demo needs no exchange"}
+                        </option>
                         {accountOptions.map((a) => (
                           <option key={a.id} value={a.id}>
                             {a.name}
                           </option>
                         ))}
-                        {existing &&
+                        {/* An account this trade uses but the list no longer
+                            offers — removed, or inactive — so an edit does
+                            not silently reassign it. A demo trade has none,
+                            and the "None" option above already covers it. */}
+                        {existing?.exchange_account != null &&
                           !accountOptions.some((a) => a.id === existing.exchange_account) && (
                             <option value={existing.exchange_account}>
                               {existing.exchange_name || `Account #${existing.exchange_account}`}
@@ -575,12 +670,15 @@ const NewTradePage = () => {
                       </select>
                     </div>
                     <p className="fx-hint">
-                      {accountOptions.length ? (
+                      {!isLive ? (
+                        "Demo trades fill on paper, so this is optional. Pick one only if you want this trade's prices to come from that account."
+                      ) : accountOptions.length ? (
                         "The exchange accounts you've connected to Candleweb."
                       ) : (
                         <>
-                          No exchange connected yet —{" "}
-                          <a href="/dashboard/exchanges">connect one under Exchanges</a>.
+                          A live trade needs one —{" "}
+                          <a href="/dashboard/exchanges">connect one under Exchanges</a>, or switch
+                          to Demo in <a href="/dashboard/settings">Settings</a>.
                         </>
                       )}
                     </p>
@@ -929,6 +1027,58 @@ const NewTradePage = () => {
                     </div>
                   </div>
                 )}
+                {/* The confidence gate. It belongs with "who decides"
+                    because it is the rule applied to what they answer, not a
+                    cap on money. Required on create — the server refuses a
+                    trade without it rather than assuming a default. */}
+                <div className="fx-fr two2" style={{ marginTop: "18px" }}>
+                  <div>
+                    <label className="fx-fl" htmlFor="conf">
+                      Act on decisions above this confidence
+                    </label>
+                    <div className="fx-inp">
+                      <input
+                        id="conf"
+                        type="number"
+                        inputMode="numeric"
+                        min={0}
+                        max={MAX_MIN_CONFIDENCE}
+                        step={1}
+                        required
+                        aria-describedby="conf-help"
+                        aria-invalid={confError ? true : undefined}
+                        value={form.min_confidence}
+                        onChange={(e) =>
+                          set("min_confidence", e.target.value.replace(/[^0-9]/g, "").slice(0, 2))
+                        }
+                      />
+                    </div>
+                    <p className="fx-hint" id="conf-help">
+                      {confError ? (
+                        <b style={{ color: "var(--fx-rose2)" }}>{confError}</b>
+                      ) : (
+                        <>
+                          Your bot sends a confidence from 0 to 100 with each decision. Candleweb
+                          only trades on decisions <b>above</b> this number.
+                        </>
+                      )}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="fx-fl">What that means</span>
+                    <div className="fx-sldout">
+                      {confError
+                        ? "Enter a whole number from 0 to 99 and this will spell out what it does."
+                        : confidenceRule(Number(form.min_confidence))}{" "}
+                      It applies both ways — to a decision opening a position and to one closing
+                      it, so a high gate can hold a position open as well as keep one from being
+                      opened.
+                    </div>
+                    <p className="fx-hint">
+                      {DEFAULT_MIN_CONFIDENCE} is the default and what every existing trade uses.
+                    </p>
+                  </div>
+                </div>
               </section>
 
               {/* 05 — limits */}

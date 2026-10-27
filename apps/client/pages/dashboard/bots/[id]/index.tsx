@@ -34,43 +34,60 @@ import {
   uptimeLabel,
   whenLabel,
 } from "../../../../lib/botHealthV2";
-import useBotPnl from "../../../../lib/hooks/useBotPnl";
-import useBotDecisionStats from "../../../../lib/hooks/useBotDecisionStats";
 import useOpenPositions from "../../../../lib/hooks/useOpenPositions";
+import useBook from "../../../../lib/hooks/useBook";
+import usePoll, { POLL } from "../../../../lib/hooks/usePoll";
+import { useRevalidateEffect } from "../../../../lib/hooks/useRevalidate";
 import OpenPositionsList from "../../../../components/dashboard/focus/OpenPositionsList";
 import { forBotId, riskRollup } from "../../../../lib/positionsV2";
 import {
   DEFAULT_WINDOW_DAYS,
+  metricNum,
+  plainMoney,
   signedMoney,
   toneClass,
   winRateLabel,
 } from "../../../../lib/tradingV2Metrics";
-import { BotHealthV2 } from "../../../../types/tradingV2";
+import { BotHealthV2, BotMetricsV2, BotReviewReadinessV2 } from "../../../../types/tradingV2";
 
 /* The rich per-bot view. Live: the bot's own config, the trades that point
    at it, its reliability record (`GET /bots/<id>/health/`) and the decisions
-   it has made (`GET /decisions/?bot=`). PnL is summed per position group from
-   `/trades/{id}/metrics/`, review readiness is driven by
-   `/decisions/?bot=<id>`, and what the bot holds right now comes from
+   it has made (`GET /decisions/?bot=`). Money comes from
+   `GET /bots/<id>/metrics/`, review readiness from
+   `GET /bots/<id>/review-readiness/`, and what the bot holds right now from
    `GET /positions/?status=open`, attributed by each position's `bot_id`.
 
-   Still without a source: "Avg win / loss" (the endpoint names no `avg_win`
-   or `avg_loss`) and "Suggestions applied" (no bot-review endpoint).
+   `GET /bots/<id>/metrics/` now answers for the whole vitals row in one
+   request — including "Avg win / loss", which could never be derived from a
+   net total and so sat empty until the endpoint existed.
 
    The health block's one rule: a field named in `health.unavailable` has no
    measurement yet and renders as "Not measured yet" — never as 0, and never
    as a green 100%. A bot nobody has called has not proved anything. */
 
-/* The design's meter is 20 segments wide, and 20 answers against one prompt
-   is also about where a review stops being noise — so the segment count and
-   the threshold are the same number on purpose. */
+/* The fallback bar, used only until `review-readiness` answers with the real
+   one. The threshold is an entitlement — a plan can set its own — so it is
+   read from the response wherever there is one, and this number is never
+   allowed to contradict it. */
 const REVIEW_AT = 20;
+
+/* Blockers arrive as a code plus the backend's own sentence. The sentence is
+   what is shown; this supplies the short heading above it, so an unrecognised
+   code still renders with its message rather than being dropped. */
+const BLOCKER_TITLE: Record<string, string> = {
+  NO_PROMPT: "No prompt stored",
+  TOO_FEW_CLOSED_TRADES: "Not enough closed trades",
+  NO_REVIEWS_LEFT: "No reviews left",
+};
 
 const BotDetailPage = () => {
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
   const axiosToken = useAxiosAuth();
   const { bots, trades } = useSelector((state: RootState) => state.tradingV2);
+  /* This bot's figures answer for one book — the Settings switch. The bot
+     record itself is not book-scoped; everything attached to it is. */
+  const book = useBook();
 
   const id = typeof router.query.id === "string" ? parseInt(router.query.id, 10) : null;
   const valid = id != null && !Number.isNaN(id);
@@ -114,7 +131,7 @@ const BotDetailPage = () => {
     if (!isAuthorizationHeaderSet(axiosToken)) return;
     if (!fetchedRef.current) {
       fetchedRef.current = true;
-      dispatch(tradingV2Service.listTrades(axiosToken));
+      dispatch(tradingV2Service.listTrades({ api: axiosToken, book }));
       dispatch(tradingV2Service.listBots(axiosToken));
     }
     if (valid && !bot && botFetchedRef.current !== id) {
@@ -125,24 +142,29 @@ const BotDetailPage = () => {
       healthFetchedRef.current = id;
       loadHealth();
     }
-  }, [axiosToken, dispatch, valid, id, bot, loadHealth]);
+  }, [axiosToken, dispatch, valid, id, bot, loadHealth, book]);
 
   const linkedTrades = useMemo(
     () => trades.filter((t) => t.bot === id),
     [trades, id],
   );
 
-  /* Realised PnL for this bot, de-duplicated by position group — there is no
-     per-bot endpoint, so it is summed from `/trades/{id}/metrics/`. See
-     `useBotPnl` for why a raw sum would double-count. */
-  const { forBot: pnlForBot, asked: pnlAsked } = useBotPnl(axiosToken, trades);
-  const pnl = valid ? pnlForBot(id as number) : null;
+  /* This bot's money — `GET /bots/{id}/metrics/`, one request.
+     It replaces summing `/trades/{id}/metrics/` across the bot's trades in
+     the browser, which double-counted any pair two trades shared, could not
+     average a winner against a loser at all, and attributed every position on
+     a pair to whichever bot happened to trade it. This counts the positions
+     THIS BOT'S DECISIONS opened, so it survives a trade's bot being swapped. */
+  const [metrics, setMetrics] = useState<BotMetricsV2 | null>(null);
+  const [metricsAsked, setMetricsAsked] = useState(false);
 
-  /* How much this bot has decided — `GET /decisions/?bot=<id>`. `updated_at`
-     is the closest thing to "when the prompt last changed": the bot record
-     carries no `prompt_updated_at`, and ANY edit moves it, so the meter below
-     says "last edited" rather than claiming to know the prompt changed. */
-  const decisions = useBotDecisionStats(axiosToken, valid ? (id as number) : null, bot?.updated_at);
+  /* Whether this bot can be reviewed — `GET /bots/{id}/review-readiness/`.
+     The bar is 20 CLOSED TRADES on the current prompt, both books counted.
+     The meter here used to count decisions since `updated_at`, which was the
+     wrong rule twice over: a HOLD is a decision that places nothing, and
+     `updated_at` moves when the bot is renamed. */
+  const [readiness, setReadiness] = useState<BotReviewReadinessV2 | null>(null);
+  const [readinessAsked, setReadinessAsked] = useState(false);
 
   /* What this bot has open on the venue — `GET /positions/?status=open`,
      filtered to this bot by `bot_id`, which positions carry directly. */
@@ -150,9 +172,62 @@ const BotDetailPage = () => {
     rows: allPositions,
     asked: positionsAsked,
     failed: positionsFailed,
-  } = useOpenPositions(axiosToken, { status: "open" });
+  } = useOpenPositions(axiosToken, { status: "open", book });
   const botPositions = valid ? forBotId(allPositions, id as number) : [];
   const botRisk = riskRollup(botPositions);
+
+  /* Both reads live here rather than in the mount effect above so a
+     pause/resume — which changes what is open and so what is at risk — can
+     re-run them, and so flipping the Demo/Live switch re-asks for the right
+     book. Readiness takes no book: its bar counts closed trades across BOTH,
+     which is the plan's own rule. */
+  /**
+   * `quiet` is the default because most calls are refreshes.
+   *
+   * Only a change of bot or book should put the vitals back to their loading
+   * shimmer — there the figures on screen belong to something else entirely.
+   * A 60s poll refreshing the same bot's figures must leave them up: flashing
+   * five tiles to "reading…" once a minute, forever, would make a working
+   * page look permanently unsettled.
+   */
+  const loadMetrics = useCallback((quiet = true) => {
+    if (!valid || !isAuthorizationHeaderSet(axiosToken)) return;
+    if (!quiet) setMetricsAsked(false);
+    return tradingV2Service
+      .getBotMetrics(axiosToken, id as number, { book, window_days: DEFAULT_WINDOW_DAYS })
+      .then(setMetrics)
+      .catch(() => setMetrics(null))
+      .finally(() => setMetricsAsked(true));
+  }, [axiosToken, id, valid, book]);
+
+  const loadReadiness = useCallback(() => {
+    if (!valid || !isAuthorizationHeaderSet(axiosToken)) return;
+    tradingV2Service
+      .getBotReviewReadiness(axiosToken, id as number)
+      .then(setReadiness)
+      .catch(() => setReadiness(null))
+      .finally(() => setReadinessAsked(true));
+  }, [axiosToken, id, valid]);
+
+  useEffect(() => {
+    loadMetrics(false);
+  }, [loadMetrics]);
+
+  useEffect(() => {
+    loadReadiness();
+  }, [loadReadiness]);
+
+  /* ---- keeping this bot's page current ----
+     Readiness is on triggers only, per §9: its bar counts closed trades, so
+     nothing can move it except a position closing — and that arrives as a
+     notification. Polling it on a timer would be asking a question whose
+     answer cannot have changed. */
+  useRevalidateEffect(["botMetrics", "positions"], () => loadMetrics());
+  useRevalidateEffect("botHealth", loadHealth);
+  useRevalidateEffect("reviewReadiness", loadReadiness);
+
+  usePoll(loadMetrics, POLL.botTiles);
+  usePoll(loadHealth, POLL.botTiles);
 
   const toggleRun = async () => {
     if (!bot) return;
@@ -164,6 +239,11 @@ const BotDetailPage = () => {
         await dispatch(tradingV2Service.resumeBot({ api: axiosToken, id: bot.id }));
       }
       loadHealth();
+      /* Pausing changes what is open and so what is at risk; it does not
+         change the prompt, but the readiness call is cheap and a stale
+         "ready to review" badge is worse than a second request. */
+      loadMetrics();
+      loadReadiness();
     } finally {
       setBusy(false);
     }
@@ -178,19 +258,61 @@ const BotDetailPage = () => {
     !health || isUnavailable(health.unavailable, "days_without_failure")
       ? { value: null, caption: NOT_MEASURED }
       : failureStreakParts(health.days_without_failure, health.last_failure_at);
-  /* Milestones count CLOSED trades. `pnl.closed` is the weighted total the
-     per-trade metrics reported across this bot's position groups, and it is
-     null unless every group supplied one — a partial count would mark a
-     milestone reached on half the evidence. */
-  const closedSoFar = pnl?.closed ?? 0;
-  const closedKnown = pnl?.closed != null;
-  const reached = (n: number) => closedKnown && closedSoFar >= n;
+  /* Every vitals figure read once, here, so no two cells can disagree about
+     what the same response said. A figure still in flight is NOT "not
+     reported" — it shimmers and its caption says "reading…" instead. */
+  const metricsPending = !metricsAsked;
+  const netPnl = metricNum(metrics?.realised_pnl);
+  const netPct = metricNum(metrics?.realised_return_pct);
+  const winRateValue = metricNum(metrics?.win_rate);
+  const closedInWindow = metrics?.closed_trades ?? null;
+  const avgWin = metricNum(metrics?.avg_win);
+  const avgLoss = metricNum(metrics?.avg_loss);
+  const wins = metrics?.wins ?? null;
+  const losses = metrics?.losses ?? null;
+  const pairCount = metrics?.pairs?.length ?? 0;
+
+  /* The milestones measure the bot's WHOLE record, not the 30-day window — a
+     milestone must not un-reach itself when the window rolls past, which is
+     exactly what reading the windowed count here would do. */
+  const closedSoFar = metrics?.all_time?.closed_trades ?? null;
+  const closedKnown = closedSoFar != null;
+  const reached = (n: number) => closedKnown && (closedSoFar as number) >= n;
   const milestoneNote = (n: number) => {
-    if (!closedKnown) return pnlAsked ? "Needs a closed count per pair" : "Reading…";
-    if (closedSoFar >= n) return "Reached";
-    const left = n - closedSoFar;
+    if (!closedKnown) return metricsPending ? "Reading…" : "No closed trades reported yet";
+    const soFar = closedSoFar as number;
+    if (soFar >= n) return "Reached";
+    const left = n - soFar;
     return `${left.toLocaleString()} closed trade${left === 1 ? "" : "s"} to go`;
   };
+
+  /* Review readiness, read once. `closed_trades_needed` is the plan's own
+     threshold and wins over the local fallback whenever it is sent. */
+  const reviewNeeded = readiness?.closed_trades_needed ?? REVIEW_AT;
+  const promptStored = readiness?.prompt_stored ?? !!bot?.prompt;
+  const closedOnPrompt = readiness?.closed_trades_on_prompt ?? null;
+  const reviewsLeft = readiness?.reviews_available ?? null;
+  const blockers = readiness?.blockers ?? [];
+
+  /* "5 on demo · 9 live" — the split matters because both count toward the
+     bar, which is not obvious from a single total. */
+  const byBookNote = (() => {
+    const by = readiness?.closed_trades_by_book;
+    if (!by) return null;
+    const parts: string[] = [];
+    if (by.DEMO != null) parts.push(`${by.DEMO} on demo`);
+    if (by.LIVE != null) parts.push(`${by.LIVE} live`);
+    return parts.length ? parts.join(" · ") : null;
+  })();
+
+  const decisionKindNote = (() => {
+    const by = readiness?.decisions_on_prompt_by_kind;
+    if (!by) return null;
+    const parts = (["BUY", "SELL", "HOLD"] as const)
+      .filter((k) => by[k] != null)
+      .map((k) => `${by[k]} ${k.toLowerCase()}`);
+    return parts.length ? parts.join(" · ") : null;
+  })();
 
   const bars = dailyReplyBars(health?.daily_replies);
   const dots = recentReplyDots(health?.daily_replies);
@@ -266,7 +388,10 @@ const BotDetailPage = () => {
               </div>
             </div>
             <p className="fx-hint" style={{ margin: "10px 0 0" }}>
-              {linkedTrades.length} trade{linkedTrades.length === 1 ? "" : "s"} use it · updated{" "}
+              {/* `trades_using` counts the trades in THIS book that point at
+                  the bot; the local list is the fallback before it lands. */}
+              {(metrics?.trades_using ?? linkedTrades.length).toLocaleString()} trade
+              {(metrics?.trades_using ?? linkedTrades.length) === 1 ? "" : "s"} use it · updated{" "}
               {new Date(bot.updated_at).toLocaleDateString()}
             </p>
 
@@ -293,57 +418,80 @@ const BotDetailPage = () => {
                 so each shows an honest "—" with what it's waiting on instead
                 of the design's illustrative numbers. */}
             <div className="fx-vitals rv d1">
-              {/* Summed from this bot's trades, one read per distinct
-                  (pair, account) group. `shared` means another decider sits on
-                  one of those pairs, so the figure covers their fills too. */}
+              {/* One `GET /bots/{id}/metrics/` fills this whole row. Every
+                  figure counts the positions THIS BOT'S decisions opened, so
+                  nothing here is an inference from the trades that point at
+                  it. */}
               <div className="fx-v">
                 <span>Net · {DEFAULT_WINDOW_DAYS}d</span>
-                <b className={toneClass(pnl?.total ?? null, "up5", "dn5")}>
-                  {pnl?.total == null ? "—" : signedMoney(pnl.total)}
+                <b className={toneClass(netPnl, "up5", "dn5")}>
+                  {metricsPending ? (
+                    <i className="fx-skel" aria-label="Reading net PnL" />
+                  ) : netPnl == null ? (
+                    "—"
+                  ) : (
+                    signedMoney(netPnl)
+                  )}
                 </b>
                 <i>
-                  {!linkedTrades.length
-                    ? "no trades yet"
-                    : !pnlAsked
-                      ? "reading…"
-                      : pnl?.total == null
-                        ? "not reported yet"
-                        : pnl.read < pnl.of
-                          ? `${pnl.read} of ${pnl.of} pairs read`
-                          : pnl.shared
-                            ? "shares a pair with another decider"
-                            : `across ${pnl.of} pair${pnl.of === 1 ? "" : "s"}`}
+                  {metricsPending
+                    ? "reading…"
+                    : netPct != null
+                      ? `${netPct > 0 ? "+" : netPct < 0 ? "-" : ""}${Math.abs(netPct).toFixed(2)}% on capital used`
+                      : pairCount
+                        ? `across ${pairCount} pair${pairCount === 1 ? "" : "s"}`
+                        : "nothing closed yet"}
                 </i>
               </div>
-              {/* Weighted by each pair's closed trades, not a plain mean — a
-                  pair with 2 closes must not count as much as one with 50.
-                  Withheld entirely unless every pair supplied both a rate and
-                  a count, since there is no honest weight otherwise. */}
               <div className="fx-v">
                 <span>Win rate</span>
-                <b className={pnl?.winRate == null ? "mut2" : undefined}>
-                  {pnl?.winRate == null ? "—" : winRateLabel(pnl.winRate)}
+                <b className={winRateValue == null ? "mut2" : undefined}>
+                  {metricsPending ? (
+                    <i className="fx-skel" aria-label="Reading win rate" />
+                  ) : winRateValue == null ? (
+                    "—"
+                  ) : (
+                    winRateLabel(winRateValue)
+                  )}
                 </b>
                 <i>
-                  {!linkedTrades.length
-                    ? "no trades yet"
-                    : !pnlAsked
-                      ? "reading…"
-                      : pnl?.winRate == null
-                        ? "needs a rate and a closed count per pair"
-                        : `of ${pnl.closed?.toLocaleString()} closed`}
+                  {metricsPending
+                    ? "reading…"
+                    : closedInWindow == null
+                      ? "nothing closed yet"
+                      : `of ${closedInWindow.toLocaleString()} closed`}
                 </i>
               </div>
-              {/* Avg win / loss needs the average winner and loser per pair —
-                  neither is named in the endpoint's description. §1.26. */}
+              {/* Live at last: the endpoint reports the average winner and
+                  the average loser, after fees. Neither can be derived from a
+                  net total, which is why this cell sat empty for so long. */}
               <div className="fx-v">
                 <span>Avg win / loss</span>
-                <b className="mut2">—</b>
-                <i>needs avg win and loss per pair</i>
+                <b className={avgWin == null && avgLoss == null ? "mut2" : undefined}>
+                  {metricsPending ? (
+                    <i className="fx-skel" aria-label="Reading average win and loss" />
+                  ) : avgWin == null && avgLoss == null ? (
+                    "—"
+                  ) : (
+                    <>
+                      <span className="up5">{avgWin == null ? "—" : plainMoney(avgWin)}</span>
+                      {" / "}
+                      <span className="dn5">{avgLoss == null ? "—" : plainMoney(avgLoss)}</span>
+                    </>
+                  )}
+                </b>
+                <i>
+                  {metricsPending
+                    ? "reading…"
+                    : avgWin == null && avgLoss == null
+                      ? "needs a closed winner and loser"
+                      : `${wins ?? "—"} won · ${losses ?? "—"} lost, after fees`}
+                </i>
               </div>
               {/* Positions carry `bot_id`, so this is an exact count of what
                   THIS bot has on the venue right now — not an inference from
-                  its trades. */}
+                  its trades. The list and the metrics endpoint agree; the
+                  list wins because the rows below come from it. */}
               <div className="fx-v">
                 <span>Open now</span>
                 <b className={botPositions.length ? undefined : "mut2"}>
@@ -380,11 +528,14 @@ const BotDetailPage = () => {
               all, <b>{health ? health.decisions_7d.toLocaleString() : "—"}</b> this week.
             </p>
 
-            {/* review readiness. The meter counts DECISIONS, not trades: the
-                decisions list is what exists per bot, and a decision is not a
-                trade — a HOLD places nothing. The milestones count CLOSED
-                trades, which come from the per-trade metrics already summed
-                into `pnl`. Both are labelled as what they actually count. */}
+            {/* Review readiness — `GET /bots/{id}/review-readiness/`.
+                The bar counts CLOSED TRADES on the current prompt, which is
+                the plan's own rule. It used to count decisions since
+                `updated_at`, and that was wrong twice over: a HOLD is a
+                decision that places nothing, and `updated_at` moves when the
+                bot is renamed, so tidying a bot's note reset its progress.
+                `prompt_changed_at` moves only for the prompt, the model or
+                the decision style. */}
             <section
               className="fx-mom rv d2"
               style={{ marginTop: "clamp(26px,3.2vw,36px)", paddingTop: 24 }}
@@ -393,56 +544,108 @@ const BotDetailPage = () => {
                 <h2>
                   Review readiness <span className="sub2">on the current prompt</span>
                 </h2>
-                {decisions.failed && (
+                {readinessAsked && !readiness && (
                   <span className="fx-preview">
-                    <i>◔</i> Couldn&rsquo;t read decisions
+                    <i>◔</i> Couldn&rsquo;t read review readiness
                   </span>
                 )}
+                {readiness?.ready && <span className="fx-st4 live4">Ready to review</span>}
               </div>
               <div className="fx-momgrid">
                 <div>
                   <div className="fx-meter">
                     <div className="fx-mh">
-                      <b>Decisions since this bot was last edited</b>
-                      <span className={decisions.sinceCount == null ? "mut3" : undefined}>
-                        {decisions.sinceCount == null
-                          ? decisions.asked
+                      <b>Closed trades on the current prompt</b>
+                      <span className={closedOnPrompt == null ? "mut3" : undefined}>
+                        {closedOnPrompt == null
+                          ? readinessAsked
                             ? "—"
                             : "reading…"
-                          : `${decisions.sinceCount}${decisions.sinceCapped ? "+" : ""} of ${REVIEW_AT}`}
+                          : `${closedOnPrompt} of ${reviewNeeded}`}
                       </span>
                     </div>
+                    {/* The meter is drawn to whatever the plan asks for, not
+                        to a hard-coded 20: the threshold is an entitlement
+                        and can differ per plan. */}
                     <div className="fx-seg">
-                      {Array.from({ length: REVIEW_AT }).map((_, i) => {
-                        const done = decisions.sinceCount ?? 0;
+                      {Array.from({ length: reviewNeeded }).map((_, i) => {
+                        const done = closedOnPrompt ?? 0;
                         return <i key={i} className={i < done ? "f" : i === done ? "nx" : ""} />;
                       })}
                     </div>
                     <p className="fx-mnote">
-                      {decisions.sinceCount == null ? (
-                        decisions.failed ? (
-                          "Couldn't read this bot's decisions just now."
+                      {closedOnPrompt == null ? (
+                        readinessAsked ? (
+                          "Couldn't read this bot's review readiness just now."
                         ) : (
-                          "Counting what this bot has answered since its last edit."
+                          "Counting what this bot has closed on its current prompt."
                         )
                       ) : (
                         <>
-                          A review reads best on at least <b>{REVIEW_AT}</b> answers against the
-                          same prompt. This counts decisions, not trades — a <code>HOLD</code> is
-                          an answer but places nothing. The bot record has no
-                          &ldquo;prompt changed&rdquo; stamp, so this runs from the last time
-                          <em> anything</em> on the bot was edited.
-                          {decisions.total != null && (
+                          A review reads this bot&rsquo;s closed trades against the prompt that
+                          produced them, so it needs <b>{reviewNeeded}</b> on the same prompt.
+                          Demo and live both count
+                          {byBookNote ? <> — {byBookNote}</> : null}.
+                          {readiness?.decisions_on_prompt != null && (
                             <>
                               {" "}
-                              It has answered <b>{decisions.total.toLocaleString()}</b> times in
-                              all.
+                              It has answered{" "}
+                              <b>{readiness.decisions_on_prompt.toLocaleString()}</b> time
+                              {readiness.decisions_on_prompt === 1 ? "" : "s"} on this prompt
+                              {decisionKindNote ? <> ({decisionKindNote})</> : null} — a{" "}
+                              <code>HOLD</code> is an answer but places nothing, which is why the
+                              bar above counts closes instead.
+                            </>
+                          )}
+                          {readiness?.prompt_changed_at && (
+                            <>
+                              {" "}
+                              Counting from {whenLabel(readiness.prompt_changed_at)}, when the
+                              prompt last changed. Renaming the bot or editing its note, webhook or
+                              alerts does not reset it.
                             </>
                           )}
                         </>
                       )}
                     </p>
                   </div>
+
+                  {/* Everything standing between this bot and a review, in
+                      the backend's own words and its own order. */}
+                  {blockers.length > 0 && (
+                    <div className="fx-unlock" style={{ marginTop: "14px" }}>
+                      <h4>Before a review can run</h4>
+                      {blockers.map((b, i) => (
+                        <div className="fx-ul" key={b.code ?? i}>
+                          <i>{i + 1}</i>
+                          <div>
+                            <b>{BLOCKER_TITLE[b.code ?? ""] ?? "Not ready yet"}</b>
+                            <span>{b.message}</span>
+                            {b.code === "NO_PROMPT" && (
+                              <span>
+                                <Link
+                                  href={`/dashboard/bots/${bot.id}/settings`}
+                                  style={{ color: "var(--fx-teal2)" }}
+                                >
+                                  Add one in settings
+                                </Link>
+                              </span>
+                            )}
+                            {b.code === "NO_REVIEWS_LEFT" && (
+                              <span>
+                                <Link
+                                  href="/dashboard/subscription"
+                                  style={{ color: "var(--fx-teal2)" }}
+                                >
+                                  Get a review pack
+                                </Link>
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <div className="fx-streaks2">
                     <div className="fx-stk2">
                       {/* 0 means two different things, and `last_failure_at`
@@ -488,9 +691,19 @@ const BotDetailPage = () => {
                       )}
                     </div>
                     <div className="fx-stk2">
-                      <span>Suggestions applied</span>
-                      <b className="mut3">—</b>
-                      <span className="why3">needs a bot-review endpoint</span>
+                      <span>Reviews available</span>
+                      <b className={reviewsLeft == null ? "mut3" : reviewsLeft > 0 ? "" : "amb3"}>
+                        {reviewsLeft == null ? "—" : reviewsLeft}
+                      </b>
+                      <span className="why3">
+                        {reviewsLeft == null
+                          ? readinessAsked
+                            ? "not reported"
+                            : "Reading…"
+                          : reviewsLeft > 0
+                            ? "on your plan this period"
+                            : "none left this period"}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -500,19 +713,22 @@ const BotDetailPage = () => {
                     <p className="us">
                       {closedKnown ? (
                         <>
-                          Each one opens something real. <b>{closedSoFar.toLocaleString()}</b>{" "}
-                          closed trade{closedSoFar === 1 ? "" : "s"} so far
-                          {pnl?.shared ? ", including pairs shared with another decider" : ""}.
+                          Each one opens something real.{" "}
+                          <b>{(closedSoFar as number).toLocaleString()}</b> closed trade
+                          {closedSoFar === 1 ? "" : "s"} so far, all time.
                         </>
                       ) : (
                         "Each one opens something real. The closed-trade counts arrive with this bot's per-trade metrics."
                       )}
                     </p>
-                    <div className={`fx-ul ${bot.prompt ? "got3" : ""}`}>
-                      <i>{bot.prompt ? "✓" : "1"}</i>
+                    {/* `prompt_stored` is the backend's own answer to the
+                        same question, and it is the one a review will
+                        actually act on. */}
+                    <div className={`fx-ul ${promptStored ? "got3" : ""}`}>
+                      <i>{promptStored ? "✓" : "1"}</i>
                       <div>
                         <b>Prompt stored</b>
-                        <span>{bot.prompt ? "Review can read it" : "Add one from settings"}</span>
+                        <span>{promptStored ? "Review can read it" : "Add one from settings"}</span>
                       </div>
                     </div>
                     <div className={`fx-ul ${reached(1) ? "got3" : ""}`}>
@@ -824,6 +1040,7 @@ const BotDetailPage = () => {
                 </div>
                 <DecisionsFeed
                   api={axiosToken}
+                  book={book}
                   bot={bot.id}
                   pageSize={5}
                   empty={

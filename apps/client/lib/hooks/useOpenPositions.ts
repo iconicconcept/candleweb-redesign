@@ -3,6 +3,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import tradingV2Service from "../../services/tradingV2Service";
 import { PositionV2, PositionsV2Query } from "../../types/tradingV2";
 import { isAuthorizationHeaderSet } from "../../utils/check_auth";
+import usePoll, { POLL } from "./usePoll";
+import useRevalidate from "./useRevalidate";
 
 /**
  * Open positions from `GET /trading_v2/positions/?status=open`.
@@ -11,6 +13,12 @@ import { isAuthorizationHeaderSet } from "../../utils/check_auth";
  * total open PnL, "if every stop hit at once", the closest stop — are derived
  * from these rows in `lib/positionsV2.ts` rather than fetched separately, so
  * no two places on a page can disagree about what the same response said.
+ *
+ * It keeps itself fresh, so no caller has to. Two things move these rows: the
+ * mark price and the trail, which drift continuously and are polled for, and
+ * a fill or a close, which arrive as notifications and refetch at once. The
+ * poll rate follows what is actually open — 15s while there is a position
+ * moving, a quiet 60s when there is nothing to move.
  */
 
 /** The endpoint's documented maximum. */
@@ -40,6 +48,8 @@ export const useOpenPositions = (
   const [failed, setFailed] = useState<string | null>(null);
   const [nonce, setNonce] = useState(0);
   const askedRef = useRef<string>("");
+  /* A fill, a close, or anything else that puts money on or off the venue. */
+  const stale = useRevalidate("positions");
 
   /* Serialised so a caller can pass an object literal without re-fetching on
      every render — the VALUES are the identity, not the object. */
@@ -50,6 +60,7 @@ export const useOpenPositions = (
     book: query.book ?? null,
     limit: query.limit ?? POSITION_PAGE_MAX,
     nonce,
+    stale,
   });
 
   const reload = useCallback(() => setNonce((n) => n + 1), []);
@@ -97,6 +108,13 @@ export const useOpenPositions = (
       if (!landed && askedRef.current === key) askedRef.current = "";
     };
   }, [api, key]);
+
+  /* Faster while something is open: a position's mark and its trail move
+     every minute, and the stop track is drawn from both. With nothing open
+     there is nothing to redraw, so the rate drops rather than asking the
+     same empty question four times a minute. A failed read keeps the slow
+     rate too — retrying a broken endpoint every 15s helps nobody. */
+  usePoll(reload, rows.length > 0 && !failed ? POLL.positionsOpen : POLL.positionsIdle, asked);
 
   return { rows, count, book, asOf, asked, failed, reload };
 };

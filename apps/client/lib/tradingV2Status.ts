@@ -30,13 +30,36 @@ const bool = (v: unknown): boolean | null => (typeof v === "boolean" ? v : null)
 const num = (v: unknown): number | null =>
   typeof v === "number" && Number.isFinite(v) ? v : null;
 
-/** The issues the backend listed, as plain sentences for a tooltip. */
-export const issueMessages = (status: TradingStatusV2 | null | undefined): string[] => {
+/**
+ * The issues the backend listed, as plain sentences for a tooltip.
+ *
+ * `informational: true` marks a finding that is worth saying but is not a
+ * fault — a bot quietly holding a position its own decision opened, or no
+ * exchange on an account that does not need one. `overall` already ignores
+ * those when deciding `degraded`, so a chip that folded them into its hover
+ * text would be the only thing left calling them problems.
+ */
+export const issueMessages = (
+  status: TradingStatusV2 | null | undefined,
+  opts: { includeInformational?: boolean } = {},
+): string[] => {
   const issues = status?.issues;
   if (!Array.isArray(issues)) return [];
   return issues
+    .filter((i: StatusV2Issue) => (opts.includeInformational ? true : !i?.informational))
     .map((i: StatusV2Issue) => (i?.message || i?.code || "").toString().trim())
     .filter(Boolean);
+};
+
+/** One issue by code, whatever its severity — for a chip that wants to show
+ *  the backend's own wording for the thing it is reporting. */
+export const issueByCode = (
+  status: TradingStatusV2 | null | undefined,
+  ...codes: string[]
+): StatusV2Issue | null => {
+  const issues = status?.issues;
+  if (!Array.isArray(issues)) return null;
+  return issues.find((i) => i?.code && codes.includes(i.code)) ?? null;
 };
 
 /** Which venue the exchange chip should name. Falls back to the generic word
@@ -61,25 +84,45 @@ export const statusChips = (
   const hint = issues.length ? issues.join(" · ") : undefined;
   const chips: StatusChip[] = [];
 
-  /* --- exchange --- */
+  /* --- exchange ---
+     `required` is false on a demo-only account: nothing on it needs a venue,
+     so a missing exchange is a fact about the setup rather than a fault. The
+     backend marks those issues informational and keeps `overall` out of
+     "down" for them — an amber "KuCoin not connected" here would be the only
+     thing on screen disagreeing, and it would send someone to fix a problem
+     they do not have. */
   const connected = bool(status?.exchange?.connected);
-  chips.push(
-    connected == null
-      ? {
-          key: "exchange",
-          label: opts.failed ? "Exchange unknown" : "Exchange not reported",
-          tone: "mute",
-          title: opts.failed
-            ? "Couldn't reach the status endpoint, so this is unknown rather than fine."
-            : hint,
-        }
-      : {
-          key: "exchange",
-          label: connected ? `${venueName(status)} connected` : `${venueName(status)} unreachable`,
-          tone: connected ? "ok" : "warn",
-          title: hint,
-        },
-  );
+  const required = bool(status?.exchange?.required);
+  if (required === false && connected !== true) {
+    chips.push({
+      key: "exchange",
+      label: "Demo — no exchange needed",
+      tone: "mute",
+      title:
+        issueByCode(status, "NO_EXCHANGE", "EXCHANGE_NOT_CONNECTED")?.message ||
+        "Paper orders never reach a venue, so this account needs no exchange keys.",
+    });
+  } else {
+    chips.push(
+      connected == null
+        ? {
+            key: "exchange",
+            label: opts.failed ? "Exchange unknown" : "Exchange not reported",
+            tone: "mute",
+            title: opts.failed
+              ? "Couldn't reach the status endpoint, so this is unknown rather than fine."
+              : hint,
+          }
+        : {
+            key: "exchange",
+            label: connected
+              ? `${venueName(status)} connected`
+              : `${venueName(status)} unreachable`,
+            tone: connected ? "ok" : "warn",
+            title: hint,
+          },
+    );
+  }
 
   /* --- monitoring --- */
   const active = bool(status?.monitoring?.active);
@@ -123,6 +166,28 @@ export const statusChips = (
       label: `${answering} bot${answering === 1 ? "" : "s"} answering`,
       tone: "ok",
       title: hint,
+    });
+  }
+
+  /* --- bots holding positions ---
+     A SEPARATE chip, and deliberately neutral. A bot that has gone quiet
+     while holding a position its own decision opened is not the same as one
+     that has gone quiet with nothing running: nothing is waiting on it, and
+     the stop or trail manages the exit either way. The backend files this as
+     an informational issue and keeps `overall` out of `degraded` for it, so
+     styling it amber here would contradict the only authority on the
+     question. */
+  const holding = num(status?.bots?.with_open_positions);
+  if (holding != null && holding > 0) {
+    chips.push({
+      key: "bots-holding",
+      label: `${holding} bot${holding === 1 ? "" : "s"} with open position${
+        holding === 1 ? "" : "s"
+      }`,
+      tone: "mute",
+      title:
+        issueByCode(status, "BOTS_HOLDING_POSITIONS")?.message ||
+        "Quiet, but holding a position it opened. The stop or trail manages the exit — nothing is waiting on the bot.",
     });
   }
 
