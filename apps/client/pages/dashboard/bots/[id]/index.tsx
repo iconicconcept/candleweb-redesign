@@ -43,6 +43,7 @@ import { forBotId, riskRollup } from "../../../../lib/positionsV2";
 import {
   DEFAULT_WINDOW_DAYS,
   metricNum,
+  pctLabel,
   plainMoney,
   signedMoney,
   toneClass,
@@ -270,7 +271,25 @@ const BotDetailPage = () => {
   const avgLoss = metricNum(metrics?.avg_loss);
   const wins = metrics?.wins ?? null;
   const losses = metrics?.losses ?? null;
-  const pairCount = metrics?.pairs?.length ?? 0;
+
+  /* The markets this bot has money on RIGHT NOW, for the "Open now" caption —
+     from the open positions themselves, not `metrics.pairs`, which lists the
+     markets it has CLOSED on. Phrased as the design does: "BTC and ETH". */
+  const openPairs = (() => {
+    const names: string[] = [];
+    botPositions.forEach((p) => {
+      const n = (p.base_currency || p.symbol || "").toString().trim();
+      if (n && !names.includes(n)) names.push(n);
+    });
+    if (names.length === 0) return null;
+    if (names.length === 1) return names[0];
+    if (names.length === 2) return `${names[0]} and ${names[1]}`;
+    return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+  })();
+
+  /* The timeout actually in force. The backend clamps what the user typed to
+     5s…6h, so `health` is the authority when it has answered. */
+  const effectiveTimeout = health?.reply_timeout_seconds ?? bot?.reply_timeout_s ?? null;
 
   /* The milestones measure the bot's WHOLE record, not the 30-day window — a
      milestone must not un-reach itself when the window rolls past, which is
@@ -391,8 +410,8 @@ const BotDetailPage = () => {
               {/* `trades_using` counts the trades in THIS book that point at
                   the bot; the local list is the fallback before it lands. */}
               {(metrics?.trades_using ?? linkedTrades.length).toLocaleString()} trade
-              {(metrics?.trades_using ?? linkedTrades.length) === 1 ? "" : "s"} use it · updated{" "}
-              {new Date(bot.updated_at).toLocaleDateString()}
+              {(metrics?.trades_using ?? linkedTrades.length) === 1 ? " uses" : "s use"} it ·
+              updated {new Date(bot.updated_at).toLocaleDateString()}
             </p>
 
             {meta.dead && (
@@ -421,25 +440,35 @@ const BotDetailPage = () => {
               {/* One `GET /bots/{id}/metrics/` fills this whole row. Every
                   figure counts the positions THIS BOT'S decisions opened, so
                   nothing here is an inference from the trades that point at
-                  it. */}
+                  it.
+
+                  Each cell follows the design's shape: ONE figure, with the
+                  second unit demoted to the caption. Reading a return as a
+                  percentage and its money underneath is the order used
+                  everywhere else in the dashboard, and the row below the
+                  figures is where a count or a comparison belongs. */}
               <div className="fx-v">
                 <span>Net · {DEFAULT_WINDOW_DAYS}d</span>
-                <b className={toneClass(netPnl, "up5", "dn5")}>
+                <b className={toneClass(netPct ?? netPnl, "up5", "dn5")}>
                   {metricsPending ? (
                     <i className="fx-skel" aria-label="Reading net PnL" />
-                  ) : netPnl == null ? (
-                    "—"
-                  ) : (
+                  ) : netPct != null ? (
+                    pctLabel(netPct)
+                  ) : netPnl != null ? (
                     signedMoney(netPnl)
+                  ) : (
+                    "—"
                   )}
                 </b>
                 <i>
                   {metricsPending
                     ? "reading…"
-                    : netPct != null
-                      ? `${netPct > 0 ? "+" : netPct < 0 ? "-" : ""}${Math.abs(netPct).toFixed(2)}% on capital used`
-                      : pairCount
-                        ? `across ${pairCount} pair${pairCount === 1 ? "" : "s"}`
+                    : netPnl != null && closedInWindow
+                      ? `${signedMoney(netPnl)} across ${closedInWindow.toLocaleString()} trade${
+                          closedInWindow === 1 ? "" : "s"
+                        }`
+                      : netPnl != null
+                        ? signedMoney(netPnl)
                         : "nothing closed yet"}
                 </i>
               </div>
@@ -457,41 +486,47 @@ const BotDetailPage = () => {
                 <i>
                   {metricsPending
                     ? "reading…"
-                    : closedInWindow == null
-                      ? "nothing closed yet"
-                      : `of ${closedInWindow.toLocaleString()} closed`}
+                    : wins != null && losses != null
+                      ? `${wins.toLocaleString()} won · ${losses.toLocaleString()} lost`
+                      : closedInWindow == null
+                        ? "nothing closed yet"
+                        : `of ${closedInWindow.toLocaleString()} closed`}
                 </i>
               </div>
-              {/* Live at last: the endpoint reports the average winner and
-                  the average loser, after fees. Neither can be derived from a
-                  net total, which is why this cell sat empty for so long. */}
+              {/* The average winner leads; the average loser is the thing it
+                  is read against, so it goes in the caption. Two figures
+                  stacked in one slot wrapped onto three lines and read as a
+                  broken cell rather than as a comparison.
+
+                  These are MONEY, after fees — the endpoint reports no
+                  percentage for them, so the figure says what it has rather
+                  than implying the design's percent. */}
               <div className="fx-v">
                 <span>Avg win / loss</span>
-                <b className={avgWin == null && avgLoss == null ? "mut2" : undefined}>
+                <b className={avgWin == null ? "mut2" : toneClass(avgWin, "up5", "dn5")}>
                   {metricsPending ? (
                     <i className="fx-skel" aria-label="Reading average win and loss" />
-                  ) : avgWin == null && avgLoss == null ? (
-                    "—"
+                  ) : avgWin != null ? (
+                    signedMoney(avgWin)
                   ) : (
-                    <>
-                      <span className="up5">{avgWin == null ? "—" : plainMoney(avgWin)}</span>
-                      {" / "}
-                      <span className="dn5">{avgLoss == null ? "—" : plainMoney(avgLoss)}</span>
-                    </>
+                    "—"
                   )}
                 </b>
                 <i>
                   {metricsPending
                     ? "reading…"
-                    : avgWin == null && avgLoss == null
-                      ? "needs a closed winner and loser"
-                      : `${wins ?? "—"} won · ${losses ?? "—"} lost, after fees`}
+                    : avgLoss != null
+                      ? `avg loss -${plainMoney(avgLoss)}`
+                      : avgWin != null
+                        ? "no closed loser yet"
+                        : "needs a closed winner and loser"}
                 </i>
               </div>
               {/* Positions carry `bot_id`, so this is an exact count of what
                   THIS bot has on the venue right now — not an inference from
-                  its trades. The list and the metrics endpoint agree; the
-                  list wins because the rows below come from it. */}
+                  its trades. The caption names the markets, as the design
+                  does ("BTC and ETH"), which says more than a count repeated
+                  in words. */}
               <div className="fx-v">
                 <span>Open now</span>
                 <b className={botPositions.length ? undefined : "mut2"}>
@@ -506,7 +541,7 @@ const BotDetailPage = () => {
                         ? "nothing on the venue"
                         : botRisk.unprotected > 0
                           ? `${botRisk.unprotected} with no stop`
-                          : "all have a stop armed"}
+                          : openPairs ?? "all have a stop armed"}
                 </i>
               </div>
               <div className="fx-v">
@@ -514,18 +549,22 @@ const BotDetailPage = () => {
                 <b className={health?.reply_time_seconds == null ? "mut2" : undefined}>
                   {health?.reply_time_seconds == null ? "—" : secondsLabel(health.reply_time_seconds)}
                 </b>
+                {/* The design captions this with the bot's timeout — the
+                    number the reply time is actually racing. `health` carries
+                    the value the backend clamped it to, which is the one that
+                    applies. */}
                 <i>
-                  {health?.reply_time_seconds == null
-                    ? "nothing to measure yet"
-                    : "average over 7 days"}
+                  {effectiveTimeout != null
+                    ? `timeout ${effectiveTimeout}s`
+                    : health?.reply_time_seconds == null
+                      ? "nothing to measure yet"
+                      : "average over 7 days"}
                 </i>
               </div>
             </div>
             <p className="fx-hint" style={{ marginTop: "10px" }}>
-
-
-              . Answered <b>{health ? health.decisions_total.toLocaleString() : "—"}</b> times in
-              all, <b>{health ? health.decisions_7d.toLocaleString() : "—"}</b> this week.
+              Answered <b>{health ? health.decisions_total.toLocaleString() : "—"}</b> times in all,{" "}
+              <b>{health ? health.decisions_7d.toLocaleString() : "—"}</b> this week.
             </p>
 
             {/* Review readiness — `GET /bots/{id}/review-readiness/`.

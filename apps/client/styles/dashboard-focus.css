@@ -6620,7 +6620,13 @@ button.fx-ip.more2 {
   font-size: clamp(25px, 3vw, 34px);
   font-weight: 600;
   letter-spacing: -0.035em;
-  margin: 0 0 8px;
+  /* A heading at 34px inherits a line-height meant for paragraphs, and the
+     leading it adds below the name sat on top of the 8px margin — so the
+     status chips drifted away from the name they belong to and no longer
+     read as one block with it. Pinned tight, with the gap set by the margin
+     alone. */
+  line-height: 1.12;
+  margin: 0 0 7px;
 }
 .fx-bhead .row5 {
   display: flex;
@@ -9492,6 +9498,16 @@ button.fx-pay9:disabled {
 .fx-riskline b .fx-skel {
   width: 58px;
   height: 11px;
+  margin-left: 0;
+}
+/* The bot page's vitals. `.fx-v i` is the caption rule — display:block with a
+   6px top margin — so without this the placeholder became a block of its own
+   and pushed the caption onto a third line while the figures were loading. */
+.fx-v b .fx-skel {
+  display: inline-block;
+  width: clamp(64px, 6vw, 88px);
+  height: clamp(18px, 2.1vw, 24px);
+  margin-top: 0;
   margin-left: 0;
 }
 

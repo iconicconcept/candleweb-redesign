@@ -18,6 +18,7 @@ import type { ExchangeData } from "../../../components/dashboard/modal/AddExchan
 import {
   CONFIG_IPS,
   DESIGN_EXCHANGES,
+  offeredExchanges,
   needsPassphrase,
   backendFor as findBackend,
 } from "../../../lib/exchangeCatalog";
@@ -54,15 +55,20 @@ const ConnectExchangePage = () => {
 
   /* backend row for each design exchange, by name */
   const backendFor = (key: string) => findBackend(exchanges, key);
+  /* Only what an admin currently offers. A deactivated exchange is gone from
+     the picker rather than greyed with a note about the API — nobody should
+     be able to read the setup guide for one they cannot connect. */
+  const offered = offeredExchanges(exchanges);
 
   /* preselect from ?exchange=<backend id> (the Exchanges page's per-exchange
      buttons), otherwise the first design exchange the backend offers */
   useEffect(() => {
     if (exKey != null || exchanges.length === 0) return;
     const q = typeof router.query.exchange === "string" ? router.query.exchange : "";
-    const fromQuery = DESIGN_EXCHANGES.find((d) => String(backendFor(d.key)?.id) === q);
-    const firstAvailable = DESIGN_EXCHANGES.find((d) => backendFor(d.key));
-    setExKey((fromQuery ?? firstAvailable ?? DESIGN_EXCHANGES[0]).key);
+    /* A link to an exchange that is no longer offered must not select it —
+       it falls through to the first one that is. */
+    const fromQuery = offered.find((d) => String(backendFor(d.key)?.id) === q);
+    setExKey((fromQuery ?? offered[0] ?? DESIGN_EXCHANGES[0]).key);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exchanges, exKey, router.query.exchange]);
 
@@ -195,34 +201,21 @@ const ConnectExchangePage = () => {
               </div>
               <p className="fx-fsub">Pick the account you want Candleweb to place orders on.</p>
               <div className="fx-xpick" role="group" aria-label="Exchange">
-                {DESIGN_EXCHANGES.map((d) => {
+                {offered.map((d) => {
                   const row = backendFor(d.key);
-                  const offered = !!row;
                   return (
                     <button
                       key={d.key}
                       type="button"
                       className={`fx-xp ${d.key === exKey ? "sel" : ""}`}
                       aria-pressed={d.key === exKey}
-                      disabled={exchanges.length > 0 && !offered}
-                      title={
-                        exchanges.length > 0 && !offered
-                          ? `${d.name} isn't in the backend's supported-exchange list yet`
-                          : undefined
-                      }
                       onClick={() => pickExchange(d.key)}
                     >
                       <span className="xlogo">
                         <img src={d.logo} alt={d.name} style={{ objectFit: d.fit }} />
                       </span>
-                      <span className={`xs ${exchanges.length > 0 && !offered ? "miss" : ""}`}>
-                        {exchanges.length === 0
-                          ? d.tag
-                          : !offered
-                            ? "Not in /exchange/list/ yet"
-                            : connectedIds.has(String(row.id))
-                              ? `${d.tag} · connected`
-                              : d.tag}
+                      <span className="xs">
+                        {row && connectedIds.has(String(row.id)) ? `${d.tag} · connected` : d.tag}
                       </span>
                     </button>
                   );

@@ -230,12 +230,13 @@ const TradeDetailPage = () => {
   /* The title may now be the user's own words ("ETH momentum"), so the pair
      and timeframe can no longer be assumed to be visible in it. */
   const pairLine = trade ? `${trade.pair_name || `Pair #${trade.pair}`} · ${trade.timeframe}` : "";
-  /* A demo trade has no exchange account, and needs none — paper orders never
-     reach a venue. Saying so is better than "Account #null". */
+  /* `exchange_name` is sent whatever the account is — a demo trade has no
+     account of its own but still runs against a named market, and the API
+     labels it. So the NAME leads, and the "no account" case only has to be
+     described when there is no name either. */
   const venueLine = trade
-    ? trade.exchange_account == null
-      ? "demo · no exchange needed"
-      : trade.exchange_name || `Account #${trade.exchange_account}`
+    ? trade.exchange_name ||
+      (trade.exchange_account == null ? "demo" : `Account #${trade.exchange_account}`)
     : "";
 
   return (

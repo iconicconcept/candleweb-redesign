@@ -11,6 +11,17 @@ export interface ExchangeProp {
    * The name of the exchange.
    */
   name: string;
+
+  /**
+   * Whether an admin currently offers this exchange.
+   *
+   * Optional because it is not certain every response carries it: an admin
+   * turning an exchange off may remove it from `/exchange/list/` outright
+   * rather than flag it. Both are handled — `isOffered` in
+   * `lib/exchangeCatalog.ts` treats an absent row and `is_active: false` the
+   * same way, so a deactivated exchange disappears under either behaviour.
+   */
+  is_active?: boolean;
 }
 
 /**

@@ -82,6 +82,14 @@ const DashboardExchangesPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [axiosToken, dispatch]);
 
+  /* What an admin currently offers. A row turned off in the admin was still
+     listed here as something to connect — and connecting it would then fail
+     at the point of saving keys, which is the worst place to find out. */
+  const offeredList = useMemo(
+    () => exchanges.filter((x: ExchangeProp) => x.is_active !== false),
+    [exchanges],
+  );
+
   const exchangeName = (raw?: string | number) => {
     if (raw == null || raw === "") return "Exchange";
     const match = exchanges.find((x: ExchangeProp) => String(x.id) === String(raw));
@@ -363,13 +371,13 @@ const DashboardExchangesPage = () => {
               One account runs as many trades as you like — you don&rsquo;t need a second.
             </span>
           </div>
-          {exchanges.length === 0 ? (
+          {offeredList.length === 0 ? (
             <Link className="fx-mini go" href="/dashboard/exchanges/new">
               <PlusIcon /> Add exchange
             </Link>
           ) : (
             <div className="fx-avail">
-              {exchanges.map((x: ExchangeProp) => (
+              {offeredList.map((x: ExchangeProp) => (
                 <div className="fx-av" key={x.id}>
                   <ExchangeLogo name={x.name} variant="card" />
                   <b>{x.name}</b>

@@ -352,13 +352,14 @@ const TradesPage = () => {
                   <span className={`fx-run2 ${meta.cls}`}>{meta.label}</span>
                   <span className={`fx-byb ${isAi ? "ai2" : ""}`}>● {decider}</span>
                   {/* The pair is repeated here because the title above may now
-                      be words of the user's own that never mention it. A demo
-                      trade has no exchange and needs none. */}
+                      be words of the user's own that never mention it. The
+                      venue name is sent for a demo trade too — it has no
+                      account of its own but still runs against a named
+                      market — so the name leads either way. */}
                   <span className="tsp2">
                     {t.pair_name || `Pair #${t.pair}`} · {t.timeframe} ·{" "}
-                    {t.exchange_account == null
-                      ? "demo"
-                      : t.exchange_name || `Account #${t.exchange_account}`}
+                    {t.exchange_name ||
+                      (t.exchange_account == null ? "demo" : `Account #${t.exchange_account}`)}
                   </span>
                 </div>
 

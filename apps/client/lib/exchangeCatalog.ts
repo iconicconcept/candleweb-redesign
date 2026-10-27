@@ -82,6 +82,38 @@ export const needsPassphrase = (key: string) => key === "kucoin";
 export const backendFor = (exchanges: ExchangeProp[], key: string) =>
   exchanges.find((x) => x.name?.trim().toLowerCase() === key) ?? null;
 
+/**
+ * Whether an exchange is actually on offer right now.
+ *
+ * The catalogue above is a hard-coded list of four — it has to be, because it
+ * carries logos and setup instructions the API does not. The consequence is
+ * that turning an exchange off in the admin changed nothing on screen: the
+ * card kept rendering, merely greyed, with a developer's note about
+ * `/exchange/list/` where a reason should be. Someone could still read the
+ * whole setup guide for an exchange they are not allowed to connect.
+ *
+ * Both ways the backend might express this are treated the same, because
+ * only one of them can be relied on: a row that has gone from the list, and a
+ * row still present with `is_active: false`.
+ */
+export const isOffered = (exchanges: ExchangeProp[], key: string): boolean => {
+  const row = backendFor(exchanges, key);
+  return !!row && row.is_active !== false;
+};
+
+/**
+ * The exchanges to show, in the design's order.
+ *
+ * An EMPTY `exchanges` list means the catalogue has not been read yet, not
+ * that nothing is offered — blanking the page in that moment would tell a
+ * user on a slow connection that Candleweb supports no exchanges at all. So
+ * the full set stands in until the real answer arrives.
+ */
+export const offeredExchanges = (exchanges: ExchangeProp[]): DesignExchange[] =>
+  exchanges.length === 0
+    ? DESIGN_EXCHANGES
+    : DESIGN_EXCHANGES.filter((d) => isOffered(exchanges, d.key));
+
 /* The reverse of `backendFor`: a backend row's name back to its design entry,
    and so to the logo file in /public. The API returns names unevenly cased
    ("binance", "KuCoin"), so the match is on a normalised name. Anything the

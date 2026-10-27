@@ -8,6 +8,7 @@ import {
   CONFIG_IPS,
   DESIGN_EXCHANGES,
   backendFor,
+  offeredExchanges,
   needsPassphrase,
 } from "../../../../lib/exchangeCatalog";
 
@@ -44,6 +45,10 @@ type Props = { exchanges: ExchangeProp[] };
 export default function ExchangesEmpty({ exchanges }: Props) {
   const chooserRef = useRef<HTMLElement>(null);
   const [x, setX] = useState(DESIGN_EXCHANGES[0].key);
+  /* Only what an admin currently offers. Until the catalogue has been read
+     the full set stands in — an empty list means "not loaded", not "nothing
+     is supported". */
+  const choices = offeredExchanges(exchanges);
   const [p, setP] = useState<Record<Perm, boolean>>({
     read: false,
     spot: false,
@@ -54,7 +59,9 @@ export default function ExchangesEmpty({ exchanges }: Props) {
   const [keyInfo, setKeyInfo] = useState(false);
   const [copiedIp, setCopiedIp] = useState<string | null>(null);
 
-  const ex = DESIGN_EXCHANGES.find((d) => d.key === x) ?? DESIGN_EXCHANGES[0];
+  /* If the selected one has just been withdrawn, fall back to one that is
+     still on offer rather than leaving the panel describing a dead card. */
+  const ex = choices.find((d) => d.key === x) ?? choices[0] ?? DESIGN_EXCHANGES[0];
   const row = backendFor(exchanges, ex.key);
   const offered = exchanges.length === 0 || !!row;
 
@@ -213,7 +220,7 @@ export default function ExchangesEmpty({ exchanges }: Props) {
           <span className="sub2">You&rsquo;ll need an account there already, with funds in it.</span>
         </div>
         <div className="fx-choose" role="group" aria-label="Exchange">
-          {DESIGN_EXCHANGES.map((d) => (
+          {choices.map((d) => (
             <button
               key={d.key}
               type="button"

@@ -49,6 +49,21 @@ const PLACEHOLDER_PAIRS = [
    list hasn't loaded yet or the account has none. */
 const FALLBACK_BOTS: { id: number; name: string }[] = [];
 
+/**
+ * The market a demo trade runs against when no exchange account is chosen.
+ *
+ * A demo trade is created with `exchange_account: null` and comes back
+ * `exchange_name: "KuCoin"` — the backend picks the venue, and there is no
+ * field in the payload to ask it for a different one. So this is read-only
+ * knowledge about the server's behaviour, named here rather than inlined so
+ * it is findable the day that behaviour changes.
+ *
+ * It exists so the picker can say what will happen instead of saying
+ * "None": the field being empty is true but tells the user nothing, while
+ * the venue is the thing they are actually choosing between.
+ */
+const DEMO_VENUE = "KuCoin";
+
 /* `stop` is the typical stop distance assumed for that candle size — used
    only to illustrate what a risk % works out to in section 05, same as the
    original design. */
@@ -235,9 +250,27 @@ const NewTradePage = () => {
             (x: ExchangeProp) => String(x.id) === String(r.supported_exchange_id),
           );
           const name = ex?.name ?? (r.supported_exchange_id ? String(r.supported_exchange_id) : "Exchange");
-          return { id: r.id as number, name: r.is_active === false ? `${name} (inactive)` : name };
+          const active = r.is_active !== false;
+          return { id: r.id as number, name: active ? name : `${name} (inactive)`, active };
         }),
     [exchangeRecord, exchanges],
+  );
+
+  /**
+   * The accounts a live trade may actually be pointed at.
+   *
+   * An inactive record has no working keys, so a live trade on one would place
+   * no orders — it was offered anyway, merely labelled, and the auto-select
+   * below could even make it the DEFAULT for a new live trade. That is a trade
+   * that looks configured and silently does nothing.
+   *
+   * The one inactive account still listed is the one the trade being edited
+   * already uses: dropping it from the list would make the picker fall to
+   * another account and quietly move a live trade's keys on save.
+   */
+  const selectableAccounts = useMemo(
+    () => accountOptions.filter((a) => a.active || a.id === form.exchange_account),
+    [accountOptions, form.exchange_account],
   );
 
   /* New LIVE trade: default to the first connected account once they load.
@@ -245,8 +278,12 @@ const NewTradePage = () => {
      quietly attach keys to a trade that never uses them and make the field
      look required when it is not. */
   useEffect(() => {
-    if (editing || !isLive || form.exchange_account || accountOptions.length === 0) return;
-    setForm((f) => ({ ...f, exchange_account: accountOptions[0].id }));
+    if (editing || !isLive || form.exchange_account) return;
+    /* The first ACTIVE account — never an inactive one, which would start the
+       form already pointing at keys that cannot trade. */
+    const first = accountOptions.find((a) => a.active);
+    if (!first) return;
+    setForm((f) => ({ ...f, exchange_account: first.id }));
   }, [editing, isLive, form.exchange_account, accountOptions]);
 
   /* The panel needs the bot's `dev_key`. It is on every bot response, but the
@@ -640,29 +677,36 @@ const NewTradePage = () => {
                         value={form.exchange_account}
                         onChange={(e) => set("exchange_account", parseInt(e.target.value, 10))}
                       >
-                        {/* On demo this is a real, selectable choice: paper
-                            orders never reach a venue, so no keys are needed
-                            and the user must not be sent to connect an
-                            exchange before their first demo trade. On live
-                            it stays the disabled prompt it was. */}
+                        {/* On demo this is a real, selectable choice, and it
+                            names the venue rather than saying "None": a demo
+                            trade created without an exchange account is not
+                            venue-less, it runs against the DEMO_VENUE market
+                            and comes back labelled as such. "None" described
+                            the field, which was true, instead of describing
+                            what would happen, which is what the user is
+                            choosing between. On live it stays the disabled
+                            prompt it was. */}
                         <option value={0} disabled={isLive}>
                           {isLive
-                            ? accountOptions.length
+                            ? selectableAccounts.length
                               ? "Choose an account"
-                              : "No exchange connected"
-                            : "None — demo needs no exchange"}
+                              : "No active exchange connected"
+                            : `${DEMO_VENUE} — default, no keys needed`}
                         </option>
-                        {accountOptions.map((a) => (
+                        {/* Active accounts only. An inactive record has no
+                            working keys, so a live trade on one would place
+                            no orders at all. */}
+                        {selectableAccounts.map((a) => (
                           <option key={a.id} value={a.id}>
                             {a.name}
                           </option>
                         ))}
                         {/* An account this trade uses but the list no longer
-                            offers — removed, or inactive — so an edit does
-                            not silently reassign it. A demo trade has none,
-                            and the "None" option above already covers it. */}
+                            offers — removed entirely — so an edit does not
+                            silently reassign it. A demo trade has none, and
+                            the default option above already covers it. */}
                         {existing?.exchange_account != null &&
-                          !accountOptions.some((a) => a.id === existing.exchange_account) && (
+                          !selectableAccounts.some((a) => a.id === existing.exchange_account) && (
                             <option value={existing.exchange_account}>
                               {existing.exchange_name || `Account #${existing.exchange_account}`}
                             </option>
@@ -671,9 +715,16 @@ const NewTradePage = () => {
                     </div>
                     <p className="fx-hint">
                       {!isLive ? (
-                        "Demo trades fill on paper, so this is optional. Pick one only if you want this trade's prices to come from that account."
+                        `Demo needs no keys — leave it on ${DEMO_VENUE}, or pick one of your own accounts to use that one's prices.`
+                      ) : selectableAccounts.length ? (
+                        "The exchange accounts you've connected to Candleweb. Only active ones can take a live trade."
                       ) : accountOptions.length ? (
-                        "The exchange accounts you've connected to Candleweb."
+                        <>
+                          None of your exchange accounts are active, so none can place a live
+                          order —{" "}
+                          <a href="/dashboard/exchanges">check them under Exchanges</a>, or switch
+                          to Demo in <a href="/dashboard/settings">Settings</a>.
+                        </>
                       ) : (
                         <>
                           A live trade needs one —{" "}
