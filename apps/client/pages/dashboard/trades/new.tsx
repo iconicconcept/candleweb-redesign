@@ -14,7 +14,16 @@ import DashboardShell from "../../../components/dashboard/focus/DashboardShell";
 import TopBar from "../../../components/dashboard/focus/TopBar";
 import { CheckIcon } from "../../../components/dashboard/focus/icons";
 import ConnectBotPanel from "../../../components/dashboard/focus/ConnectBotPanel";
-import { indicatorChips } from "../../../lib/tradingV2Indicators";
+import IndicatorPicker from "../../../components/dashboard/focus/IndicatorPicker";
+import {
+  DEFAULT_INDICATORS,
+  dedupeIndicators,
+  defaultIndicators,
+  indicatorChips,
+  indicatorLabels,
+  unknownIndicatorNames,
+} from "../../../lib/tradingV2Indicators";
+import useIndicatorCatalogue from "../../../lib/hooks/useIndicatorCatalogue";
 import {
   DEFAULT_MIN_CONFIDENCE,
   MAX_MIN_CONFIDENCE,
@@ -79,35 +88,11 @@ const TIMEFRAMES: { v: TradeV2Timeframe; calls: number; stop: number; every: str
   { v: "4h", calls: 6, stop: 5.2, every: "Every 4 hours" },
 ];
 
-/* Only `1m` returns real indicator numbers today; on 15m/1h/4h every
-   indicator value comes back null. The candles themselves are correct on
-   every timeframe — it is just the indicator figures that are missing, so
-   the picker stays usable and the user gets told. */
-const INDICATOR_VALUES_TIMEFRAMES: TradeV2Timeframe[] = ["1m"];
-
 function listWords(arr: string[]) {
   if (arr.length === 0) return "nothing";
   if (arr.length === 1) return arr[0];
   return arr.slice(0, -1).join(", ") + " and " + arr[arr.length - 1];
 }
-
-/* Front-end's assumed indicator set — confirm the canonical keys with the
-   backend (docs example: rsi, macd, macd_signal, sma_50). */
-const INDICATORS: { key: string; label: string }[] = [
-  { key: "rsi", label: "RSI" },
-  { key: "macd", label: "MACD" },
-  { key: "macd_signal", label: "MACD signal" },
-  { key: "sma_20", label: "SMA 20" },
-  { key: "sma_50", label: "SMA 50" },
-  { key: "sma_200", label: "SMA 200" },
-  { key: "ema_50", label: "EMA 50" },
-  { key: "ema_200", label: "EMA 200" },
-  { key: "atr", label: "ATR" },
-  { key: "bb_upper", label: "Bollinger upper" },
-  { key: "bb_lower", label: "Bollinger lower" },
-  { key: "stoch", label: "Stochastic" },
-  { key: "volume", label: "Volume" },
-];
 
 const HISTORY_OPTIONS = [20, 30, 50, 100];
 const RISK_STEPS = [0.5, 10];
@@ -149,7 +134,7 @@ const DEFAULTS: FormState = {
   pair: PLACEHOLDER_PAIRS[0].id,
   timeframe: "1m",
   allocated_amount: "",
-  indicators: ["rsi", "macd", "macd_signal", "sma_50"],
+  indicators: DEFAULT_INDICATORS,
   candle_history_len: 20,
   decider_type: "OWN_BOT",
   bot: null,
@@ -187,6 +172,8 @@ const NewTradePage = () => {
   const book = useBook();
   const isLive = book === "live";
   const [busy, setBusy] = useState<null | "save" | "start">(null);
+  /* Per-field refusals from the last save, keyed by field name. */
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [existing, setExisting] = useState<TradeV2 | null>(null);
   /* Set on a successful create so the user leaves this flow with the pull
      URL, the decision URL and the bot's key in front of them, instead of
@@ -194,6 +181,10 @@ const NewTradePage = () => {
   const [justCreated, setJustCreated] = useState<TradeV2 | null>(null);
   const loadedRef = useRef<number | null>(null);
   const botsFetchedRef = useRef(false);
+  /* The names this trade's `indicators` may contain, and the wording to show
+     for each. Public and cached for the tab, so this costs one request. */
+  const catalogue = useIndicatorCatalogue();
+  const indicatorsTouched = useRef(false);
 
   useEffect(() => {
     if (!isAuthorizationHeaderSet(axiosToken) || botsFetchedRef.current) return;
@@ -222,7 +213,7 @@ const NewTradePage = () => {
         pair: toId(t.pair) ?? DEFAULTS.pair,
         timeframe: t.timeframe,
         allocated_amount: String(parseFloat(t.allocated_amount) || ""),
-        indicators: indicatorChips(t.indicators),
+        indicators: dedupeIndicators(indicatorChips(t.indicators)),
         candle_history_len: t.candle_history_len,
         decider_type: t.decider_type,
         bot: toId(t.bot),
@@ -308,13 +299,32 @@ const NewTradePage = () => {
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
 
-  const toggleIndicator = (key: string) =>
-    setForm((f) => ({
-      ...f,
-      indicators: f.indicators.includes(key)
-        ? f.indicators.filter((i) => i !== key)
-        : [...f.indicators, key],
-    }));
+  /* The picker resolves the selection itself — it is the thing that knows
+     which names supersede which — so this only has to store the answer. */
+  const setIndicators = (next: string[]) => {
+    indicatorsTouched.current = true;
+    /* Changing the selection answers whatever the last save objected to. */
+    setFieldErrors((e) => (e.indicators ? { ...e, indicators: "" } : e));
+    setForm((f) => ({ ...f, indicators: next }));
+  };
+
+  /**
+   * Drop a default the catalogue turns out not to have.
+   *
+   * Only for a NEW trade the user has not touched: an edit must keep exactly
+   * what was stored, including a name that has since gone, so the picker can
+   * show it as no longer available rather than removing it silently behind
+   * the user's back.
+   */
+  useEffect(() => {
+    if (editing || indicatorsTouched.current || catalogue.index.size === 0) return;
+    const pruned = defaultIndicators(catalogue.index);
+    setForm((f) =>
+      f.indicators.length === pruned.length && f.indicators.every((n, i) => n === pruned[i])
+        ? f
+        : { ...f, indicators: pruned },
+    );
+  }, [catalogue.index, editing]);
 
   const alloc = parseFloat(form.allocated_amount) || 0;
   const riskCash = alloc * (form.risk_pct / 100);
@@ -350,21 +360,31 @@ const NewTradePage = () => {
   const wantCash = alloc > 0 ? riskCash / (tf.stop / 100) : 0;
   const capped = alloc > 0 && wantCash > ceilingCash + 0.5;
 
-  const deciderReady = form.decider_type === "CANDLE_AI" || !!form.bot;
+  /* The form's own current answer, not the saved trade's — switching an
+     existing OWN_BOT trade to CandleAI has to take effect here at once. */
+  const aiDecides = form.decider_type === "CANDLEAI";
+  const deciderReady = aiDecides || !!form.bot;
   const summaryReady = alloc > 0 && deciderReady;
   const whoDecides =
-    form.decider_type === "CANDLE_AI"
+    form.decider_type === "CANDLEAI"
       ? "CandleAI"
       : botOptions.find((b) => b.id === form.bot)?.name || existing?.bot_name || "your bot";
   const replyWord =
     form.direction === "LONG" ? "a buy" : form.direction === "SHORT" ? "a sell" : "a buy or a sell";
-  const indicatorNames = form.indicators.map((k) => INDICATORS.find((i) => i.key === k)?.label || k);
+  /* "RSI (14) and MACD line (12, 26, 9)", not `mom_rsi_14` — the paragraph is
+     the one place the user reads back what they just set up. Falls back to
+     the stored name until the catalogue lands. */
+  const indicatorNames = indicatorLabels(catalogue.index, form.indicators);
   const stopBit = form.trailing_stop
     ? "trails it as the price moves in your favour"
     : "leaves the stop where it was set";
   const summaryText = summaryReady
-    ? `${tf.every}, Candleweb sends ${pairName} candles with ${
-        form.indicators.length ? listWords(indicatorNames) : "no indicators"
+    ? `${tf.every}, Candleweb sends ${pairName} candles${
+        /* A CandleAI trade sends no indicator list, so naming one here would
+           describe something that does not happen. */
+        aiDecides
+          ? ""
+          : ` with ${form.indicators.length ? listWords(indicatorNames) : "no indicators"}`
       } to ${whoDecides}. If it replies with ${replyWord}, Candleweb places the order on your account, ` +
       `risking at most ${form.risk_pct.toFixed(1)}% of the ${dollarFormat(alloc)} allocated — about ` +
       `${dollarFormat(riskCash)}, and never more than ${dollarFormat(ceilingCash)} in one position — sets ` +
@@ -376,13 +396,24 @@ const NewTradePage = () => {
      round trip, with the same wording the server would answer with. */
   const confError = confidenceError(form.min_confidence);
 
+  /* Names on an older trade that the catalogue no longer has. The server
+     refuses the whole save over one of these, so it is caught here with
+     wording that says which, instead of a bare 400. */
+  const staleIndicators = useMemo(
+    () => unknownIndicatorNames(form.indicators, catalogue.index),
+    [form.indicators, catalogue.index],
+  );
+
   const missing = useMemo(() => {
     const m: string[] = [];
     /* A demo trade needs no exchange — paper orders never reach one. Only a
        live trade is blocked on it. */
     if (isLive && !form.exchange_account) m.push("connect an exchange account");
     if (!(alloc > 0)) m.push("allocate an amount");
-    if (form.indicators.length === 0) m.push("send at least one indicator");
+    /* A CandleAI trade sends none, by design — only a bot trade needs one. */
+    if (!aiDecides && form.indicators.length === 0) m.push("send at least one indicator");
+    if (!aiDecides && staleIndicators.length)
+      m.push(`remove ${staleIndicators.join(", ")} — no longer available`);
     if (form.decider_type === "OWN_BOT" && !form.bot) m.push("pick a bot");
     if (confError) m.push("set a confidence from 0 to 99");
     return m;
@@ -391,6 +422,8 @@ const NewTradePage = () => {
     form.exchange_account,
     alloc,
     form.indicators.length,
+    staleIndicators,
+    aiDecides,
     form.decider_type,
     form.bot,
     confError,
@@ -399,8 +432,9 @@ const NewTradePage = () => {
   const sectionsDone = [
     (!isLive || !!form.exchange_account) && !!form.pair,
     alloc > 0,
-    form.indicators.length > 0,
-    (form.decider_type === "CANDLE_AI" || !!form.bot) && !confError,
+    /* Nothing to pick on a CandleAI trade, so the step cannot be outstanding. */
+    aiDecides || form.indicators.length > 0,
+    (aiDecides || !!form.bot) && !confError,
     true,
   ];
   const doneCount = sectionsDone.filter(Boolean).length;
@@ -417,7 +451,10 @@ const NewTradePage = () => {
     pair: form.pair,
     timeframe: form.timeframe,
     allocated_amount: alloc.toFixed(2),
-    indicators: form.indicators,
+    /* Only the user's own bot is sent indicators. A CandleAI trade saves an
+       empty list rather than whatever the picker last held, so switching a
+       trade to CandleAI does not leave a list behind that decides nothing. */
+    indicators: aiDecides ? [] : dedupeIndicators(form.indicators),
     candle_history_len: form.candle_history_len,
     decider_type: form.decider_type,
     bot: form.decider_type === "OWN_BOT" ? form.bot : null,
@@ -429,14 +466,20 @@ const NewTradePage = () => {
 
   const persist = async (): Promise<TradeV2 | null> => {
     const payload = buildPayload();
-    if (editing && existing) {
-      const res: any = await dispatch(
-        tradingV2Service.updateTrade({ api: axiosToken, id: existing.id, data: payload }),
-      );
-      return res?.payload?.id ? (res.payload as TradeV2) : null;
-    }
-    const res: any = await dispatch(tradingV2Service.createTrade({ api: axiosToken, data: payload }));
-    return res?.payload?.id ? (res.payload as TradeV2) : null;
+    /* Last attempt's refusals go before this one is sent, or a message that
+       has been fixed stays under the input it no longer applies to. */
+    setFieldErrors({});
+    const res: any =
+      editing && existing
+        ? await dispatch(
+            tradingV2Service.updateTrade({ api: axiosToken, id: existing.id, data: payload }),
+          )
+        : await dispatch(tradingV2Service.createTrade({ api: axiosToken, data: payload }));
+    if (res?.payload?.id) return res.payload as TradeV2;
+    /* A refusal broken out per field, so `indicators` can sit under the
+       picker instead of only in a toast the user has to match to a control. */
+    setFieldErrors(res?.payload?.fields ?? {});
+    return null;
   };
 
   /* A new OWN_BOT trade stays on this screen so the connection details can be
@@ -513,16 +556,13 @@ const NewTradePage = () => {
   // Both URLs are null on a CandleAI trade — there is no bot to connect.
   const isAiTrade = connectTrade
     ? !connectTrade.candles_url && !connectTrade.decision_url
-    : form.decider_type === "CANDLE_AI";
+    : form.decider_type === "CANDLEAI";
 
   /* Straight after a create the page becomes the hand-over screen and
      nothing else: the form, its sidebar and the progress rail all go. The
      user has just finished setting the trade up — leaving the whole form
      under the panel reads as "something still needs doing". */
   const showConnectOnly = !!justCreated && !isAiTrade;
-
-  const indicatorValuesMissing =
-    form.indicators.length > 0 && !INDICATOR_VALUES_TIMEFRAMES.includes(form.timeframe);
 
   return (
     <>
@@ -905,26 +945,30 @@ const NewTradePage = () => {
                   <h3>What your bot sees</h3>
                 </div>
                 <p className="fx-fsub">
-                  Candleweb computes these and sends them alongside the raw candles. Pick what your
-                  strategy actually reads.
+                  {aiDecides
+                    ? "CandleAI reads the market itself and chooses what it needs — there is nothing to pick here."
+                    : "Each candle Candleweb sends your bot carries the values of the indicators you pick here. Pick the ones your bot's prompt refers to."}
                 </p>
 
-                <div className="fx-picks">
-                  {INDICATORS.map((ind) => (
-                    <button
-                      key={ind.key}
-                      type="button"
-                      className={`fx-pk ${form.indicators.includes(ind.key) ? "on7" : ""}`}
-                      onClick={() => toggleIndicator(ind.key)}
-                    >
-                      {ind.label}
-                    </button>
-                  ))}
-                </div>
-                <p className="fx-hint">
-                  Sent as <code>{form.indicators.join(", ") || "none"}</code>. Confirm the canonical
-                  keys with the backend.
-                </p>
+                {/* Only the user's own bot is sent a trade's indicators.
+                    CandleAI picks its own, so the list would decide nothing —
+                    and a CandleAI trade is saved with an empty one. */}
+                {!aiDecides && (
+                  <>
+                    <IndicatorPicker
+                      selected={form.indicators}
+                      onChange={setIndicators}
+                      catalogue={catalogue}
+                      pairName={pairName}
+                      fieldError={fieldErrors.indicators}
+                    />
+                    <p className="fx-hint">
+                      Sent as <code>{form.indicators.join(", ") || "none"}</code>. Three to eight is
+                      plenty for most bots — more values make the call longer without making the
+                      decision better.
+                    </p>
+                  </>
+                )}
 
                 <div className="fx-fr two2" style={{ marginTop: "16px" }}>
                   <div>
@@ -950,18 +994,6 @@ const NewTradePage = () => {
                     </p>
                   </div>
                 </div>
-
-                {/* Only 1m carries real indicator numbers today — the candles
-                    themselves are right on every timeframe. Saying so here
-                    saves a support ticket about a column of dashes. */}
-                {indicatorValuesMissing && (
-                  <p className="fx-epnote" style={{ marginTop: 14 }}>
-                    <b>Heads up.</b> On {form.timeframe} the candles your bot receives are correct,
-                    but the indicator <em>values</em> are not calculated yet — they arrive as{" "}
-                    <code>null</code>. Only <code>1m</code> has real indicator numbers today. Your bot
-                    can still read the candles and work them out itself.
-                  </p>
-                )}
 
                 {/* The connection details, straight off the trade response. On a
                     trade that hasn't been saved yet there are no URLs to show —
@@ -989,13 +1021,13 @@ const NewTradePage = () => {
                     </div>
                   ))}
 
-                {form.decider_type === "CANDLE_AI" && (
+                {form.decider_type === "CANDLEAI" && (
                   <div className="fx-aibox">
                     <b>CandleAI doesn&rsquo;t need an endpoint</b>
                     <p>
-                      There&rsquo;s nothing to wire up. CandleAI reads the same candles and indicators you
-                      picked above and decides on every close. Your limits in section 05 still apply to it,
-                      exactly as they would to your own bot.
+                      There&rsquo;s nothing to wire up. CandleAI reads this market itself, chooses
+                      what it needs to look at, and decides on every close. Your limits in section 05
+                      still apply to it, exactly as they would to your own bot.
                     </p>
                   </div>
                 )}
@@ -1025,8 +1057,8 @@ const NewTradePage = () => {
                   </button>
                   <button
                     type="button"
-                    className={`fx-rc2 ${form.decider_type === "CANDLE_AI" ? "sel" : ""}`}
-                    onClick={() => set("decider_type", "CANDLE_AI")}
+                    className={`fx-rc2 ${form.decider_type === "CANDLEAI" ? "sel" : ""}`}
+                    onClick={() => set("decider_type", "CANDLEAI")}
                   >
                     <span className="ck">✓</span>
                     <span className="kind4">Built in</span>
@@ -1341,20 +1373,26 @@ const NewTradePage = () => {
                     </span>
                   </div>
                 </div>
-                <div className={`fx-ul ${form.indicators.length ? "got3" : ""}`}>
-                  <i>{form.indicators.length ? "✓" : "3"}</i>
+                {/* A CandleAI trade sends none and never will, so this reads
+                    as done rather than as nought out of something. */}
+                <div className={`fx-ul ${aiDecides || form.indicators.length ? "got3" : ""}`}>
+                  <i>{aiDecides || form.indicators.length ? "✓" : "3"}</i>
                   <div>
-                    <b>{form.indicators.length} indicator{form.indicators.length === 1 ? "" : "s"}</b>
+                    <b>
+                      {aiDecides
+                        ? "CandleAI picks its own"
+                        : `${form.indicators.length} indicator${form.indicators.length === 1 ? "" : "s"}`}
+                    </b>
                     <span>{form.candle_history_len} candles of history</span>
                   </div>
                 </div>
                 <div
-                  className={`fx-ul ${form.decider_type === "CANDLE_AI" || form.bot ? "got3" : ""}`}
+                  className={`fx-ul ${form.decider_type === "CANDLEAI" || form.bot ? "got3" : ""}`}
                 >
-                  <i>{form.decider_type === "CANDLE_AI" || form.bot ? "✓" : "4"}</i>
+                  <i>{form.decider_type === "CANDLEAI" || form.bot ? "✓" : "4"}</i>
                   <div>
                     <b>
-                      {form.decider_type === "CANDLE_AI"
+                      {form.decider_type === "CANDLEAI"
                         ? "CandleAI decides"
                         : form.bot
                           ? `${botOptions.find((b) => b.id === form.bot)?.name || existing?.bot_name || `Bot #${form.bot}`} decides`

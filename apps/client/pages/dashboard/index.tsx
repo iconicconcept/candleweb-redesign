@@ -298,7 +298,7 @@ const DashboardPage = () => {
     [balance],
   );
 
-  const runningTrades = trades.filter((t) => t.status === "RUNNING").length;
+  const runningTrades = trades.filter((t) => t.status === "ACTIVE").length;
   const activeBots = bots.filter((b) => b.status === "ACTIVE").length;
   const failingBots = bots.filter((b) => b.status === "FAILING");
 
@@ -332,7 +332,7 @@ const DashboardPage = () => {
     if (!bots.length) return null;
     const running = new Map<number, number>();
     trades.forEach((t) => {
-      if (t.status === "RUNNING" && t.bot != null) running.set(t.bot, (running.get(t.bot) || 0) + 1);
+      if (t.status === "ACTIVE" && t.bot != null) running.set(t.bot, (running.get(t.bot) || 0) + 1);
     });
     const statusRank = { ACTIVE: 0, PAUSED: 1, FAILING: 2 } as const;
     /* No third tiebreak: `consecutive_fail_count` used to be it, but it is

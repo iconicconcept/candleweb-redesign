@@ -77,7 +77,7 @@ const Track = ({ p }: { p: PositionV2 }) => {
 const PositionRow = ({ p }: { p: PositionV2 }) => {
   const pnl = posRead(p, "open_pnl");
   const pct = posRead(p, "open_return_pct");
-  const who = p.bot_name || (p.decider_type === "CANDLE_AI" ? "CandleAI" : "—");
+  const who = p.bot_name || (p.decider_type === "CANDLEAI" ? "CandleAI" : "—");
   const tone = moveClass(pct.value ?? pnl.value);
 
   const body = (

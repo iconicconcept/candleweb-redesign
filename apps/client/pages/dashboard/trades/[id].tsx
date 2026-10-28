@@ -12,7 +12,8 @@ import TopBar from "../../../components/dashboard/focus/TopBar";
 import TradeDecisionLog from "../../../components/dashboard/focus/TradeDecisionLog";
 import OpenPositionsList from "../../../components/dashboard/focus/OpenPositionsList";
 import useOpenPositions from "../../../lib/hooks/useOpenPositions";
-import { indicatorChips } from "../../../lib/tradingV2Indicators";
+import { indicatorChips, indicatorLabels } from "../../../lib/tradingV2Indicators";
+import useIndicatorCatalogue from "../../../lib/hooks/useIndicatorCatalogue";
 import { TradeMetricsV2, TradeV2, TradeV2Status } from "../../../types/tradingV2";
 import {
   DEFAULT_WINDOW_DAYS,
@@ -34,9 +35,8 @@ import usePoll, { POLL } from "../../../lib/hooks/usePoll";
 import { useRevalidateEffect } from "../../../lib/hooks/useRevalidate";
 
 const STATUS_META: Record<TradeV2Status, { label: string; cls: string }> = {
-  RUNNING: { label: "Running", cls: "on5" },
+  ACTIVE: { label: "Running", cls: "on5" },
   PAUSED: { label: "Paused", cls: "off6" },
-  ERROR: { label: "Not responding", cls: "bad5" },
 };
 
 const DIRECTION_LABEL: Record<string, string> = {
@@ -177,6 +177,10 @@ const TradeDetailPage = () => {
     asked: tradePositionsAsked,
     failed: tradePositionsFailed,
   } = useOpenPositions(axiosToken, { status: "open", trade: valid ? (id as number) : undefined });
+
+  /* Only for labelling this trade's stored indicator names. Cached for the
+     tab, so it shares whatever request the list or the form already made. */
+  const { index: indicatorIndex } = useIndicatorCatalogue();
   /* Two different counts, deliberately. The trade row's `closed_trades` is
      ALL TIME and is what the milestones below measure — a milestone must not
      un-reach itself when a 30-day window rolls past. `closedCount(metrics)`
@@ -196,10 +200,14 @@ const TradeDetailPage = () => {
      opened at all. */
   const unattributed = unattributedNote(metrics);
 
-  const chips = trade ? indicatorChips(trade.indicators) : [];
+  /* "EMA (50)", not the `trd_ema_50` the trade actually stores. Falls back to
+     the raw name while the catalogue loads, and for one it no longer has. */
+  const chips = trade
+    ? indicatorLabels(indicatorIndex, indicatorChips(trade.indicators))
+    : [];
   const meta = trade ? STATUS_META[trade.status] ?? STATUS_META.PAUSED : null;
-  const running = trade?.status === "RUNNING";
-  const isAi = trade?.decider_type === "CANDLE_AI";
+  const running = trade?.status === "ACTIVE";
+  const isAi = trade?.decider_type === "CANDLEAI";
   const decider = isAi ? "CandleAI" : trade?.bot_name || "Own bot";
 
   /* The design writes the caps as "2.0% · $40" and "50% · $1,000" — the rule

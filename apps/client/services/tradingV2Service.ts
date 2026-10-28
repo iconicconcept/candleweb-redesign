@@ -136,6 +136,17 @@ const withIds = (data: TradeV2Payload): TradeV2Payload => {
   return out;
 };
 
+/**
+ * What a refused trade save rejects with.
+ *
+ * `message` is the sentence for the toast, as before. `fields` is the same
+ * 400 broken out per input, so the form can put `indicators` under the
+ * indicator picker rather than leaving the user to match a toast to a
+ * control. Only the two trade writes carry it; nothing reads the rejected
+ * payload of the others.
+ */
+export type TradeV2Rejection = { message: string; fields: Record<string, string> };
+
 /** POST /trading_v2/trades/ — create (status=PAUSED) */
 const createTrade = createAsyncThunk(
   "tradingV2/create",
@@ -156,7 +167,7 @@ const createTrade = createAsyncThunk(
     } catch (err: any) {
       const message = getErrorMessage(err);
       error(message);
-      return thunkApi.rejectWithValue(message);
+      return thunkApi.rejectWithValue({ message, fields: getFieldErrors(err) });
     }
   },
 );
@@ -183,7 +194,7 @@ const updateTrade = createAsyncThunk(
     } catch (err: any) {
       const message = getErrorMessage(err);
       error(message);
-      return thunkApi.rejectWithValue(message);
+      return thunkApi.rejectWithValue({ message, fields: getFieldErrors(err) });
     }
   },
 );

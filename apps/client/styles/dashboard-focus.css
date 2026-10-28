@@ -5239,11 +5239,6 @@ button.fx-me[aria-expanded="true"] {
 .fx-tcard:hover {
   background: var(--w022);
 }
-.fx-tcard.hot {
-  border-left: 2px solid rgba(255, 107, 133, 0.5);
-  padding-left: 14px;
-  background: rgba(255, 107, 133, 0.03);
-}
 .fx-tcard.off5 {
   opacity: 0.68;
 }
@@ -5283,11 +5278,6 @@ button.fx-me[aria-expanded="true"] {
   color: var(--fx-t3);
   border-color: var(--fx-line2);
 }
-.fx-run2.bad5 {
-  color: var(--fx-rose2);
-  border-color: rgba(255, 107, 133, 0.45);
-  background: rgba(255, 107, 133, 0.09);
-}
 .fx-byb {
   display: inline-flex;
   align-items: center;
@@ -5311,9 +5301,13 @@ button.fx-me[aria-expanded="true"] {
   gap: 14px 20px;
   align-items: start;
 }
+/* Six cells, so six tracks — it was five, which pushed "Indicators sent" onto
+   a row of its own on desktop and squeezed its chips into a single column.
+   Indicators gets the widest track: it is the only cell holding a list rather
+   than one figure. */
 @media (min-width: 900px) {
   .fx-tgrid {
-    grid-template-columns: 1.25fr 1fr 1fr 1fr 1.4fr;
+    grid-template-columns: 1.05fr 0.8fr 0.75fr 0.95fr 1fr 1.7fr;
   }
 }
 .fx-tm2 span {
@@ -5348,6 +5342,17 @@ button.fx-me[aria-expanded="true"] {
 }
 .fx-tm2 .fx-ind2 {
   margin-top: 0;
+}
+/* `.fx-tm2 span` above is the CELL LABEL rule ("ALLOCATED", "WIN RATE") and
+   it outranks `.fx-ip`, so inside a metric cell every chip was being drawn as
+   a label — `display: block` most of all, which put each one on its own line.
+   These are chips, not labels: they sit in a row and keep their own size. */
+.fx-tm2 .fx-ind2 .fx-ip {
+  display: inline-block;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  margin-bottom: 0;
+  white-space: nowrap;
 }
 .fx-ip {
   font-family: var(--fx-mono);
@@ -9605,4 +9610,302 @@ button.fx-pay9:disabled {
 a.fx-row {
   color: inherit;
   text-decoration: none;
+}
+
+/* ------------------------------------------------------------------ *
+ * Indicator picker — trade form, section 03
+ *
+ * Replaces a row of thirteen hard-coded `.fx-pk` pills with a search, a
+ * category strip and a scrolling list, because the catalogue it now reads
+ * has 396 entries across 13 categories. The selection stays visible as
+ * chips under the list: the list scrolls, and what you have chosen must not
+ * scroll out of sight with it.
+ * ------------------------------------------------------------------ */
+.fx-indp {
+  margin-top: 4px;
+}
+
+.fx-indp-bar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.fx-indp-search {
+  flex: 1 1 220px;
+  min-width: 0;
+  font-family: var(--fx-sans, inherit);
+  font-size: 12.8px;
+  color: var(--fx-t1);
+  background: var(--w04);
+  border: 1px solid var(--fx-line);
+  border-radius: 10px;
+  padding: 10px 13px;
+  outline: none;
+  transition:
+    border-color 0.18s,
+    background 0.18s;
+}
+.fx-indp-search::placeholder {
+  color: var(--fx-t3);
+}
+.fx-indp-search:focus {
+  border-color: var(--fx-teal2);
+  background: var(--w06);
+}
+.fx-indp-count {
+  flex: 0 0 auto;
+  font-family: var(--fx-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fx-t3);
+}
+
+.fx-indp-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 11px;
+}
+.fx-indp-tab {
+  font-family: var(--fx-sans, inherit);
+  font-size: 12px;
+  color: var(--fx-t2);
+  background: var(--w04);
+  border: 1px solid var(--fx-line);
+  border-radius: 99px;
+  padding: 7px 13px;
+  cursor: pointer;
+  transition:
+    color 0.18s,
+    background 0.18s,
+    border-color 0.18s;
+}
+.fx-indp-tab:hover {
+  color: var(--fx-t1);
+  border-color: var(--fx-line2);
+}
+.fx-indp-tab.on8 {
+  color: #04140f;
+  background: var(--fx-teal2);
+  border-color: transparent;
+  font-weight: 600;
+}
+.fx-indp-tab.more3 {
+  font-family: var(--fx-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fx-t3);
+}
+
+.fx-indp-note {
+  margin: 10px 0 0;
+  font-size: 11.6px;
+  color: var(--fx-t3);
+  line-height: 1.55;
+}
+
+.fx-indp-list {
+  margin-top: 10px;
+  /* Tall enough that the list reads as a list, short enough that the chips
+     and the rest of the form stay on screen under it. */
+  max-height: 272px;
+  overflow-y: auto;
+  border: 1px solid var(--fx-line);
+  border-radius: 12px;
+  background: var(--w04);
+}
+.fx-indp-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  border-bottom: 1px solid var(--fx-line);
+}
+.fx-indp-row:last-child {
+  border-bottom: 0;
+}
+.fx-indp-row.on8 {
+  background: rgba(46, 230, 168, 0.07);
+}
+.fx-indp-pick {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  font-family: var(--fx-sans, inherit);
+  font-size: 13px;
+  text-align: left;
+  color: var(--fx-t2);
+  background: none;
+  border: 0;
+  padding: 10px 6px 10px 12px;
+  cursor: pointer;
+}
+.fx-indp-row.on8 .fx-indp-pick {
+  color: var(--fx-t1);
+}
+.fx-indp-box {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  font-size: 10px;
+  color: #04140f;
+  border: 1px solid var(--fx-line2);
+  border-radius: 5px;
+  background: transparent;
+}
+.fx-indp-row.on8 .fx-indp-box {
+  background: var(--fx-teal2);
+  border-color: transparent;
+}
+.fx-indp-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fx-indp-cat {
+  flex: 0 0 auto;
+  font-family: var(--fx-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fx-t3);
+}
+.fx-indp-info {
+  font-size: 13px;
+  line-height: 1;
+  color: var(--fx-t3);
+  background: none;
+  border: 0;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: color 0.18s;
+}
+.fx-indp-info:hover,
+.fx-indp-info[aria-expanded="true"] {
+  color: var(--fx-teal2);
+}
+.fx-indp-desc {
+  grid-column: 1 / -1;
+  padding: 0 12px 12px 38px;
+}
+.fx-indp-desc p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--fx-t2);
+}
+.fx-indp-desc em {
+  display: block;
+  margin-top: 5px;
+  font-family: var(--fx-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  font-style: normal;
+  color: var(--fx-t3);
+}
+.fx-indp-empty,
+.fx-indp-empty2 {
+  margin: 0;
+  padding: 16px 12px;
+  font-size: 12px;
+  color: var(--fx-t3);
+}
+.fx-indp-empty2 {
+  padding: 0;
+}
+
+.fx-indp-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 11px;
+}
+.fx-indp-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--fx-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  color: var(--fx-t1);
+  background: rgba(46, 230, 168, 0.1);
+  border: 1px solid rgba(46, 230, 168, 0.28);
+  border-radius: 99px;
+  padding: 6px 7px 6px 11px;
+}
+.fx-indp-chip button {
+  font-size: 13px;
+  line-height: 1;
+  color: var(--fx-t2);
+  background: none;
+  border: 0;
+  padding: 0 3px;
+  cursor: pointer;
+  transition: color 0.18s;
+}
+.fx-indp-chip button:hover {
+  color: var(--fx-t1);
+}
+/* A name the catalogue no longer has — it blocks the save, so it must not
+   look like the ones that don't. */
+.fx-indp-chip.gone2 {
+  color: var(--fx-amber2);
+  background: rgba(255, 194, 77, 0.1);
+  border-color: rgba(255, 194, 77, 0.3);
+}
+.fx-indp-chip.gone2 em {
+  font-style: normal;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+
+.fx-indp-warn {
+  margin: 10px 0 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--fx-t3);
+}
+.fx-indp-warn b {
+  color: var(--fx-amber2);
+  font-weight: 600;
+}
+
+.fx-indp-fail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--fx-line);
+  border-radius: 12px;
+  background: var(--w04);
+  padding: 14px;
+}
+.fx-indp-fail b {
+  font-size: 13px;
+  color: var(--fx-t1);
+}
+.fx-indp-fail span {
+  flex: 1 1 220px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--fx-t3);
+}
+
+@media (max-width: 560px) {
+  .fx-indp-list {
+    max-height: 232px;
+  }
+  /* The category never fits beside a long name on a phone, and it is only a
+     hint about where a search result came from. */
+  .fx-indp-cat {
+    display: none;
+  }
 }

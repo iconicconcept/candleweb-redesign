@@ -28,14 +28,15 @@ import {
   winRateLabel,
 } from "../../lib/tradingV2Metrics";
 import { confidenceRule, tradeRecord, tradeTitle } from "../../lib/tradingV2Trades";
+import useIndicatorCatalogue from "../../lib/hooks/useIndicatorCatalogue";
+import { indicatorLabels } from "../../lib/tradingV2Indicators";
 import useBook from "../../lib/hooks/useBook";
 import usePoll, { POLL } from "../../lib/hooks/usePoll";
 import { useRevalidateEffect } from "../../lib/hooks/useRevalidate";
 
 const STATUS_META: Record<TradeV2Status, { label: string; cls: string }> = {
-  RUNNING: { label: "Running", cls: "on5" },
+  ACTIVE: { label: "Running", cls: "on5" },
   PAUSED: { label: "Paused", cls: "off6" },
-  ERROR: { label: "Not responding", cls: "bad5" },
 };
 
 const DIRECTION_LABEL: Record<string, string> = {
@@ -46,7 +47,11 @@ const DIRECTION_LABEL: Record<string, string> = {
 
 type Filter = "all" | "running" | "paused";
 
-const IND_LIMIT = 10;
+/* Chips now sit in one cell of the metrics row rather than across the card,
+   and that cell fits about five on a line. Ten would wrap to three lines and
+   drive the row's height on its own; the rest stay one click away under
+   "Load more". */
+const IND_LIMIT = 4;
 
 const IndicatorChips = ({ chips }: { chips: string[] }) => {
   const [open, setOpen] = useState(false);
@@ -85,6 +90,10 @@ const TradesPage = () => {
      dashboard must not list demo trades, nor add their allocation into the
      Capital Allocated band. */
   const book = useBook();
+  /* Only for turning each trade's stored indicator names into the labels a
+     user recognises. Cached for the tab, so this shares the form's request
+     rather than making one of its own. */
+  const { index: indicatorIndex } = useIndicatorCatalogue();
 
   const [filter, setFilter] = useState<Filter>("all");
   const [busyId, setBusyId] = useState<number | null>(null);
@@ -167,12 +176,12 @@ const TradesPage = () => {
   );
 
   const shown = useMemo(() => {
-    if (filter === "running") return trades.filter((t) => t.status === "RUNNING");
-    if (filter === "paused") return trades.filter((t) => t.status !== "RUNNING");
+    if (filter === "running") return trades.filter((t) => t.status === "ACTIVE");
+    if (filter === "paused") return trades.filter((t) => t.status !== "ACTIVE");
     return trades;
   }, [trades, filter]);
 
-  const runningCount = trades.filter((t) => t.status === "RUNNING").length;
+  const runningCount = trades.filter((t) => t.status === "ACTIVE").length;
   const capitalAllocated = trades.reduce((s, t) => s + (parseFloat(t.allocated_amount) || 0), 0);
   const balanceKnown = !!balance && balance.length > 0;
   const freeToAllocate = balanceKnown ? Math.max(0, totalBalance - capitalAllocated) : null;
@@ -188,7 +197,7 @@ const TradesPage = () => {
   const toggleRun = async (t: TradeV2) => {
     setBusyId(t.id);
     try {
-      if (t.status === "RUNNING") {
+      if (t.status === "ACTIVE") {
         await dispatch(tradingV2Service.pauseTrade({ api: axiosToken, id: t.id }));
       } else {
         await dispatch(tradingV2Service.startTrade({ api: axiosToken, id: t.id }));
@@ -330,10 +339,13 @@ const TradesPage = () => {
 
           {shown.map((t) => {
             const meta = STATUS_META[t.status] ?? STATUS_META.PAUSED;
-            const running = t.status === "RUNNING";
-            const isAi = t.decider_type === "CANDLE_AI";
+            const running = t.status === "ACTIVE";
+            const isAi = t.decider_type === "CANDLEAI";
             const decider = isAi ? "CandleAI" : t.bot_name || "Own bot";
-            const chips = indicatorChips(t.indicators);
+            /* Labels, not the stored names: a trade holds `trd_ema_50` and
+               the chip has to read "EMA (50)". Falls back to the raw name
+               until the catalogue lands, and for a name it no longer has. */
+            const chips = indicatorLabels(indicatorIndex, indicatorChips(t.indicators));
             /* This trade's own record, straight off the list response. A null
                `win_rate` means nothing has closed yet, which is NOT 0% — a
                trade that lost everything it closed and one that has closed
@@ -342,7 +354,7 @@ const TradesPage = () => {
             return (
               <div
                 key={t.id}
-                className={`fx-tcard ${t.status === "ERROR" ? "hot" : ""} ${!running && t.status !== "ERROR" ? "off5" : ""}`}
+                className={`fx-tcard ${running ? "" : "off5"}`}
               >
                 <div className="fx-tl1">
                   {/* `display_name` — the user's own name for the trade, or
@@ -404,13 +416,6 @@ const TradesPage = () => {
                     <IndicatorChips chips={chips} />
                   </div>
                 </div>
-
-                {t.status === "ERROR" && (
-                  <div className="fx-flat2">
-                    <b>Attention</b> · this trade is in an error state — check the bot and its
-                    endpoint.
-                  </div>
-                )}
 
                 <div className="fx-tacts">
                   <button

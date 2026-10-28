@@ -1038,20 +1038,25 @@ const BotDetailPage = () => {
                       <div className="fx-bcard" key={t.id}>
                         <div className="fx-bl1">
                           <span className="nm4">{t.pair_name || `Pair #${t.pair}`}</span>
+                          {/* A trade is only running or paused. The third
+                              state the design shows here is about the DECIDER,
+                              not the trade: every row in this list is decided
+                              by this bot, so a running trade is "not
+                              responding" exactly when the bot is failing. */}
                           <span
                             className={`fx-st4 ${
-                              t.status === "RUNNING"
-                                ? "live4"
-                                : t.status === "ERROR"
+                              t.status !== "ACTIVE"
+                                ? "pause4"
+                                : bot.status === "FAILING"
                                   ? "fail4"
-                                  : "pause4"
+                                  : "live4"
                             }`}
                           >
-                            {t.status === "RUNNING"
-                              ? "Running"
-                              : t.status === "ERROR"
+                            {t.status !== "ACTIVE"
+                              ? "Paused"
+                              : bot.status === "FAILING"
                                 ? "Not responding"
-                                : "Paused"}
+                                : "Running"}
                           </span>
                           <span className="fx-src">
                             {t.timeframe} · {t.exchange_name || `Account #${t.exchange_account}`}

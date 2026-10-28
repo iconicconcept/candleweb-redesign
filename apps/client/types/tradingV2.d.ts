@@ -15,9 +15,26 @@
 export type BookV2Param = "demo" | "live";
 
 export type TradeV2Timeframe = "1m" | "5m" | "15m" | "1h" | "4h" | "1d";
-export type TradeV2DeciderType = "OWN_BOT" | "CANDLE_AI";
+/**
+ * `DeciderTypeEnum` in the API's own schema (`GET /api/schema/`), which is
+ * where these two spellings come from — not from a reading of the prose docs,
+ * which only ever showed `OWN_BOT`. The AI value is `CANDLEAI`, one word: we
+ * guessed `CANDLE_AI` for a long time and every attempt to save a CandleAI
+ * trade was refused with `"CANDLE_AI" is not a valid choice.`
+ */
+export type TradeV2DeciderType = "OWN_BOT" | "CANDLEAI";
 export type TradeV2Direction = "BOTH" | "LONG" | "SHORT";
-export type TradeV2Status = "RUNNING" | "PAUSED" | "ERROR";
+/**
+ * `TradeV2StatusEnum` in `GET /api/schema/`, where `status` is read-only on
+ * the trade serializer: a trade is only ever running or deliberately paused.
+ *
+ * It was long typed `RUNNING | PAUSED | ERROR`, none of it checked against the
+ * API. `RUNNING` never matched, so every running trade read as paused, and the
+ * `ERROR` branches were unreachable. A trade has no error state of its own —
+ * the thing that can fail is the BOT deciding it (`BotV2Status`'s `FAILING`),
+ * which `/status/` also reports account-wide.
+ */
+export type TradeV2Status = "ACTIVE" | "PAUSED";
 
 /** A trade configuration as returned by the API. */
 export interface TradeV2 {
@@ -957,4 +974,54 @@ export interface HistoryV2 {
   results: HistoryV2Row[];
   /** Carries `earlier_history` when the plan capped the window. */
   unavailable?: MetricsV2Unavailable;
+}
+
+/* ------------------------------------------------------------------ *
+ * Indicator catalogue — `GET /api/trading_v2/indicators/`
+ *
+ * The names a trade's `indicators` may contain, with the wording to show for
+ * each. Needs no login: it describes Candleweb, not the user, so it can load
+ * before the form opens. ~106 KB for all 396, cacheable for an hour — fetched
+ * once per session and filtered in the browser.
+ *
+ * It exists because the names are not guessable. The form used to offer a
+ * hand-written list (`rsi`, `atr`, `bb_upper`, …) of which only the four that
+ * happened to be legacy aliases were real; the rest were refused on save.
+ * Nothing may add a name to a trade that did not come from here.
+ * ------------------------------------------------------------------ */
+
+export interface IndicatorV2 {
+  /** The backend name — `mom_rsi_14`. THE VALUE TO SEND, never a label. */
+  name: string;
+  /** What the user sees — "RSI (14)". Unique across the catalogue. */
+  display_name: string;
+  /** A category `key` from `categories`. */
+  category: string;
+  /** One to three plain sentences, written for users. Show as given. */
+  description: string;
+  /** What its numbers look like — "0 to 100", "1 or 0". */
+  values: string;
+  /** True for the 22 widely used ones, which the picker opens on. */
+  common: boolean;
+  /**
+   * Set only on the `classic` names kept for trades saved before the
+   * catalogue existed: the current name carrying the same value. Picking that
+   * one REPLACES the classic chip — holding both sends the bot the same
+   * number twice. `sma_25` is the exception with none; it is the only
+   * 25-candle average, so it stands on its own.
+   */
+  same_as: string | null;
+}
+
+export interface IndicatorV2Category {
+  key: string;
+  name: string;
+  description: string;
+  count: number;
+}
+
+/** The `data` of the catalogue response. Both lists arrive in display order. */
+export interface IndicatorCatalogueV2 {
+  categories: IndicatorV2Category[];
+  indicators: IndicatorV2[];
 }
