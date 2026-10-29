@@ -151,7 +151,12 @@
 
 /* hero */
 .cai-hero {
-  padding-top: clamp(38px, 5vw, 72px);
+  /* The same top gap as the home hero's `.landing-wl-sky`, so the eyebrow sits
+     at one height across both landing pages. It was clamp(38px, 5vw, 72px),
+     which set this hero noticeably lower than the other one under the same
+     nav. Only the top is matched — the space below the hero differs by
+     design, since this page has no waterline under it. */
+  padding-top: clamp(18px, 2.4vw, 30px);
   padding-bottom: clamp(26px, 4vw, 48px);
 }
 .cai-hero h1 {

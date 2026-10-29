@@ -775,9 +775,15 @@ const RecommendationPage = () => {
                         : "You dismissed this."}{" "}
                       Review won&rsquo;t raise it again.
                     </p>
+                    {/* `.eg2` is only ever styled inside `.fx-rv2` — on its
+                        own it renders as plain text, which is how this shipped
+                        the first time. The wrapper is what gives it the quoted
+                        block the user's own words belong in. */}
                     {rec.dismiss_reason && (
-                      <div className="fx-eg2" style={{ marginTop: 0 }}>
-                        {rec.dismiss_reason}
+                      <div className="fx-rv2" style={{ marginBottom: 0 }}>
+                        <div className="eg2" style={{ marginTop: 0 }}>
+                          {rec.dismiss_reason}
+                        </div>
                       </div>
                     )}
                     <div style={{ marginTop: "16px" }}>

@@ -700,7 +700,7 @@ export default function WaterlineHero() {
         <div className="landing-wrap landing-wl-sky">
           <div className="landing-wl-copy">
             <p className="landing-eyebrow landing-rise">
-              Infrastructure for AI trading agents
+              Infrastructure for agentic trading
             </p>
             <h1 className="landing-rise rise-left">
               Bring your AI agents.
