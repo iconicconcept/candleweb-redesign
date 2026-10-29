@@ -7,7 +7,7 @@ import BrandLogo from "./BrandLogo";
  *
  * One component behind `404`, `500` and `_error`, because the three differ
  * only in what they say — the chrome, the reassurance and the ways out are
- * the same, and three copies of that would drift.
+ * the same, and three copies of that would drift..
  *
  * ## Why it carries its own chrome
  *
