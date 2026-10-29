@@ -40,6 +40,10 @@ type Props = {
   docTitle: string;
 };
 
+/* Deliberately its own list rather than `PublicHeader`'s `NAV_LINKS`: importing
+   from the header would pull the header's module graph — and its store and
+   hooks — into the one page that has to keep working when any of that is what
+   broke. Six links are cheaper to keep in step than that risk. */
 const LINKS: { label: string; href: string }[] = [
   { label: "Bring your bot", href: "/" },
   { label: "CandleAI", href: "/candleai" },
