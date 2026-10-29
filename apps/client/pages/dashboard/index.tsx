@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { dollarFormat } from "ui";
 import { AppDispatch, RootState } from "../../redux/store";
-import tradingV2Service from "../../services/tradingV2Service";
+import tradingV2Service, { TradingV2ActionError } from "../../services/tradingV2Service";
 import userService from "../../services/userService";
 import exchangeServices from "../../services/exchangeService";
 import subscriptionV2Service from "../../services/subscriptionV2Service";
@@ -18,7 +18,14 @@ import HeroChart from "../../components/dashboard/focus/HeroChart";
 import DecisionsFeed from "../../components/dashboard/focus/DecisionsFeed";
 import { STATUS_META } from "../../lib/botV2Labels";
 import { BalanceProp } from "../../types/user";
-import { FleetHealthV2, PortfolioMetricsV2, TradingStatusV2 } from "../../types/tradingV2";
+import {
+  BotReviewReadinessV2,
+  BotReviewV2,
+  FleetHealthV2,
+  PortfolioMetricsV2,
+  RecommendationV2Progress,
+  TradingStatusV2,
+} from "../../types/tradingV2";
 import { chipClass, statusChips } from "../../lib/tradingV2Status";
 import useOpenPositions from "../../lib/hooks/useOpenPositions";
 import useBook from "../../lib/hooks/useBook";
@@ -35,6 +42,7 @@ import {
   riskRollup,
 } from "../../lib/positionsV2";
 import { NOT_MEASURED, failureStreakParts, isUnavailable } from "../../lib/botHealthV2";
+import { error, success } from "../../components/alert/Toast";
 import {
   AT_RISK_PCT_FIELDS,
   CHANGE_TODAY_PCT_FIELDS,
@@ -80,6 +88,12 @@ function timeAgo(iso: string) {
   return `${months} month${months === 1 ? "" : "s"} ago`;
 }
 
+/* The fallback bar, used only until `review-readiness` answers with the real
+   one. The threshold is an entitlement — a plan can set its own — so the
+   response's `closed_trades_needed` always wins over this. Same constant, and
+   same reasoning, as the bot detail page. */
+const REVIEW_AT = 20;
+
 const DashboardPage = () => {
   const dispatch = useDispatch<AppDispatch>();
   const axiosToken = useAxiosAuth();
@@ -108,6 +122,32 @@ const DashboardPage = () => {
   const fetchedRef = useRef<string | null>(null);
 
   const [fleet, setFleet] = useState<FleetHealthV2 | null>(null);
+
+  /* ---- the momentum section's review readiness ----
+     `GET /bots/{id}/review-readiness/` for the featured bot. The bar is
+     CLOSED TRADES on the bot's current prompt, both books counted — not
+     decisions, which is a different and much easier bar, and not anything
+     dated from `updated_at`, which moves when the bot is merely renamed.
+     `closed_trades_needed` is the plan's own threshold, so the "of 20" is
+     read from the response and never asserted locally. */
+  const [readiness, setReadiness] = useState<BotReviewReadinessV2 | null>(null);
+  const [readinessAsked, setReadinessAsked] = useState(false);
+  const [readinessFailed, setReadinessFailed] = useState(false);
+
+  /* "Review suggestions applied" — `progress` off
+     `GET /bots/{id}/recommendations/`, which is the endpoint that tile was
+     waiting for. It counts every completed review's recommendations, not
+     just the latest one's. */
+  const [recProgress, setRecProgress] = useState<RecommendationV2Progress | null>(null);
+
+  /* A review this page started, or found already running. Polled while it is
+     SENDING/SENT so the button can say where it got to instead of going
+     quiet after the one click that matters. */
+  const [review, setReview] = useState<BotReviewV2 | null>(null);
+  const [launching, setLaunching] = useState(false);
+  /* 503 means reviews are switched off server-side — the one refusal where
+     the button should disappear rather than explain itself. */
+  const [reviewsOff, setReviewsOff] = useState(false);
 
   /* Portfolio money and risk — `GET /trading_v2/metrics/`, which fills the
      hero's four substats, the delta pill and the "Risk right now" card.
@@ -214,6 +254,144 @@ const DashboardPage = () => {
   usePoll(loadMetrics, POLL.metrics);
   usePoll(loadStatus, POLL.status);
   usePoll(reloadTrades, POLL.trades);
+
+  /* The bot the momentum section is "about" (and named in its heading) — the
+     healthiest working one: ACTIVE before PAUSED before FAILING, then the most
+     running trades, then the fewest consecutive failed calls. */
+  const featuredBot = useMemo(() => {
+    if (!bots.length) return null;
+    const running = new Map<number, number>();
+    trades.forEach((t) => {
+      if (t.status === "ACTIVE" && t.bot != null) running.set(t.bot, (running.get(t.bot) || 0) + 1);
+    });
+    const statusRank = { ACTIVE: 0, PAUSED: 1, FAILING: 2 } as const;
+    /* No third tiebreak: `consecutive_fail_count` used to be it, but it is
+       always 0 — nothing increments it — so it sorted nothing. */
+    return [...bots].sort(
+      (a, b) =>
+        (statusRank[a.status] ?? 3) - (statusRank[b.status] ?? 3) ||
+        (running.get(b.id) || 0) - (running.get(a.id) || 0),
+    )[0];
+  }, [bots, trades]);
+
+  /* Its id alone, so the loaders below re-run when the section changes which
+     bot it is about but NOT every time the bots list is re-fetched with the
+     same one in front. */
+  const featuredBotId = featuredBot?.id ?? null;
+
+  /* ---- review readiness, for the momentum meter ----
+     Keyed on the featured bot: which bot the section is about can change when
+     the bots list arrives or a trade is re-pointed, and the meter has to
+     follow its heading rather than keep counting the first bot it saw. */
+  const loadReadiness = useCallback(() => {
+    if (featuredBotId == null || !isAuthorizationHeaderSet(axiosToken)) return;
+    setReadinessFailed(false);
+    tradingV2Service
+      .getBotReviewReadiness(axiosToken, featuredBotId)
+      .then((r) => {
+        setReadiness(r);
+        setReadinessFailed(false);
+      })
+      .catch(() => {
+        setReadiness(null);
+        setReadinessFailed(true);
+      })
+      .finally(() => setReadinessAsked(true));
+  }, [axiosToken, featuredBotId]);
+
+  const loadRecProgress = useCallback(() => {
+    if (featuredBotId == null || !isAuthorizationHeaderSet(axiosToken)) return;
+    tradingV2Service
+      .listBotRecommendations(axiosToken, featuredBotId)
+      .then((r) => setRecProgress(r.progress ?? null))
+      .catch(() => setRecProgress(null));
+  }, [axiosToken, featuredBotId]);
+
+  useEffect(() => {
+    /* A different bot means the old bot's figures are wrong, not merely
+       stale, so they go before the new ones are asked for. */
+    setReadiness(null);
+    setReadinessAsked(false);
+    setRecProgress(null);
+    setReview(null);
+    loadReadiness();
+    loadRecProgress();
+  }, [loadReadiness, loadRecProgress]);
+
+  /* Both are on triggers only, per §9: the bar counts closed trades, so
+     nothing but a position closing can move it — and that arrives as a
+     notification. A timer would re-ask a question whose answer cannot have
+     changed. Editing the bot's prompt restarts the count, which is the other
+     thing that bumps `reviewReadiness`. */
+  useRevalidateEffect("reviewReadiness", () => {
+    loadReadiness();
+    loadRecProgress();
+  });
+
+  /* ---- a review in flight ----
+     Polled at the doc's 10–20s while it is SENDING or SENT, and stopped the
+     moment it is not: a finished review cannot change again, and this is the
+     only timer on the page that exists to be turned off. */
+  const reviewId = review?.id ?? null;
+  const reviewPending = review?.status === "SENDING" || review?.status === "SENT";
+  useEffect(() => {
+    if (reviewId == null || !reviewPending || !isAuthorizationHeaderSet(axiosToken)) return;
+    const tick = setInterval(() => {
+      tradingV2Service
+        .getBotReview(axiosToken, reviewId)
+        .then((r) => {
+          setReview(r);
+          /* A finished review has spent a review and may have produced
+             recommendations, so both tiles beside it are now wrong. */
+          if (r.status === "COMPLETED" || r.status === "FAILED") {
+            loadReadiness();
+            loadRecProgress();
+          }
+        })
+        .catch(() => {
+          /* Leave the last known state on screen: a dropped poll is not
+             evidence the review failed, and saying so would be a lie the
+             next tick corrects. */
+        });
+    }, 15000);
+    return () => clearInterval(tick);
+  }, [reviewId, reviewPending, axiosToken, loadReadiness, loadRecProgress]);
+
+  const launchReview = async () => {
+    if (featuredBotId == null) return;
+    setLaunching(true);
+    try {
+      const { review: started, alreadyRunning } = await tradingV2Service.startBotReview(
+        axiosToken,
+        featuredBotId,
+      );
+      setReview(started);
+      /* A review was spent, so what is left to spend has changed. */
+      loadReadiness();
+      success(
+        alreadyRunning
+          ? "A review of this bot is already running."
+          : "Review started — it reads this bot's closed trades against its prompt.",
+      );
+    } catch (e: any) {
+      const err = e as TradingV2ActionError;
+      /* Reviews switched off server-side: the button goes, because there is
+         nothing the user can do about it. */
+      if (err.httpStatus === 503) {
+        setReviewsOff(true);
+        error(err.message || "Bot review is switched off at the moment.");
+      } else if (err.code === "NOT_READY") {
+        /* The bar disagreed with the server. The server is right, so re-read
+           rather than leave a button offering something it will refuse. */
+        loadReadiness();
+        error(err.blockers?.[0]?.message || err.message);
+      } else {
+        error(err.message);
+      }
+    } finally {
+      setLaunching(false);
+    }
+  };
 
   /* Every figure read once, here, so the hero and the risk card cannot
      disagree about what the same response said. `metricRead` is what honours
@@ -325,24 +503,33 @@ const DashboardPage = () => {
     botsNotResponding: failingBots.length,
   });
 
-  /* The bot the momentum section is "about" (and named in its heading) — the
-     healthiest working one: ACTIVE before PAUSED before FAILING, then the most
-     running trades, then the fewest consecutive failed calls. */
-  const featuredBot = useMemo(() => {
-    if (!bots.length) return null;
-    const running = new Map<number, number>();
-    trades.forEach((t) => {
-      if (t.status === "ACTIVE" && t.bot != null) running.set(t.bot, (running.get(t.bot) || 0) + 1);
-    });
-    const statusRank = { ACTIVE: 0, PAUSED: 1, FAILING: 2 } as const;
-    /* No third tiebreak: `consecutive_fail_count` used to be it, but it is
-       always 0 — nothing increments it — so it sorted nothing. */
-    return [...bots].sort(
-      (a, b) =>
-        (statusRank[a.status] ?? 3) - (statusRank[b.status] ?? 3) ||
-        (running.get(b.id) || 0) - (running.get(a.id) || 0),
-    )[0];
-  }, [bots, trades]);
+  /* ---- what the review meter shows ----
+     `closed_trades_needed` is the plan's own threshold, so the "of 20" comes
+     from the response; REVIEW_AT is only the fallback for a response that
+     has not landed yet. */
+  const reviewNeeded = readiness?.closed_trades_needed ?? REVIEW_AT;
+  const closedOnPrompt = readiness?.closed_trades_on_prompt ?? null;
+  /* Clamped: a plan whose threshold drops, or a bot that closed more while
+     the response was in flight, can put the count past the bar, and a 21st
+     segment would overflow the row. */
+  const filledSegments =
+    closedOnPrompt == null ? 0 : Math.max(0, Math.min(reviewNeeded, closedOnPrompt));
+  /* `eligible` is the server's own answer to "has this bot what a review
+     needs", and it outranks the arithmetic: a bot can hit 20 closed trades
+     and still be short a stored prompt. The count is the fallback for a
+     response that does not carry the flag. */
+  const reviewEligible = readiness
+    ? (readiness.eligible ?? (closedOnPrompt != null && closedOnPrompt >= reviewNeeded))
+    : false;
+  const reviewsLeft = readiness?.reviews_available ?? null;
+  /* `ready` is `eligible` AND a review left to spend. Launch is offered on
+     `eligible` alone, because "none left" is worth saying with a link to buy
+     more rather than hiding the whole thing. */
+  const canLaunch = reviewEligible && !reviewsOff && featuredBotId != null;
+  const outOfReviews = reviewEligible && reviewsLeft === 0;
+  /* The first recommendation of a finished review, which is the page this
+     section hands off to. */
+  const firstRecommendation = review?.recommendations?.[0]?.id ?? null;
 
   const firstBot = useMemo(() => {
     if (!bots.length) return null;
@@ -832,15 +1019,25 @@ const DashboardPage = () => {
               )}
             </section>
 
-            {/* ---- momentum (design only) ---- */}
+            {/* ---- momentum ---- the review meter is live on
+                 `GET /bots/{id}/review-readiness/` for the featured bot. The
+                 bar counts CLOSED TRADES on that bot's current prompt, both
+                 books together; editing the prompt, model or decision style
+                 restarts it, and renaming the bot does not. */}
             <section className="fx-mom rv">
               <div className="fx-sh">
                 <h2>
                   {featuredBot ? `Your ${featuredBot.name}` : "Your momentum"} <span className="sub2">progress toward a system you can trust</span>
                 </h2>
-                <span className="fx-preview">
-                  <i>◔</i> Review readiness needs closed-trade history
-                </span>
+                {/* Only when the read actually failed. It used to say this
+                    unconditionally, as a standing note that the endpoint did
+                    not exist yet — it does now, so a permanent badge would be
+                    claiming a fault that isn't there. */}
+                {readinessFailed && (
+                  <span className="fx-preview">
+                    <i>◔</i> Couldn&rsquo;t read review readiness
+                  </span>
+                )}
               </div>
               <div className="fx-momgrid">
                 <div>
@@ -849,18 +1046,95 @@ const DashboardPage = () => {
                       <b>
                         {featuredBot ? `${featuredBot.name} — review readiness` : "Bot review readiness"}
                       </b>
-                      <span>— of 20 trades</span>
+                      {/* The counter becomes the action the moment the bar is
+                          full: at that point "20 of 20 trades" is no longer
+                          news, and what the user wants is the review it has
+                          been counting toward. */}
+                      {reviewPending ? (
+                        <span>
+                          {review?.status === "SENDING" ? "Sending to review…" : "Reviewing…"}
+                        </span>
+                      ) : review?.status === "COMPLETED" ? (
+                        firstRecommendation != null ? (
+                          <Link
+                            className="fx-mini amber9"
+                            href={`/dashboard/bots/${featuredBotId}/review/${review.id}/${firstRecommendation}`}
+                          >
+                            Read the review
+                          </Link>
+                        ) : (
+                          <span>Review finished</span>
+                        )
+                      ) : review?.status === "FAILED" ? (
+                        <span>Review failed — it was given back</span>
+                      ) : canLaunch ? (
+                        <button
+                          type="button"
+                          className="fx-mini amber9"
+                          disabled={launching}
+                          title={
+                            outOfReviews
+                              ? "You have no reviews left to spend."
+                              : "Reads this bot's closed trades against its prompt."
+                          }
+                          onClick={launchReview}
+                        >
+                          {launching ? "Starting…" : "Launch review"}
+                        </button>
+                      ) : (
+                        <span>
+                          {closedOnPrompt == null
+                            ? `— of ${reviewNeeded} trades`
+                            : `${closedOnPrompt.toLocaleString()} of ${reviewNeeded} trades`}
+                        </span>
+                      )}
                     </div>
+                    {/* `f` is a closed trade on the prompt, `nx` the one the
+                        bar is waiting on — so the row reads as progress
+                        rather than as a static pattern. */}
                     <div className="fx-seg">
-                      {new Array(20).fill(0).map((_, i) => (
-                        <i key={i} />
+                      {new Array(reviewNeeded).fill(0).map((_, i) => (
+                        <i
+                          key={i}
+                          className={
+                            i < filledSegments ? "f" : i === filledSegments ? "nx" : ""
+                          }
+                        />
                       ))}
                     </div>
                     <p className="fx-mnote">
                       Bot review reads a bot&rsquo;s closed trades against its prompt and tells you
-                      which rule is costing money. It needs ~20 on one prompt — the counter here
-                      turns on once the decisions endpoint exists.
+                      which rule is costing money.{" "}
+                      {!readinessAsked
+                        ? `It needs ${reviewNeeded} closed trades on one prompt.`
+                        : outOfReviews
+                          ? "This bot is ready, but you have no reviews left to spend."
+                          : reviewEligible
+                            ? "This bot has what a review needs."
+                            : closedOnPrompt == null
+                              ? `It needs ${reviewNeeded} closed trades on one prompt.`
+                              : closedOnPrompt >= reviewNeeded
+                                ? /* The bar is full but the server still says
+                                     no — a stored prompt is the usual reason.
+                                     "0 to go" would be arithmetic that
+                                     contradicts the blocker below it. */
+                                  "The closed trades are there, but something else is still missing."
+                                : `${(reviewNeeded - closedOnPrompt).toLocaleString()} to go — editing the prompt, model or decision style starts the count again.`}
                     </p>
+                    {/* Everything still standing between this bot and a
+                        review, in the backend's own words. `eligible` can be
+                        false for a reason the bar cannot show — no stored
+                        prompt, most often. */}
+                    {readinessAsked && !reviewEligible && (readiness?.blockers ?? []).length > 0 && (
+                      <p className="fx-mnote">{readiness?.blockers?.[0]?.message}</p>
+                    )}
+                    {outOfReviews && (
+                      <p className="fx-mnote">
+                        <Link className="fx-link" href="/dashboard/subscription">
+                          Get a review pack →
+                        </Link>
+                      </p>
+                    )}
                   </div>
                   <div className="fx-streaks2">
                     <div className="fx-stk2">
@@ -879,10 +1153,25 @@ const DashboardPage = () => {
                       )}
                       <span className="why3">your worst bot, not an average</span>
                     </div>
+                    {/* Live on `progress` from `GET /bots/{id}/recommendations/`
+                        — the endpoint this tile used to be waiting for. It
+                        counts across every completed review, not just the
+                        latest, so it does not reset when a new one lands. */}
                     <div className="fx-stk2">
                       <span>Review suggestions applied</span>
-                      <b className="mut3">—</b>
-                      <span className="why3">needs the review endpoint</span>
+                      {recProgress?.applied == null ? (
+                        <b className="mut3">—</b>
+                      ) : (
+                        <>
+                          <b>{recProgress.applied}</b>
+                          {recProgress.total != null && <i>of {recProgress.total}</i>}
+                        </>
+                      )}
+                      <span className="why3">
+                        {recProgress?.total
+                          ? "across this bot's reviews"
+                          : "nothing reviewed yet"}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -944,7 +1233,14 @@ const DashboardPage = () => {
                     <div className="fx-nx">
                       <em>Next</em>
                       <span>
-                        <b>Bot review</b> — needs a decisions feed
+                        <b>Bot review</b> —{" "}
+                        {reviewEligible
+                          ? outOfReviews
+                            ? "ready, once you have a review to spend"
+                            : "ready to run"
+                          : closedOnPrompt == null
+                            ? `needs ${reviewNeeded} closed trades on one prompt`
+                            : `${closedOnPrompt.toLocaleString()} of ${reviewNeeded} closed trades`}
                       </span>
                     </div>
                     <div className="fx-nx">

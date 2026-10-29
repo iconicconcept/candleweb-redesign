@@ -23,11 +23,13 @@ import Script from "next/script";
 
 export default function App({ Component, pageProps }: AppProps) {
   const { store, props } = wrapper.useWrappedStore(pageProps);
+  /* 404 / 500 / _error carry their own chrome — see `ErrorStage`. */
+  const bareChrome = (Component as { isErrorPage?: boolean }).isErrorPage === true;
 
   return (
     <>
       <Provider store={store}>
-        <Layout>
+        <Layout bareChrome={bareChrome}>
           <Component {...props.pageProps} />
           <Script
             id="custom-script"

@@ -14,12 +14,14 @@ import {
 } from "../../../lib/botHealthV2";
 import {
   RISK_FILTERS,
+  decisionDecider,
+  entryOutcome,
+  entryOutcomeChip,
   entryPriceLabel,
   idsTidied,
   marketDataIds,
   outcomePnl,
   outcomePnlCaption,
-  entryOutcome,
   riskMeta,
 } from "../../../lib/botDecisionsV2";
 import { signedMoney, toneClass } from "../../../lib/tradingV2Metrics";
@@ -210,7 +212,8 @@ const DecisionsFeed = ({ api, book, bot, trade, pageSize = 5, empty, refreshKey 
   const seenIds = marketDataIds(detail);
   const tidied = idsTidied(detail);
   const result = outcomePnl(detail);
-  const refusal = entryOutcome(detail);
+  /* The gate's whole verdict, not only its refusals. */
+  const entry = entryOutcome(detail);
 
   const rowProps = (id: number) => ({
     role: "button" as const,
@@ -299,6 +302,7 @@ const DecisionsFeed = ({ api, book, bot, trade, pageSize = 5, empty, refreshKey 
           <div className="fx-spine">
             {rows.map((d) => {
               const meta = decisionMeta(d.decision);
+              const chip = entryOutcomeChip(entryOutcome(d));
               return (
                 <div
                   key={d.id}
@@ -318,9 +322,20 @@ const DecisionsFeed = ({ api, book, bot, trade, pageSize = 5, empty, refreshKey 
                     {meta.label} on {d.pair} · {d.timeframe}
                   </b>
                   <p>
-                    {d.bot_name} saw {d.candles_seen} candle{d.candles_seen === 1 ? "" : "s"}
+                    {decisionDecider(d)} saw {d.candles_seen} candle
+                    {d.candles_seen === 1 ? "" : "s"}
                     {d.confidence != null && <> · {confidenceLabel(d.confidence)} confident</>}
                     {riskMeta(d.risk) && <> · {riskMeta(d.risk)!.label.toLowerCase()}</>}
+                    {/* The gate's verdict on the row itself, so a decision
+                        that opened nothing says why without being opened.
+                        "Not reached" in particular is neutral: an expired
+                        limit entry is not a fault. */}
+                    {chip && (
+                      <>
+                        {" · "}
+                        <span className={`fx-ip ${chip.cls}`}>{chip.label}</span>
+                      </>
+                    )}
                     {d.saw_stale_data && (
                       <>
                         {" · "}
@@ -384,7 +399,7 @@ const DecisionsFeed = ({ api, book, bot, trade, pageSize = 5, empty, refreshKey 
             {detail ? `${decisionMeta(detail.decision).label} on ${detail.pair}` : "Decision"}
           </span>
         }
-        subtitle={detail ? `${detail.bot_name} · ${detail.timeframe}` : undefined}
+        subtitle={detail ? `${decisionDecider(detail)} · ${detail.timeframe}` : undefined}
         footer={
           <button className="fx-cta ghost2" type="button" onClick={closeDetail}>
             Close
@@ -451,11 +466,33 @@ const DecisionsFeed = ({ api, book, bot, trade, pageSize = 5, empty, refreshKey 
                 whose order the gate turned away, and the backend says why.
                 The commonest reason now is a live BUY on a plan without live
                 trading. */}
-            {refusal.refused && (
+            {entry.refused && (
               <p className="fx-failmsg" style={{ marginTop: 12 }}>
                 <b>This entry was refused.</b>{" "}
-                {refusal.detail ||
+                {entry.detail ||
                   "Candleweb's gate turned the order away, so no position was opened."}
+              </p>
+            )}
+
+            {/* An expired limit entry is NOT a refusal and not a fault: the
+                decider named a price, the market never came to it inside 5
+                candles of the trade's timeframe, and the order was cancelled.
+                Neutral copy, because nothing went wrong — but it has to be
+                said, or the decision reads as one that silently did nothing. */}
+            {entry.expired && (
+              <p className="fx-hint" style={{ marginTop: 12 }}>
+                <b>The limit entry was not reached.</b>{" "}
+                {entry.detail ||
+                  "The price never came to the entry this decision named, so it was cancelled and nothing was bought."}
+              </p>
+            )}
+
+            {entry.armed && (
+              <p className="fx-hint" style={{ marginTop: 12 }}>
+                <b>Waiting for its price.</b>{" "}
+                {entry.detail ||
+                  "This entry is armed: it buys if the market reaches the price it named, and is cancelled if it does not."}{" "}
+                This trade takes no other entry until it fills or expires.
               </p>
             )}
 

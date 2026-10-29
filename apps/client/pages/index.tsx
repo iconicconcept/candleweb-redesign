@@ -7,8 +7,8 @@ import PublicHeader from "../components/public/PublicHeader";
 import PublicFooter from "../components/public/PublicFooter";
 import BrandLogo from "../components/public/BrandLogo";
 import { Written } from "../components/public/Written";
+import WaterlineHero from "../components/public/WaterlineHero";
 
-const bars = [214, 196, 184, 168, 150, 140, 122, 110, 86, 66, 60, 40];
 const tabs = ["Your bots", "Trade records", "Risk controls"];
 
 const VENUES = [
@@ -43,28 +43,6 @@ function ButtonLink({
     </button>
   );
 }
-function DataCard({
-  className,
-  title,
-  children,
-  live = false,
-}: {
-  className: string;
-  title: string;
-  children: React.ReactNode;
-  live?: boolean;
-}) {
-  return (
-    <div className={`landing-data-card ${className}`}>
-      <div className="landing-card-head">
-        <span>{title}</span>
-        {live && <i className="landing-dot" />}
-      </div>
-      {children}
-    </div>
-  );
-}
-
 export default function Home() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState(0);
@@ -111,144 +89,11 @@ export default function Home() {
         <div className="landing-aura" />
         <div className="landing-grid" />
         <PublicHeader active="home" />
-        <div className="landing-wrap">
-          <header className="landing-hero" id="top">
-            <div className="landing-hero-copy">
-              <p className="landing-eyebrow landing-rise">
-                Trading infrastructure for bot builders
-              </p>
-              <h1 className="landing-rise rise-left">
-                Deploy, run, and improve
-                <br />
-                <span>your trading bot.</span>
-              </h1>
-              <p className="landing-sub landing-rise">
-                You already built the bot, in n8n, Make, or plain code.
-                Candleweb feeds it live market data, executes the decisions it
-                sends back, and manages every position from entry to exit. You
-                keep the strategy. You never write exchange code.
-              </p>
-              <div className="landing-hero-cta landing-rise rise-left">
-                <ButtonLink href="#access">
-                  Get Started <span>↗</span>
-                </ButtonLink>
-                <ButtonLink href="#how" tone="teal">
-                  See the handoff
-                </ButtonLink>
-              </div>
-              <div className="landing-stats">
-                <div className="landing-rise">
-                  <b>4</b>
-                  <span>exchanges, one endpoint</span>
-                </div>
-                <div className="landing-rise">
-                  <b>15m</b>
-                  <span>from candle close to open position</span>
-                </div>
-                <div className="landing-rise">
-                  <b>n8n</b>
-                  <span>Make, Zapier or your own code</span>
-                </div>
-              </div>
-            </div>
-            <div className="landing-art">
-              <div className="landing-chart landing-rise rise-right">
-                <svg
-                  viewBox="0 0 600 340"
-                  preserveAspectRatio="none"
-                  aria-label="Trading chart"
-                >
-                  <defs>
-                    <linearGradient id="landingUp" x1="0" y1="0" x2="0" y2="1">
-                      <stop stopColor="#7EF0D2" />
-                      <stop offset="1" stopColor="#0E9C78" />
-                    </linearGradient>
-                    <linearGradient
-                      id="landingLine"
-                      x1="0"
-                      y1="0"
-                      x2="1"
-                      y2="0"
-                    >
-                      <stop stopColor="#0E9C78" />
-                      <stop offset=".55" stopColor="#31E0B0" />
-                      <stop offset="1" stopColor="#FFB93D" />
-                    </linearGradient>
-                  </defs>
-                  {bars.map((height, index) => (
-                    <rect
-                      key={index}
-                      x={24 + index * 48}
-                      y={height}
-                      width="13"
-                      height={286 - height}
-                      rx="3"
-                      fill="url(#landingUp)"
-                    />
-                  ))}
-                  <path
-                    d="M30 250 L78 232 L126 210 L174 196 L222 172 L270 162 L318 146 L366 130 L414 108 L462 88 L510 78 L558 60"
-                    fill="none"
-                    stroke="url(#landingLine)"
-                    strokeWidth="2.5"
-                  />
-                </svg>
-              </div>
-              <DataCard
-                className="landing-card-a landing-rise rise-pop"
-                title="Candleweb → your bot"
-                live
-              >
-                <p className="landing-card-title">Market data delivered</p>
-                <p className="landing-mono">
-                  BTC/USDT · 15m · closed 14:45:00Z
-                </p>
-                <div className="landing-tags">
-                  <span>RSI 61.4</span>
-                  <span>MACD +18.7</span>
-                  <span>EMA-50</span>
-                  <span>ATR 214.6</span>
-                </div>
-              </DataCard>
-              <DataCard
-                className="landing-card-b landing-rise rise-pop"
-                title="your bot → Candleweb"
-              >
-                <p className="landing-card-title">Decision received</p>
-                <div className="landing-kv">
-                  <i>action</i>
-                  <b>buy</b>
-                </div>
-                <div className="landing-kv">
-                  <i>size</i>
-                  <b>15% of balance</b>
-                </div>
-                <div className="landing-kv">
-                  <i>risk appetite</i>
-                  <b>moderate</b>
-                </div>
-              </DataCard>
-              <DataCard
-                className="landing-card-c landing-rise rise-pop"
-                title="Candleweb running it"
-                live
-              >
-                <div className="landing-kv">
-                  <i>14:45:02 · filled</i>
-                  <b>0.0311 BTC @ 64,356.10</b>
-                </div>
-                <div className="landing-kv">
-                  <i>14:45:02 · stop armed</i>
-                  <b>63,712.00</b>
-                </div>
-                <div className="landing-kv">
-                  <i>16:20:41 · closed</i>
-                  <b className="landing-up">+1.42%</b>
-                </div>
-              </DataCard>
-            </div>
-          </header>
-        </div>
+        {/* The waterline hero — above the surface, the three nodes the user
+            builds; below it, what Candleweb runs for them. Full-bleed: it
+            carries its own `.landing-wrap` rows so the water and the wiring
+            can run edge to edge behind them. */}
+        <WaterlineHero />
 
         <section className="landing-band" id="how">
           <div className="landing-wrap landing-section">

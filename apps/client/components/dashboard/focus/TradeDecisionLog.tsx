@@ -11,12 +11,14 @@ import {
   whenLabel,
 } from "../../../lib/botHealthV2";
 import {
+  decisionDecider,
+  entryOutcome,
+  entryOutcomeChip,
   entryPriceLabel,
   idsTidied,
   marketDataIds,
   outcomePnl,
   outcomePnlCaption,
-  entryOutcome,
   riskMeta,
 } from "../../../lib/botDecisionsV2";
 import { signedMoney, toneClass } from "../../../lib/tradingV2Metrics";
@@ -241,6 +243,7 @@ const TradeDecisionLog = ({ api, book, trade, pageSize = 6, refreshKey }: Props)
               const call = callOf(d.decision);
               const out = outcomePnl(d);
               const rm = riskMeta(d.risk);
+              const chip = entryOutcomeChip(entryOutcome(d));
               return (
                 <div key={d.id} className={`fx-de pick9 ${call.row}`} {...rowProps(d.id)}>
                   <div className="fx-deh">
@@ -256,8 +259,20 @@ const TradeDecisionLog = ({ api, book, trade, pageSize = 6, refreshKey }: Props)
                       </span>
                     )}
                     {/* `.fx-deout` is the design's outcome column — what the
-                        order did. It needs `outcome`; stale data is the one
-                        thing we DO know here and is worth the same slot. */}
+                        order did. The gate's verdict is the part of `outcome`
+                        that is reliably named, so it leads here: without it an
+                        expired limit entry was a row that visibly did nothing
+                        and gave no reason. */}
+                    {chip && (
+                      <span
+                        className={`fx-ip ${chip.cls}`}
+                        title={entryOutcome(d).detail ?? undefined}
+                      >
+                        {chip.label}
+                      </span>
+                    )}
+                    {/* Stale data is a different warning and can coexist with
+                        any verdict above, so it keeps its own slot. */}
                     {d.saw_stale_data && (
                       <span
                         className="fx-deout"
@@ -345,7 +360,7 @@ const TradeDecisionLog = ({ api, book, trade, pageSize = 6, refreshKey }: Props)
             {detail ? `${callOf(detail.decision).label} on ${detail.pair}` : "Decision"}
           </span>
         }
-        subtitle={detail ? `${detail.bot_name} · ${detail.timeframe}` : undefined}
+        subtitle={detail ? `${decisionDecider(detail)} · ${detail.timeframe}` : undefined}
         footer={
           <button
             className="fx-cta ghost2"
@@ -417,6 +432,28 @@ const TradeDecisionLog = ({ api, book, trade, pageSize = 6, refreshKey }: Props)
                 <b>This entry was refused.</b>{" "}
                 {entryOutcome(detail).detail ||
                   "Candleweb's gate turned the order away, so no position was opened."}
+              </p>
+            )}
+
+            {/* An expired limit entry is NOT a refusal and not a fault: the
+                decider named a price, the market never came to it inside 5
+                candles of the trade's timeframe, and the order was cancelled.
+                Neutral copy, because nothing went wrong — but it has to be
+                said, or the decision reads as one that silently did nothing. */}
+            {entryOutcome(detail).expired && (
+              <p className="fx-hint" style={{ marginTop: 12 }}>
+                <b>The limit entry was not reached.</b>{" "}
+                {entryOutcome(detail).detail ||
+                  "The price never came to the entry this decision named, so it was cancelled and nothing was bought."}
+              </p>
+            )}
+
+            {entryOutcome(detail).armed && (
+              <p className="fx-hint" style={{ marginTop: 12 }}>
+                <b>Waiting for its price.</b>{" "}
+                {entryOutcome(detail).detail ||
+                  "This entry is armed: it buys if the market reaches the price it named, and is cancelled if it does not."}{" "}
+                This trade takes no other entry until it fills or expires.
               </p>
             )}
 

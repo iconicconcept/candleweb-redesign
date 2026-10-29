@@ -36,6 +36,39 @@ export type TradeV2Direction = "BOTH" | "LONG" | "SHORT";
  */
 export type TradeV2Status = "ACTIVE" | "PAUSED";
 
+/**
+ * One decider's record on one trade, in that trade's book.
+ *
+ * The same shape arrives in three places — `current_decider_record` and each
+ * entry of `record_by_decider` on a trade, and each entry of `by_decider` on
+ * `GET trades/{id}/metrics/` (there, over the metrics window rather than all
+ * time). One type, so the card and the detail strip cannot drift apart.
+ *
+ * The money fields are typed `MetricsV2Number` for the same reason as every
+ * other figure in this file: the metrics endpoints document no response body
+ * and have been observed sending decimals as strings. Read them through
+ * `metricNum`, never with `typeof v === "number"`.
+ */
+export interface DeciderRecordV2 {
+  /** Ready to show: the bot's name, "CandleAI", or "No bot recorded". */
+  name?: string | null;
+  /** Stable identity for this decider, where the API sends one. Used as a
+   *  React key and for matching, never shown. */
+  key?: string | number | null;
+  /** True on the trade's decider now. First in `record_by_decider`. */
+  current?: boolean | null;
+  closed_trades?: number | null;
+  wins?: number | null;
+  losses?: number | null;
+  /** Percent. Null until something closed under THIS decider — a dash, not
+   *  0%, and a different thing from a decider that has lost everything. */
+  win_rate?: MetricsV2Number;
+  realised_pnl?: MetricsV2Number;
+  net_return_pct?: MetricsV2Number;
+  /** The row's own currency — USDT today. */
+  currency?: string | null;
+}
+
 /** A trade configuration as returned by the API. */
 export interface TradeV2 {
   id: number;
@@ -84,13 +117,41 @@ export interface TradeV2 {
 
   /* --- this trade's own record, in its own book --- */
 
-  /** Closed positions this trade opened, all time. */
+  /**
+   * Closed positions this trade opened, all time — **whoever decided them.**
+   *
+   * This is the trade's record, not its decider's. A trade switched from a
+   * bot to CandleAI keeps the bot's results in here, so showing this figure
+   * next to the current decider's name credits it with results that are not
+   * its own. `current_decider_record` is the one that belongs beside a
+   * decider; this one belongs to the trade and has to say so.
+   */
   closed_trades?: number | null;
   /** Of those, how many made / lost money after fees. */
   wins?: number | null;
   losses?: number | null;
   /** Percent, e.g. 11.11. Null until something has closed — a dash, not 0%. */
   win_rate?: number | null;
+
+  /**
+   * What the trade's decider NOW has made on it — and only that.
+   *
+   * The figure to show beside the decider's name. `name` is the decider's
+   * own ("CandleAI", or the bot's name), so it does not have to be derived
+   * from `decider_type`/`bot_name` a second time.
+   */
+  current_decider_record?: DeciderRecordV2 | null;
+
+  /**
+   * The same record for EVERY decider that opened a position on this trade,
+   * the current one first (`current: true`).
+   *
+   * More than one entry means the trade's decider has been changed, which is
+   * the case where the trade-level `win_rate` above is a blend of two records
+   * and must not be read as either. A position whose decision was not kept is
+   * filed under `name: "No bot recorded"`.
+   */
+  record_by_decider?: DeciderRecordV2[] | null;
 
   created_at: string;
   updated_at: string;
@@ -285,8 +346,21 @@ export type BotDecisionV2Risk = "LOW" | "MEDIUM" | "HIGH";
 export interface BotDecisionV2 {
   id: number;
   trade: number;
-  bot: number;
-  bot_name: string;
+  /**
+   * Null on a CandleAI row — there is no bot. Both of these were typed
+   * non-nullable, which is how `bot_name` came to be rendered raw into a
+   * sentence: a CandleAI decision read "<blank> saw 14 candles". Use
+   * `decisionDecider` rather than either field directly.
+   */
+  bot: number | null;
+  bot_name: string | null;
+  /**
+   * Which kind of decider answered. `bot`/`bot_name` are null when this is
+   * `CANDLEAI`.
+   */
+  decider?: "OWN_BOT" | "CANDLEAI" | null;
+  /** The CandleAI signal this decision came from, on a CandleAI row. */
+  candleai_signal?: number | string | null;
   pair: string;
   timeframe: TradeV2Timeframe;
   decision: BotDecisionV2Action;
@@ -575,6 +649,12 @@ export interface TradeMetricsV2 {
    * them — only the account-wide `metrics/` still counts them.
    */
   unattributed_positions?: number | null;
+  /**
+   * The same per-decider split as the trade's `record_by_decider`, but over
+   * this call's `window_days` rather than all time — so the two disagree by
+   * design and must never be shown as one number.
+   */
+  by_decider?: DeciderRecordV2[] | null;
   unavailable?: MetricsV2Unavailable;
 }
 
@@ -677,6 +757,258 @@ export interface BotReviewReadinessV2 {
   ready?: boolean;
   /** Everything missing, in order. Show each `message`. */
   blockers?: BotReviewBlockerV2[];
+}
+
+/* ------------------------------------------------------------------ *
+ * Bot reviews and their recommendations
+ *   `GET  /trading_v2/bot-reviews/{id}/`
+ *   `GET  /trading_v2/bot-reviews/{id}/recommendations/{rid}/`
+ *   `POST …/apply/`, `…/dismiss/`, `…/reopen/`
+ *   `GET  /trading_v2/bots/{id}/recommendations/`
+ *
+ * A review's recommendations exist only once its `status` is `COMPLETED`.
+ *
+ * The rule that shapes the whole page: **`impact`, `bars`, `trades` and
+ * `change` can each be absent.** Not every recommendation has figures, and
+ * not every one has something to apply. A missing part is hidden, never
+ * rendered as a zero — "Estimated cost $0" reads as "this costs you
+ * nothing", which is the opposite of "we could not work out what it cost".
+ * ------------------------------------------------------------------ */
+
+export type RecommendationV2Severity = "HIGH" | "MEDIUM" | "LOW";
+export type RecommendationV2Status = "OPEN" | "APPLIED" | "DISMISSED";
+/** `PROMPT`: the user edits their bot, Candleweb updates its copy.
+ *  `SETTING`: Candleweb changes the trade itself. */
+export type RecommendationV2ChangeKind = "PROMPT" | "SETTING";
+
+/** The four tiles. Each figure is `null` when it could not be worked out, and
+ *  its tile is then hidden rather than shown as 0. */
+export interface RecommendationV2Impact {
+  trades_affected?: number | null;
+  /** "When the bot closed" — the backend's own wording for the tile. */
+  actual_label?: string | null;
+  actual_avg_pct?: MetricsV2Number;
+  /** "Trailing stop would have". */
+  alternative_label?: string | null;
+  alternative_avg_pct?: MetricsV2Number;
+  /** In the trade's quote currency (USDT). NEGATIVE means money left on the
+   *  table, so it is shown as a loss — not flipped to a positive. */
+  estimated_cost?: MetricsV2Number;
+}
+
+/** One comparison bar. Scaled against the largest `|value_pct|` in the set,
+ *  so the widths are relative to each other and not to 100. */
+export interface RecommendationV2Bar {
+  label?: string | null;
+  value_pct?: MetricsV2Number;
+}
+
+/** One of the decisions behind the recommendation. */
+export interface RecommendationV2Trade {
+  decision_id?: number | null;
+  decided_at?: string | null;
+  /** `ETHUSDT` — shown as `ETH/USDT`; see `pairSlash`. */
+  pair?: string | null;
+  decision?: BotDecisionV2Action | string | null;
+  confidence?: number | null;
+  trade_id?: number | null;
+  /** The bot's own words for this decision. */
+  rationale?: string | null;
+  /** What it actually made, and what the alternative would have. */
+  actual_pct?: MetricsV2Number;
+  alternative_pct?: MetricsV2Number;
+}
+
+/** The settings a `SETTING` change can target. Labels in `settingTargetLabel`. */
+export type RecommendationV2SettingTarget =
+  | "min_confidence"
+  | "risk_pct"
+  | "max_size_pct"
+  | "trailing_stop"
+  | "agent_exits"
+  | "indicators"
+  | "candle_history_len"
+  | "timeframe"
+  | string;
+
+/** One trade a `SETTING` change would touch. `current` is read NOW, so it is
+ *  right even if the user changed it after the review ran. */
+export interface RecommendationV2SettingTrade {
+  trade_id?: number | null;
+  trade_name?: string | null;
+  mode?: "DEMO" | "LIVE" | null;
+  /** `false` when the trade has since been deleted: show "Trade deleted" and
+   *  offer only Dismiss. */
+  exists?: boolean;
+  current?: unknown;
+  suggested?: unknown;
+  /** Present on `applied_change.trades` rather than on the proposal. */
+  before?: unknown;
+  after?: unknown;
+  target?: RecommendationV2SettingTarget | null;
+}
+
+/**
+ * What to change. One shape for both kinds, because `kind` decides which
+ * half is populated and a union would have to be narrowed at every read.
+ */
+export interface RecommendationV2Change {
+  kind?: RecommendationV2ChangeKind | null;
+
+  /* --- kind: PROMPT --- */
+  /** Either can be `null`: a pure addition has no Remove block, a pure
+   *  removal no Replace block. */
+  remove?: string | null;
+  replace?: string | null;
+  /** The backend's sentence about what Apply actually touches. */
+  applies_to?: string | null;
+
+  /* --- kind: SETTING --- */
+  target?: RecommendationV2SettingTarget | null;
+  suggested?: unknown;
+  trades?: RecommendationV2SettingTrade[] | null;
+  /** True when at least one trade it changes is Live. Apply then needs
+   *  `{confirm: true}` — see `CONFIRM_LIVE`. */
+  touches_live?: boolean;
+
+  /** Prompt changes restart the bot's review counter; setting changes do not.
+   *  The note on the page is shown ONLY when this is true. */
+  restarts_review_count?: boolean;
+}
+
+/**
+ * What Apply actually did, echoed back so the page can show it rather than
+ * assert it. A prompt apply reports the whole prompt before and after; a
+ * setting apply reports each trade's own before and after.
+ */
+export interface RecommendationV2AppliedChange {
+  /* PROMPT */
+  before?: string | null;
+  after?: string | null;
+  /** False when Candleweb's copy already contained the change. */
+  copy_updated?: boolean;
+  review_count_restarted?: boolean;
+  /* SETTING */
+  trades?: RecommendationV2SettingTrade[] | null;
+}
+
+export interface RecommendationV2 {
+  id: number;
+  review_id?: number | null;
+  /** 1-based, and `of` is how many the review produced: "Recommendation 1 of 4". */
+  position?: number | null;
+  of?: number | null;
+  /** A stable slug for this kind of finding ("early-exits"). */
+  key?: string | null;
+  severity?: RecommendationV2Severity | null;
+  /** Ready to show ("High impact"). `severity` only picks the colour. */
+  severity_label?: string | null;
+  title?: string | null;
+  summary?: string | null;
+  /** A paragraph of prose, already written for the user. */
+  evidence?: string | null;
+  impact?: RecommendationV2Impact | null;
+  bars?: RecommendationV2Bar[] | null;
+  trades?: RecommendationV2Trade[] | null;
+  change?: RecommendationV2Change | null;
+  status?: RecommendationV2Status | null;
+  status_label?: string | null;
+  applied_at?: string | null;
+  applied_change?: RecommendationV2AppliedChange | null;
+  dismissed_at?: string | null;
+  dismiss_reason?: string | null;
+  /** Null at either end of the review's list — the button is then disabled,
+   *  not hidden, so the pair keeps its place. */
+  previous_id?: number | null;
+  next_id?: number | null;
+}
+
+/** One side of the before/after comparison in `since_applying`. */
+export interface RecommendationV2ProgressSide {
+  closed?: number | null;
+  win_rate?: MetricsV2Number;
+  avg_pct?: MetricsV2Number;
+}
+
+/**
+ * Whether applying these has helped — the bot's closed positions since the
+ * first change against an equally long stretch just before it.
+ *
+ * **A comparison, not a proof.** The market moved too, which is why the
+ * page's "How this was worked out" copy stays as it is.
+ */
+export interface RecommendationV2SinceApplying {
+  book?: "DEMO" | "LIVE" | null;
+  since?: string | null;
+  compared_with_from?: string | null;
+  before?: RecommendationV2ProgressSide | null;
+  after?: RecommendationV2ProgressSide | null;
+  /** At least 10 closed positions on EACH side. The win-rate line is shown
+   *  only when this is true; otherwise `note` says what is missing. */
+  enough?: boolean;
+  win_rate_change_points?: MetricsV2Number;
+  avg_pct_change?: MetricsV2Number;
+  note?: string | null;
+}
+
+/** "3 of 6 suggestions applied", and whether it has helped. */
+export interface RecommendationV2Progress {
+  total?: number | null;
+  applied?: number | null;
+  dismissed?: number | null;
+  open?: number | null;
+  first_applied_at?: string | null;
+  /** Null until something has been applied. */
+  since_applying?: RecommendationV2SinceApplying | null;
+}
+
+/** On every review, including in `GET bots/{id}/reviews/`. */
+export interface RecommendationV2Counts {
+  total?: number | null;
+  open?: number | null;
+  applied?: number | null;
+  dismissed?: number | null;
+}
+
+export type BotReviewV2Status = "SENDING" | "SENT" | "COMPLETED" | "FAILED" | string;
+export type BotReviewV2Verdict = "GOOD" | "NEEDS_CHANGES" | "NOT_ENOUGH_DATA" | string;
+
+/**
+ * `GET /trading_v2/bot-reviews/{id}/`.
+ *
+ * `recommendations` is empty until `status` is `COMPLETED`, and reviews that
+ * finished before recommendations existed carry the old shape in
+ * `recommendation` instead — which is why that field is still declared.
+ */
+export interface BotReviewV2 {
+  id: number;
+  bot?: number | null;
+  bot_name?: string | null;
+  status?: BotReviewV2Status | null;
+  /** Which book was reviewed — the mode the user was in. Shown as a label. */
+  book?: "DEMO" | "LIVE" | null;
+  verdict?: BotReviewV2Verdict | null;
+  summary?: string | null;
+  sample_note?: string | null;
+  /** The denominator for "of 186 on this prompt". */
+  closed_trades?: number | null;
+  decisions_on_prompt?: number | null;
+  recommendations?: RecommendationV2[] | null;
+  recommendation_counts?: RecommendationV2Counts | null;
+  /** Null until the review is `COMPLETED`. */
+  progress?: RecommendationV2Progress | null;
+  /** The old pre-recommendations shape, kept for reviews that predate it. */
+  recommendation?: { summary?: string | null; findings?: unknown; changes?: unknown } | null;
+  failure_reason?: string | null;
+  created_at?: string | null;
+}
+
+/** `GET /trading_v2/bots/{id}/recommendations/` — the bot's last 10 completed
+ *  reviews' recommendations. `progress` counts every review's, so its totals
+ *  can be higher than this list shows. */
+export interface BotRecommendationsV2 {
+  recommendations: RecommendationV2[];
+  progress?: RecommendationV2Progress | null;
 }
 
 /** GET /metrics/ — filters. All optional; `window_days` defaults to 30. */

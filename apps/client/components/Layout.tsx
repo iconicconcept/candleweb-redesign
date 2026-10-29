@@ -9,9 +9,16 @@ import { GoogleAnalytics } from "@next/third-parties/google";
 
 type Props = {
   children: React.ReactNode;
+  /* An error page brings its own chrome and must not get the legacy header on
+     top of it. It can't be detected from the route: a client-side exception
+     renders `_error` while `router.pathname` is still the page that threw, so
+     a crash on one of the pages below would otherwise show the old header
+     above the new error page. `_app` reads the flag off the page component
+     instead. */
+  bareChrome?: boolean;
 };
 
-const Layout = ({ children }: Props) => {
+const Layout = ({ children, bareChrome = false }: Props) => {
   const router = useRouter();
   const path = router.pathname.split("/")[1];
 
@@ -19,6 +26,8 @@ const Layout = ({ children }: Props) => {
   // auth chrome — they get the light/dark site theme and a matching light
   // surround behind the content.
   const isPublicChrome = [
+    "404",
+    "500",
     "",
     "about",
     "blog",
@@ -74,7 +83,7 @@ const Layout = ({ children }: Props) => {
             yet. This used to repeat the isPublicChrome list as a chain of
             !path.includes(...) checks, so a page added to one list and not
             the other rendered BOTH headers. */}
-        {!isPublicChrome && !isDashboard && (
+        {!bareChrome && !isPublicChrome && !isDashboard && (
             <Header
               route={path}
               Icon={CgMenuRight}

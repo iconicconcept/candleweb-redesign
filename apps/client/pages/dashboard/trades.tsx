@@ -27,7 +27,19 @@ import {
   toneClass,
   winRateLabel,
 } from "../../lib/tradingV2Metrics";
-import { confidenceRule, tradeRecord, tradeTitle } from "../../lib/tradingV2Trades";
+import {
+  DeciderRead,
+  confidenceRule,
+  deciderLine,
+  deciderOptions,
+  deciderRead,
+  deciderReads,
+  hasPastDeciders,
+  tradeDeciderKey,
+  tradeDeciderName,
+  tradeRecord,
+  tradeTitle,
+} from "../../lib/tradingV2Trades";
 import useIndicatorCatalogue from "../../lib/hooks/useIndicatorCatalogue";
 import { indicatorLabels } from "../../lib/tradingV2Indicators";
 import useBook from "../../lib/hooks/useBook";
@@ -79,6 +91,36 @@ const IndicatorChips = ({ chips }: { chips: string[] }) => {
   );
 };
 
+/**
+ * Who has decided this trade, and what each of them made on it.
+ *
+ * Only drawn when the trade's decider has CHANGED — when one decider has the
+ * whole record, the card's win rate already is that decider's and a strip
+ * repeating it says nothing. Collapsed by default: the current decider's
+ * figures are on the chip above, and this is the "and before that" answer.
+ */
+const DeciderStrip = ({ rows }: { rows: DeciderRead[] }) => {
+  const [open, setOpen] = useState(false);
+  if (rows.length < 2) return null;
+  const past = rows.filter((r) => !r.current);
+  return (
+    <div className="fx-ind2" style={{ marginTop: "14px" }}>
+      <button type="button" className="fx-ip more2" onClick={() => setOpen((v) => !v)}>
+        {open
+          ? "Hide earlier deciders"
+          : `${past.length} earlier decider${past.length === 1 ? "" : "s"}`}
+      </button>
+      {open &&
+        rows.map((r) => (
+          <span className="fx-ip" key={r.key} title={deciderLine(r)}>
+            {r.name}
+            {r.current ? " (now)" : ""} · {deciderLine(r)}
+          </span>
+        ))}
+    </div>
+  );
+};
+
 const TradesPage = () => {
   const dispatch = useDispatch<AppDispatch>();
   const axiosToken = useAxiosAuth();
@@ -96,6 +138,11 @@ const TradesPage = () => {
   const { index: indicatorIndex } = useIndicatorCatalogue();
 
   const [filter, setFilter] = useState<Filter>("all");
+  /* Which decider's trades to show. "" is all of them. `GET trades/` takes no
+     decider parameter, so this narrows the list already in hand rather than
+     asking again — see `tradeDeciderKey` for why it matches on the CURRENT
+     decider and not on the historical record. */
+  const [decider, setDecider] = useState("");
   const [busyId, setBusyId] = useState<number | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<TradeV2 | null>(null);
 
@@ -175,11 +222,26 @@ const TradesPage = () => {
     [balance],
   );
 
+  /* Built from the list, so the dropdown can never offer a decider that no
+     trade in this book points at. A trade's decider can be swapped, so the
+     options change with the list rather than being held in state. */
+  const deciders = useMemo(() => deciderOptions(trades), [trades]);
+
+  /* A decider the user had selected can stop existing — the last trade using
+     it is deleted, or re-pointed at another bot, or the Demo/Live switch
+     brings back a list that never had it. Left alone, the select would sit on
+     a value nothing matches and the page would read as "no trades". */
+  useEffect(() => {
+    if (decider && !deciders.some((d) => d.key === decider)) setDecider("");
+  }, [deciders, decider]);
+
   const shown = useMemo(() => {
-    if (filter === "running") return trades.filter((t) => t.status === "ACTIVE");
-    if (filter === "paused") return trades.filter((t) => t.status !== "ACTIVE");
-    return trades;
-  }, [trades, filter]);
+    let rows = trades;
+    if (filter === "running") rows = rows.filter((t) => t.status === "ACTIVE");
+    else if (filter === "paused") rows = rows.filter((t) => t.status !== "ACTIVE");
+    if (decider) rows = rows.filter((t) => tradeDeciderKey(t) === decider);
+    return rows;
+  }, [trades, filter, decider]);
 
   const runningCount = trades.filter((t) => t.status === "ACTIVE").length;
   const capitalAllocated = trades.reduce((s, t) => s + (parseFloat(t.allocated_amount) || 0), 0);
@@ -321,6 +383,23 @@ const TradesPage = () => {
                   {f === "all" ? "All" : f === "running" ? "Running" : "Paused"}
                 </button>
               ))}
+              {/* Only once there is a choice to make. One decider means every
+                  trade is under it, and the dropdown would narrow nothing. */}
+              {deciders.length > 1 && (
+                <select
+                  className={`fx-fs ${decider ? "act2" : ""}`}
+                  value={decider}
+                  aria-label="Decider"
+                  onChange={(e) => setDecider(e.target.value)}
+                >
+                  <option value="">All deciders</option>
+                  {deciders.map((d) => (
+                    <option key={d.key} value={d.key}>
+                      {d.name} ({d.count})
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
           </div>
 
@@ -337,11 +416,41 @@ const TradesPage = () => {
             </div>
           )}
 
+          {/* A filter can now empty the list on an account that does have
+              trades, which is a different thing from having none and must
+              not read as the empty state above. */}
+          {loaded && trades.length > 0 && shown.length === 0 && (
+            <div className="fx-flat2" style={{ marginTop: 0 }}>
+              <b>Nothing matches.</b> No {filter === "all" ? "" : `${filter} `}trade
+              {decider ? ` is decided by ${deciders.find((d) => d.key === decider)?.name}` : "s here"}.
+              <button
+                type="button"
+                className="fx-ip more2"
+                onClick={() => {
+                  setFilter("all");
+                  setDecider("");
+                }}
+              >
+                Clear filters
+              </button>
+            </div>
+          )}
+
           {shown.map((t) => {
             const meta = STATUS_META[t.status] ?? STATUS_META.PAUSED;
             const running = t.status === "ACTIVE";
             const isAi = t.decider_type === "CANDLEAI";
-            const decider = isAi ? "CandleAI" : t.bot_name || "Own bot";
+            /* The API's own name for the decider where it sends one, so this
+               row does not have to spell "CandleAI" itself. */
+            const deciderName = tradeDeciderName(t);
+            /* What the decider deciding this trade NOW has made on it — and
+               nothing else. The trade-level record below counts whoever
+               decided, which after a swap is a different number; putting the
+               two side by side unlabelled is what credited a new decider
+               with an old bot's losses. */
+            const own = deciderRead(t.current_decider_record);
+            const everyone = deciderReads(t);
+            const swapped = hasPastDeciders(t);
             /* Labels, not the stored names: a trade holds `trd_ema_50` and
                the chip has to read "EMA (50)". Falls back to the raw name
                until the catalogue lands, and for a name it no longer has. */
@@ -362,7 +471,18 @@ const TradesPage = () => {
                       is blank on most rows. */}
                   <span className="tn2">{tradeTitle(t)}</span>
                   <span className={`fx-run2 ${meta.cls}`}>{meta.label}</span>
-                  <span className={`fx-byb ${isAi ? "ai2" : ""}`}>● {decider}</span>
+                  {/* The decider's own record rides on its own chip, so the
+                      number is read as belonging to the name beside it rather
+                      than to whichever figure the card happens to show next.
+                      A decider that has closed nothing says so — it is a new
+                      decider on an old trade, not a decider with no results. */}
+                  <span
+                    className={`fx-byb ${isAi ? "ai2" : ""}`}
+                    title={own ? `${own.name}: ${deciderLine(own)}` : undefined}
+                  >
+                    ● {deciderName}
+                    {own && <> · {deciderLine(own)}</>}
+                  </span>
                   {/* The pair is repeated here because the title above may now
                       be words of the user's own that never mention it. The
                       venue name is sent for a demo trade too — it has no
@@ -401,21 +521,31 @@ const TradesPage = () => {
                     <b>{DIRECTION_LABEL[t.direction] || t.direction}</b>
                     <em>{t.trailing_stop ? "trailing stop" : "fixed stop"}</em>
                   </div>
-                  {/* The trade's all-time record, off the list response —
-                      no per-row request. Not a 30-day window: this is what
-                      the trade has actually done since it was set up. */}
+                  {/* The TRADE's all-time record, off the list response — no
+                      per-row request. Not a 30-day window: this is what the
+                      trade has done since it was set up, under every decider
+                      it has had. When it has had more than one, the caption
+                      has to say so: otherwise this figure and the one on the
+                      decider chip above disagree with no explanation, and a
+                      user can only conclude one of them is wrong. */}
                   <div className="fx-tm2">
                     <span className="fx-kase">WIN RATE</span>
                     <b className={record.rate == null ? "mut2" : undefined}>
                       {record.rate == null ? "—" : winRateLabel(record.rate)}
                     </b>
-                    <em>{record.caption}</em>
+                    <em title={swapped ? "This trade's own record, under every decider it has had." : undefined}>
+                      {swapped ? `all deciders · ${record.caption}` : record.caption}
+                    </em>
                   </div>
                   <div className="fx-tm2 wide2">
                     <span>Indicators sent</span>
                     <IndicatorChips chips={chips} />
                   </div>
                 </div>
+
+                {/* Every decider that ever opened a position on this trade.
+                    Draws nothing until there is more than one. */}
+                <DeciderStrip rows={everyone} />
 
                 <div className="fx-tacts">
                   <button

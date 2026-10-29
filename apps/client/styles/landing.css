@@ -1487,6 +1487,802 @@
 }
 
 /* ============================================================================
+   HERO · THE WATERLINE
+   From candleweb-home-waterline.html. Above the surface: the three nodes the
+   user builds. Below it: what Candleweb runs, seen through the water. A lens
+   clears the water where the action is, and with no pointer it follows the
+   story on its own.
+
+   The design declares its own palette on :root; here it is scoped to the block
+   and expressed in the page's own --landing-* tokens, so the hero follows the
+   site theme instead of carrying a second one. Only the tokens that exist
+   nowhere else on the page (the water, the lens, the module surfaces) are
+   introduced, and the light theme re-colours them at the end of this file.
+   ========================================================================== */
+.landing-wl {
+  --wl-line-2: rgba(255, 255, 255, 0.16);
+  --wl-card: rgba(22, 22, 28, 0.95);
+  --wl-card-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+  --wl-canvas: rgba(255, 255, 255, 0.015);
+  --wl-canvas-dot: rgba(255, 255, 255, 0.085);
+  --wl-sky-wire: rgba(255, 255, 255, 0.18);
+  --wl-mod: rgba(16, 22, 24, 0.96);
+  --wl-mod-line: rgba(126, 240, 210, 0.12);
+  --wl-mod-hot: rgba(18, 34, 33, 0.98);
+  --wl-wire: rgba(126, 240, 210, 0.18);
+  --wl-water-1: rgba(9, 38, 40, 0.72);
+  --wl-water-2: rgba(5, 18, 22, 0.86);
+  --wl-water-3: rgba(3, 8, 11, 0.94);
+  --wl-wave-back: rgba(126, 240, 210, 0.22);
+  --wl-wave-crest: rgba(126, 240, 210, 0.75);
+  --wl-wave-glow: rgba(49, 224, 176, 0.6);
+  --wl-deep-end: #04090b;
+  --wl-console: rgba(5, 12, 13, 0.85);
+  --wl-bubble: rgba(126, 240, 210, 0.7);
+  --wl-lens: rgba(126, 240, 210, 0.32);
+  --wl-chip-on-text: #062018;
+
+  position: relative;
+  /* The water deepens toward the foot of the hero, so the section carries the
+     gradient rather than the scene — the scene is measured by script and must
+     not gain a background of its own. */
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    transparent 45%,
+    var(--wl-deep-end) 100%
+  );
+}
+.landing-wl-scene {
+  position: relative;
+  /* The scene layers from 0 (base wiring) to 6 (the copy and the drop), and
+     the sections below this hero sit at 2. Isolating keeps those numbers a
+     private conversation: without it the water and the lens are in the page's
+     stacking context and could paint over a later section if the layout ever
+     shifts. Internal order is unchanged. */
+  isolation: isolate;
+  overflow: hidden;
+}
+
+/* ---- above the surface: the copy and the three nodes ---- */
+.landing-wl-sky {
+  position: relative;
+  z-index: 6;
+  display: grid;
+  grid-template-columns: minmax(0, 1.12fr) minmax(0, 0.88fr);
+  gap: clamp(22px, 3vw, 40px);
+  align-items: center;
+  padding-top: clamp(18px, 2.4vw, 30px);
+  padding-bottom: 40px;
+}
+.landing-wl-copy {
+  min-width: 0;
+}
+/* The hero headline is two balanced lines here, not the 11ch column the old
+   one used, so it overrides the stage's h1 width rather than inheriting it. */
+.landing-wl-copy h1 {
+  max-width: 20ch;
+  font-size: clamp(30px, 3.3vw, 46px);
+  line-height: 1.06;
+  text-wrap: balance;
+}
+.landing-wl-copy .landing-sub {
+  max-width: 56ch;
+  margin: 14px 0 22px;
+  font-size: clamp(14.5px, 1.1vw, 15.5px);
+  line-height: 1.6;
+}
+.landing-wl-copy .landing-eyebrow {
+  margin-bottom: 16px;
+}
+
+.landing-wl-tag {
+  font:
+    10px "IBM Plex Mono",
+    monospace;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--landing-dim);
+}
+.landing-wl-tag b {
+  display: block;
+  margin-top: 3px;
+  color: var(--landing-muted);
+  font-family: "Outfit", "Helvetica Neue", sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+.landing-wl-build {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 180px;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 15px 16px 18px;
+  border: 1px solid var(--landing-line);
+  border-radius: 18px;
+  background-color: var(--wl-canvas);
+  background-image: radial-gradient(var(--wl-canvas-dot) 1px, transparent 1.3px);
+  background-size: 18px 18px;
+}
+.landing-wl-flow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.landing-wn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px 7px 7px;
+  border: 1px solid var(--wl-line-2);
+  border-radius: 11px;
+  background: var(--wl-card);
+  box-shadow: var(--wl-card-shadow);
+  transition:
+    border-color 0.35s,
+    box-shadow 0.35s,
+    transform 0.35s;
+}
+.landing-wn .ic {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  place-items: center;
+}
+.landing-wn .ic svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: var(--landing-muted);
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.landing-wn b {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.landing-wn i {
+  display: block;
+  margin-top: 2px;
+  color: var(--landing-dim);
+  font:
+    9.5px "IBM Plex Mono",
+    monospace;
+  font-style: normal;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+.landing-wn.is-on {
+  border-color: var(--landing-teal);
+  transform: translateY(-2px);
+  box-shadow:
+    0 0 0 4px rgba(49, 224, 176, 0.12),
+    var(--wl-card-shadow);
+}
+.landing-wn.is-on .ic svg {
+  stroke: var(--landing-teal-2);
+}
+.landing-wn.is-thinking {
+  border-color: var(--landing-amber);
+  box-shadow:
+    0 0 0 4px rgba(255, 185, 61, 0.12),
+    var(--wl-card-shadow);
+}
+.landing-wn.is-thinking i::after {
+  content: "";
+  animation: landing-wl-dots 1s steps(4) infinite;
+}
+@keyframes landing-wl-dots {
+  0% {
+    content: "";
+  }
+  25% {
+    content: "·";
+  }
+  50% {
+    content: "··";
+  }
+  75% {
+    content: "···";
+  }
+}
+
+/* ---- the surface ---- */
+.landing-wl-surf {
+  position: absolute;
+  left: 0;
+  z-index: 5;
+  width: 100%;
+  height: 48px;
+  overflow: visible;
+  pointer-events: none;
+}
+.landing-wl-wb {
+  fill: none;
+  stroke: var(--wl-wave-back);
+  stroke-width: 1.2;
+}
+.landing-wl-wf {
+  fill: var(--wl-water-1);
+}
+.landing-wl-wc {
+  fill: none;
+  stroke: var(--wl-wave-crest);
+  stroke-width: 1.6;
+  filter: drop-shadow(0 0 6px var(--wl-wave-glow));
+}
+.landing-wl-rip {
+  fill: none;
+  stroke: var(--wl-wave-crest);
+  stroke-width: 1.2;
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+}
+.landing-wl-rip.is-on {
+  animation: landing-wl-rip 1.6s ease-out forwards;
+}
+.landing-wl-rip.is-on.b {
+  animation-delay: 0.22s;
+}
+@keyframes landing-wl-rip {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.2, 0.2);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1, 1);
+  }
+}
+
+/* ---- below the surface: what Candleweb runs ---- */
+.landing-wl-deep {
+  position: relative;
+  /* `z-index: auto` is load-bearing, and it is overriding `.landing-wrap`,
+     which sets 2. A numbered z-index here would make this row a stacking
+     context, and the module the story is lighting (`.landing-wm.is-hot`,
+     z-index 4) could then never rise above the water (z-index 3) — the whole
+     point of the lit state. Its own tag and console opt back up to 6. */
+  z-index: auto;
+  padding-top: 40px;
+  padding-bottom: clamp(28px, 3.5vw, 44px);
+}
+.landing-wl-deep > .landing-wl-tag {
+  position: relative;
+  z-index: 6;
+  display: block;
+  margin: 0 0 12px;
+  color: var(--landing-teal-2);
+}
+.landing-wl-grid {
+  display: grid;
+  grid-template-areas:
+    "watch vault data intake"
+    "exch router size checks"
+    "fills stop trail review";
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+.landing-wm {
+  position: relative;
+  z-index: 1;
+  padding: 9px 12px;
+  border: 1px solid var(--wl-mod-line);
+  border-radius: 11px;
+  background: var(--wl-mod);
+  transition:
+    border-color 0.35s,
+    box-shadow 0.35s,
+    background 0.35s;
+}
+.landing-wm b {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+.landing-wm i {
+  display: block;
+  margin-top: 2px;
+  color: var(--landing-dim);
+  font:
+    9.5px "IBM Plex Mono",
+    monospace;
+  font-style: normal;
+  line-height: 1.4;
+}
+.landing-wm .hb {
+  position: absolute;
+  top: 11px;
+  right: 11px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--landing-teal);
+  box-shadow: 0 0 8px var(--landing-teal);
+  animation: landing-wl-hb 1.2s ease-in-out infinite;
+}
+@keyframes landing-wl-hb {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  30% {
+    opacity: 0.6;
+    transform: scale(1.6);
+  }
+}
+/* `warm` is a module the story has already passed through; `hot` is the one it
+   is in. Both lift above the water so the step being described is legible
+   without waiting for the lens to arrive. */
+.landing-wm.is-warm {
+  z-index: 4;
+  border-color: rgba(49, 224, 176, 0.4);
+  box-shadow: 0 0 24px rgba(49, 224, 176, 0.14);
+}
+.landing-wm.is-hot {
+  z-index: 4;
+  border-color: var(--landing-teal);
+  background: var(--wl-mod-hot);
+  box-shadow:
+    0 0 0 4px rgba(49, 224, 176, 0.14),
+    0 0 50px rgba(49, 224, 176, 0.35);
+}
+.landing-wm.is-hot b {
+  color: var(--landing-teal-2);
+}
+.landing-wm.src.is-hot {
+  border-color: var(--landing-amber);
+  box-shadow:
+    0 0 0 4px rgba(255, 185, 61, 0.14),
+    0 0 50px rgba(255, 185, 61, 0.3);
+}
+.landing-wm.src.is-hot b {
+  color: var(--landing-amber);
+}
+.landing-wl-xch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 5px;
+}
+.landing-wl-xch span {
+  padding: 2px 6px;
+  border: 1px solid var(--wl-line-2);
+  border-radius: 99px;
+  color: var(--landing-dim);
+  font:
+    9.5px "IBM Plex Mono",
+    monospace;
+  transition: 0.3s;
+}
+.landing-wl-xch span.is-on {
+  border-color: transparent;
+  background: var(--landing-teal);
+  color: var(--wl-chip-on-text);
+  font-weight: 600;
+}
+.landing-wl-console {
+  position: relative;
+  z-index: 6;
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--wl-mod-line);
+  border-radius: 10px;
+  background: var(--wl-console);
+  color: var(--landing-muted);
+  font:
+    10.5px "IBM Plex Mono",
+    monospace;
+}
+.landing-wl-console::before {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--landing-teal);
+  box-shadow: 0 0 8px var(--landing-teal);
+  content: "";
+}
+.landing-wl-console span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.landing-wl-console span.is-flip {
+  animation: landing-wl-flip 0.35s ease;
+}
+@keyframes landing-wl-flip {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ---- the wiring, the water, the lens ---- */
+.landing-wl-wires {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.landing-wl-wires.base {
+  z-index: 0;
+}
+.landing-wl-wires.hot {
+  z-index: 4;
+}
+.landing-wl-wire {
+  fill: none;
+  stroke: var(--wl-wire);
+  stroke-width: 1.3;
+  stroke-dasharray: 3 5;
+}
+.landing-wl-hw {
+  fill: none;
+  stroke: var(--landing-teal);
+  stroke-width: 2;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 5px rgba(49, 224, 176, 0.8));
+}
+.landing-wl-sw {
+  fill: none;
+  stroke: var(--wl-sky-wire);
+  stroke-width: 1.4;
+}
+.landing-wl-pk {
+  fill: var(--landing-teal);
+  filter: drop-shadow(0 0 6px var(--landing-teal));
+}
+
+.landing-wl-water {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 3;
+  --lx: 50%;
+  --ly: 50%;
+  --lr: 120px;
+  background: linear-gradient(
+    180deg,
+    var(--wl-water-1) 0%,
+    var(--wl-water-2) 55%,
+    var(--wl-water-3) 100%
+  );
+  -webkit-backdrop-filter: blur(5px) saturate(0.6);
+  backdrop-filter: blur(5px) saturate(0.6);
+  pointer-events: none;
+  -webkit-mask-image: radial-gradient(
+    circle at var(--lx) var(--ly),
+    transparent 0,
+    transparent calc(var(--lr) * 0.72),
+    #000 var(--lr)
+  );
+  mask-image: radial-gradient(
+    circle at var(--lx) var(--ly),
+    transparent 0,
+    transparent calc(var(--lr) * 0.72),
+    #000 var(--lr)
+  );
+}
+.landing-wl-lens {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 5;
+  border: 1px solid var(--wl-lens);
+  border-radius: 50%;
+  box-shadow: inset 0 0 40px rgba(49, 224, 176, 0.1);
+  pointer-events: none;
+}
+.landing-wl-lens::after {
+  position: absolute;
+  inset: 6px;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    transparent,
+    rgba(126, 240, 210, 0.12),
+    transparent 30%,
+    transparent 55%,
+    rgba(126, 240, 210, 0.09),
+    transparent 80%
+  );
+  animation: landing-wl-spin 9s linear infinite;
+  content: "";
+}
+@keyframes landing-wl-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.landing-wl-bub {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  width: var(--bs, 6px);
+  height: var(--bs, 6px);
+  border: 1px solid var(--wl-bubble);
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 35% 35%,
+    rgba(255, 255, 255, 0.6),
+    transparent 60%
+  );
+  opacity: 0;
+  animation: landing-wl-rise var(--bd, 5s) linear var(--bl, 0s) infinite;
+  pointer-events: none;
+}
+.landing-wl-bub.burst {
+  animation-iteration-count: 1;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.7, 1);
+}
+@keyframes landing-wl-rise {
+  0% {
+    opacity: 0;
+    transform: translate(var(--bx), var(--b0)) scale(0.5);
+  }
+  10% {
+    opacity: 0.9;
+  }
+  88% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(var(--bx) + var(--bw, 0px)), var(--b1)) scale(1.15);
+  }
+}
+
+.landing-wl-drop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 6;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+  background: radial-gradient(
+    circle at 40% 35%,
+    #fff,
+    var(--landing-amber) 55%,
+    #b9781a
+  );
+  box-shadow: 0 0 18px rgba(255, 185, 61, 0.8);
+  opacity: 0;
+  pointer-events: none;
+}
+.landing-wl-drop.is-on {
+  opacity: 1;
+}
+
+/* ---- responsive ---- */
+@media (max-width: 1080px) {
+  .landing-wl-sky {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+    padding-bottom: 40px;
+  }
+  .landing-wl-build {
+    min-height: 150px;
+  }
+}
+@media (max-width: 760px) {
+  .landing-wl-build {
+    min-height: 0;
+    padding: 14px 12px 16px;
+    gap: 14px;
+  }
+  /* Three nodes side by side cannot keep a horizontal icon+label on a phone,
+     so each one stacks and the row becomes an even three-up grid. */
+  .landing-wl-flow {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+  .landing-wn {
+    flex-direction: column;
+    gap: 6px;
+    padding: 9px 6px;
+    text-align: center;
+  }
+  .landing-wn b {
+    font-size: 11.5px;
+  }
+  .landing-wn i {
+    font-size: 9px;
+  }
+  /* Two columns, reordered so the pairs that belong together still read as
+     pairs: the decision arrives, is checked, sized, routed, filled, closed. */
+  .landing-wl-grid {
+    grid-template-areas:
+      "data intake"
+      "size checks"
+      "router exch"
+      "stop fills"
+      "trail review"
+      "watch vault";
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 10px;
+  }
+  .landing-wm {
+    padding: 9px 10px;
+  }
+  .landing-wm b {
+    font-size: 12px;
+  }
+  .landing-wl-console {
+    font-size: 10px;
+  }
+}
+
+/* The scene is measured in script and its moving parts are all animation, so
+   reduced motion gets the end state: a still surface, every module lit warm,
+   the wiring drawn, and no bubbles, lens or drop at all. */
+@media (prefers-reduced-motion: reduce) {
+  .landing-wl-bub,
+  .landing-wl-lens,
+  .landing-wl-drop {
+    display: none;
+  }
+  .landing-wl-water {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    opacity: 0.45;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+}
+
+/* ============================================================================
+   ERROR PAGES — 404, 500 and the client-side exception.
+   Built on the landing stage so the page a user lands on when something fails
+   is unmistakably the same product. It brings its own chrome (see
+   `ErrorStage`), so everything here is self-contained.
+   ========================================================================== */
+.landing-err {
+  display: flex;
+  min-height: 100vh;
+  min-height: 100svh;
+  flex-direction: column;
+}
+.landing-err-bar {
+  display: flex;
+  align-items: center;
+  padding-top: clamp(18px, 3vw, 30px);
+}
+.landing-err-brand {
+  display: inline-flex;
+  align-items: center;
+  opacity: 0.92;
+  transition: opacity 0.2s;
+}
+.landing-err-brand:hover {
+  opacity: 1;
+}
+/* Centred in what is left under the wordmark, and held a little above true
+   centre — optically centred text sits high, and on a short laptop window
+   this keeps the buttons off the fold. */
+.landing-err-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  padding-top: clamp(32px, 7vh, 72px);
+  padding-bottom: clamp(40px, 8vh, 88px);
+}
+.landing-err-body h1 {
+  max-width: 16ch;
+}
+.landing-err-body .landing-sub {
+  max-width: 54ch;
+}
+.landing-err-safe {
+  display: flex;
+  max-width: 58ch;
+  align-items: flex-start;
+  gap: 11px;
+  margin: 0 0 28px;
+  padding: 13px 15px;
+  border: 1px solid rgba(49, 224, 176, 0.28);
+  border-radius: 14px;
+  background: rgba(49, 224, 176, 0.06);
+  color: var(--landing-muted);
+  font-size: 13.4px;
+  line-height: 1.6;
+}
+.landing-err-safe i {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  border-radius: 7px;
+  margin-top: 1px;
+  background: var(--landing-teal);
+  color: #04140f;
+  font-size: 11px;
+  font-style: normal;
+  place-items: center;
+}
+.landing-err-safe b {
+  color: var(--landing-text);
+  font-weight: 600;
+}
+.landing-err-cta {
+  margin-bottom: clamp(28px, 4vw, 40px);
+}
+/* `.landing-btn` is built for links; the reload control is a <button> and
+   needs the browser's own chrome taken off it. */
+button.landing-btn {
+  border: 1px solid transparent;
+  font-family: inherit;
+  cursor: pointer;
+}
+.landing-err-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  padding-top: clamp(20px, 3vw, 28px);
+  border-top: 1px solid var(--landing-line);
+}
+.landing-err-links a {
+  color: var(--landing-dim);
+  font-size: 13.4px;
+  transition: color 0.2s;
+}
+.landing-err-links a:hover {
+  color: var(--landing-text);
+}
+@media (max-width: 560px) {
+  .landing-err-safe {
+    font-size: 12.8px;
+  }
+  /* Stacked, so neither call to action ends up a two-word-wide pill. */
+  .landing-err-cta {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .landing-err-cta .landing-btn {
+    justify-content: center;
+  }
+  .landing-err-links {
+    gap: 10px 18px;
+  }
+}
+
+/* ============================================================================
    LIGHT THEME — additive. Only applies under :root[data-site-theme="light"]
    (the default). Every dark rule above is left exactly as shipped; this block
    only re-colours. No layout / transform / animation / keyframe is touched.
@@ -1584,4 +2380,74 @@
 :root[data-site-theme="light"] .landing-form select {
   border-color: rgba(16, 22, 18, 0.16);
   background: rgba(16, 22, 18, 0.035);
+}
+
+/* ---- the waterline hero ----
+   Every one of these is a surface the dark design built on black: the water
+   itself, the module cards under it, the bubbles and the lens. Re-coloured
+   here, so the hero follows the site theme rather than staying a dark island
+   in the middle of a light page. Layout, transforms and keyframes untouched. */
+:root[data-site-theme="light"] .landing-wl {
+  --wl-line-2: rgba(16, 22, 18, 0.17);
+  --wl-card: #ffffff;
+  --wl-card-shadow: 0 14px 34px rgba(20, 40, 40, 0.1);
+  --wl-canvas: rgba(255, 255, 255, 0.6);
+  --wl-canvas-dot: rgba(16, 22, 18, 0.11);
+  --wl-sky-wire: rgba(16, 22, 18, 0.2);
+  --wl-mod: rgba(255, 255, 255, 0.97);
+  --wl-mod-line: rgba(16, 163, 127, 0.2);
+  --wl-mod-hot: #ecfbf6;
+  --wl-wire: rgba(16, 163, 127, 0.3);
+  --wl-water-1: rgba(120, 214, 198, 0.42);
+  --wl-water-2: rgba(64, 170, 166, 0.52);
+  --wl-water-3: rgba(24, 108, 114, 0.66);
+  --wl-wave-back: rgba(16, 163, 127, 0.3);
+  --wl-wave-crest: #10a37f;
+  --wl-wave-glow: rgba(16, 163, 127, 0.35);
+  --wl-deep-end: #cfe9e3;
+  --wl-console: rgba(255, 255, 255, 0.9);
+  --wl-bubble: rgba(255, 255, 255, 0.95);
+  --wl-lens: rgba(255, 255, 255, 0.75);
+  --wl-chip-on-text: #ffffff;
+}
+:root[data-site-theme="light"] .landing-wn .ic {
+  background: rgba(16, 22, 18, 0.07);
+}
+/* Amber type on a white card fails contrast, so the "deciding" node and the
+   market-data module take the darker gold the rest of the light theme uses. */
+:root[data-site-theme="light"] .landing-wm.src.is-hot b {
+  color: #8a5500;
+}
+:root[data-site-theme="light"] .landing-wl-hw {
+  filter: drop-shadow(0 0 5px rgba(16, 163, 127, 0.8));
+}
+:root[data-site-theme="light"] .landing-wl-lens {
+  box-shadow: inset 0 0 40px rgba(16, 163, 127, 0.1);
+}
+:root[data-site-theme="light"] .landing-wl-lens::after {
+  background: conic-gradient(
+    from 0deg,
+    transparent,
+    rgba(16, 163, 127, 0.12),
+    transparent 30%,
+    transparent 55%,
+    rgba(16, 163, 127, 0.09),
+    transparent 80%
+  );
+}
+:root[data-site-theme="light"] .landing-wl-bub {
+  background: radial-gradient(
+    circle at 35% 35%,
+    rgba(255, 255, 255, 0.9),
+    transparent 60%
+  );
+}
+
+/* ---- error pages ---- */
+:root[data-site-theme="light"] .landing-err-safe {
+  border-color: rgba(16, 163, 127, 0.3);
+  background: rgba(16, 163, 127, 0.07);
+}
+:root[data-site-theme="light"] .landing-err-safe i {
+  color: #ffffff;
 }

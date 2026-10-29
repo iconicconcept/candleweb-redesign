@@ -14,7 +14,10 @@ import {
   BookV2Param,
   BotMetricsV2,
   BotMetricsV2Query,
+  BotRecommendationsV2,
+  BotReviewBlockerV2,
   BotReviewReadinessV2,
+  BotReviewV2,
   HistoryV2,
   HistoryV2Query,
   TradeV2,
@@ -34,6 +37,8 @@ import {
   FleetHealthV2,
   PortfolioMetricsV2,
   PortfolioMetricsV2Query,
+  RecommendationV2,
+  RecommendationV2SettingTrade,
   TradeMetricsV2,
   TradeMetricsV2Query,
 } from "../types/tradingV2";
@@ -692,6 +697,217 @@ const getBotReviewReadiness = async (
   }
 };
 
+/* ================= Bot reviews and recommendations ================= */
+
+const BOT_REVIEWS = "/trading_v2/bot-reviews/";
+const recUrl = (reviewId: number, rid: number) =>
+  `${BOT_REVIEWS}${reviewId}/recommendations/${rid}/`;
+
+/**
+ * An error from apply / dismiss / reopen, with the parts the page has to
+ * branch on kept rather than flattened into a sentence.
+ *
+ * `getErrorMessage` alone is not enough here: a 409 `CONFIRM_LIVE` carries
+ * the list of live trades the change would touch, and the dialog has to name
+ * them — "This changes how your live trade ETHUSDT · 1m trades real money"
+ * is the whole point of that confirmation. Collapsing the body to its
+ * `message` would leave the page asking the user to confirm something it
+ * could not describe.
+ *
+ * It stays a real `Error` so every existing `catch` keeps working; the extra
+ * fields are read only where they mean something.
+ */
+export type TradingV2ActionError = Error & {
+  /** HTTP status, for the cases distinguished by it alone (429, 503). */
+  httpStatus?: number;
+  /** `CONFIRM_LIVE`, `ALREADY_APPLIED`, `PROMPT_CHANGED`, `NOT_READY`, … */
+  code?: string;
+  /** On `CONFIRM_LIVE`: each trade's before and after. */
+  changes?: RecommendationV2SettingTrade[];
+  /** On `NOT_READY` from starting a review: everything still missing, in the
+   *  same shape `review-readiness` gives them. */
+  blockers?: BotReviewBlockerV2[];
+};
+
+/** The name this started life under, kept so existing call sites read the
+ *  same. Starting a review raises the identical shape. */
+export type RecommendationActionError = TradingV2ActionError;
+
+const actionError = (err: any): TradingV2ActionError => {
+  const e: TradingV2ActionError = new Error(getErrorMessage(err));
+  const res = (err as AxiosError)?.response;
+  const body = res?.data as any;
+  e.httpStatus = res?.status;
+  if (body && typeof body === "object") {
+    if (typeof body.code === "string") e.code = body.code;
+    if (Array.isArray(body.changes)) e.changes = body.changes;
+    if (Array.isArray(body.blockers)) e.blockers = body.blockers;
+  }
+  return e;
+};
+
+/**
+ * POST /trading_v2/bots/{id}/reviews/ — run a review of this bot now.
+ *
+ * No body. **One review is spent** by this call, and given back if it fails,
+ * which is why nothing here retries on its own.
+ *
+ * The two success codes mean different things and the caller has to be able
+ * to tell them apart, so the status comes back rather than just the review:
+ *  - **202** — a review was started and one was spent.
+ *  - **200** — a review of this bot is ALREADY running, and `data` is that
+ *    one. Nothing further was spent, so the page shows its progress instead
+ *    of reporting a second launch.
+ *
+ * Refusals: 409 `NOT_READY` (with `blockers`), `NO_DECISIONS_IN_BOOK`
+ * (nothing on this prompt in the book the user is in — suggest switching
+ * modes) or `NO_REVIEWS_LEFT`; and 503 when reviews are switched off
+ * server-side, which is the one case where the button should disappear
+ * rather than explain itself.
+ */
+const startBotReview = async (
+  api: AxiosInstance,
+  botId: number,
+): Promise<{ review: BotReviewV2; alreadyRunning: boolean }> => {
+  try {
+    const res = await api.post(`${BOTS}${botId}/reviews/`, {});
+    return {
+      review: unwrapV2<BotReviewV2>(res.data),
+      alreadyRunning: res.status === 200,
+    };
+  } catch (err: any) {
+    throw actionError(err);
+  }
+};
+
+/** GET /trading_v2/bots/{id}/reviews/ — this bot's reviews, newest first. */
+const listBotReviews = async (api: AxiosInstance, botId: number): Promise<BotReviewV2[]> => {
+  try {
+    const { data } = await api.get(`${BOTS}${botId}/reviews/`);
+    const rows = unwrapV2<BotReviewV2[]>(data);
+    return Array.isArray(rows) ? rows : [];
+  } catch (err: any) {
+    throw new Error(getErrorMessage(err));
+  }
+};
+
+/** GET /trading_v2/bot-reviews/{id}/ — the review, its recommendations and
+ *  its `progress`. `progress` is null until the review is COMPLETED, and the
+ *  recommendations are empty until then too. */
+const getBotReview = async (api: AxiosInstance, id: number): Promise<BotReviewV2> => {
+  try {
+    const { data } = await api.get(`${BOT_REVIEWS}${id}/`);
+    return unwrapV2<BotReviewV2>(data);
+  } catch (err: any) {
+    throw new Error(getErrorMessage(err));
+  }
+};
+
+/** GET …/recommendations/{rid}/ — one recommendation, with `previous_id` and
+ *  `next_id` for the Previous / Next pair. */
+const getRecommendation = async (
+  api: AxiosInstance,
+  reviewId: number,
+  rid: number,
+): Promise<RecommendationV2> => {
+  try {
+    const { data } = await api.get(recUrl(reviewId, rid));
+    return unwrapV2<RecommendationV2>(data);
+  } catch (err: any) {
+    throw new Error(getErrorMessage(err));
+  }
+};
+
+/**
+ * POST …/apply/ — apply the recommendation.
+ *
+ * Three different things depending on `change.kind`:
+ *  - `SETTING`: Candleweb edits the trade. A change touching a LIVE trade is
+ *    refused once with 409 `CONFIRM_LIVE` and NOTHING is changed; the retry
+ *    carries `confirm: true`.
+ *  - `PROMPT`: the user has already pasted the change into their own bot, and
+ *    this updates Candleweb's copy of the prompt. If that copy no longer
+ *    contains `remove`, it answers 409 `PROMPT_CHANGED` and the retry carries
+ *    the bot's whole current `prompt`.
+ *
+ * `confirm` must be JSON `true` — the string "true" and `1` do not count, so
+ * it is typed `boolean` here and never built from a form value.
+ */
+const applyRecommendation = async (
+  api: AxiosInstance,
+  reviewId: number,
+  rid: number,
+  body: { confirm?: boolean; prompt?: string } = {},
+): Promise<RecommendationV2> => {
+  try {
+    const { data } = await api.post(`${recUrl(reviewId, rid)}apply/`, body);
+    return unwrapV2<RecommendationV2>(data);
+  } catch (err: any) {
+    throw actionError(err);
+  }
+};
+
+/** POST …/dismiss/ — with an optional reason (≤500 chars) that goes to the
+ *  reviewer with the bot's next review, so it does not raise it again. */
+const dismissRecommendation = async (
+  api: AxiosInstance,
+  reviewId: number,
+  rid: number,
+  reason?: string,
+): Promise<RecommendationV2> => {
+  const trimmed = reason?.trim();
+  try {
+    const { data } = await api.post(
+      `${recUrl(reviewId, rid)}dismiss/`,
+      trimmed ? { reason: trimmed } : {},
+    );
+    return unwrapV2<RecommendationV2>(data);
+  } catch (err: any) {
+    throw actionError(err);
+  }
+};
+
+/** POST …/reopen/ — undo a dismissal. An APPLIED one has no undo: its change
+ *  was actually made, and reversing it means editing the trade. */
+const reopenRecommendation = async (
+  api: AxiosInstance,
+  reviewId: number,
+  rid: number,
+): Promise<RecommendationV2> => {
+  try {
+    const { data } = await api.post(`${recUrl(reviewId, rid)}reopen/`, {});
+    return unwrapV2<RecommendationV2>(data);
+  } catch (err: any) {
+    throw actionError(err);
+  }
+};
+
+/**
+ * GET /trading_v2/bots/{id}/recommendations/ — every recommendation from the
+ * bot's last 10 COMPLETED reviews, with `progress`.
+ *
+ * `progress` counts every review's recommendations, so its totals can be
+ * higher than this list shows — the two must not be checked against each
+ * other.
+ */
+const listBotRecommendations = async (
+  api: AxiosInstance,
+  botId: number,
+): Promise<BotRecommendationsV2> => {
+  try {
+    const { data } = await api.get(`${BOTS}${botId}/recommendations/`);
+    const body = unwrapV2<any>(data);
+    const rows = Array.isArray(body)
+      ? body
+      : Array.isArray(body?.recommendations)
+        ? body.recommendations
+        : [];
+    return { recommendations: rows, progress: body?.progress ?? null };
+  } catch (err: any) {
+    throw new Error(getErrorMessage(err));
+  }
+};
+
 /* ================= History (v2) ================= */
 
 const HISTORY = "/trading_v2/history/";
@@ -814,6 +1030,14 @@ const tradingV2Service = {
   getFleetHealth,
   getBotMetrics,
   getBotReviewReadiness,
+  getBotReview,
+  startBotReview,
+  listBotReviews,
+  getRecommendation,
+  applyRecommendation,
+  dismissRecommendation,
+  reopenRecommendation,
+  listBotRecommendations,
   getHistory,
   exportHistory,
   getPortfolioMetrics,

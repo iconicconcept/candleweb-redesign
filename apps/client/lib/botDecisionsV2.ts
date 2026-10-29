@@ -138,6 +138,25 @@ export const outcomePnlCaption = (o: OutcomePnl): string => {
   return "realised, after fees";
 };
 
+/**
+ * Who answered this decision.
+ *
+ * `bot_name` is null on a CandleAI row — there is no bot — and it was being
+ * rendered straight into a sentence, so those rows read " saw 14 candles"
+ * with no subject. Who decided is the DECISION's own and never the trade's
+ * decider now: a trade switched from a bot to CandleAI keeps its older rows
+ * naming the bot, and that is correct, so this reads the row and nothing
+ * else.
+ */
+export const decisionDecider = (
+  d: Pick<BotDecisionV2, "bot_name" | "decider"> | null | undefined,
+): string => {
+  const named = d?.bot_name?.trim();
+  if (named) return named;
+  if (d?.decider === "CANDLEAI") return "CandleAI";
+  return "Its decider";
+};
+
 /* ------------------------------------------------------------------ *
  * Why an entry did not happen
  * ------------------------------------------------------------------ */
@@ -147,9 +166,43 @@ export type EntryOutcome = {
   code: string | null;
   /** True when the gate turned this decision away. */
   refused: boolean;
+  /**
+   * True when a limit entry was never reached and was cancelled.
+   *
+   * Not a refusal and not a failure: the decider named an entry price, the
+   * market did not come to it within 5 candles of the trade's timeframe, and
+   * the order was cancelled. Nothing was bought and nothing went wrong, so it
+   * is styled neutral — see `ENTRY_OUTCOME_CHIP`.
+   */
+  expired: boolean;
+  /** True while a limit entry is still waiting for its price. */
+  armed: boolean;
   /** The backend's own sentence for why. */
   detail: string | null;
 };
+
+/**
+ * How each verdict reads on a row.
+ *
+ * `EXPIRED` is the one that has to be got right: it is the commonest outcome
+ * that is neither a fill nor a fault, and leaving it unlabelled — which is
+ * what this did while only `REFUSED` had a branch — showed the user a
+ * decision that visibly did nothing with no stated reason. "Not reached" in
+ * neutral grey says what happened without implying the bot or the gate
+ * misbehaved.
+ */
+export const ENTRY_OUTCOME_CHIP: Record<string, { label: string; cls: string }> = {
+  ARMED: { label: "Waiting for price", cls: "" },
+  EXPIRED: { label: "Not reached", cls: "" },
+  REFUSED: { label: "Refused", cls: "dgr" },
+  PLACED: { label: "Order placed", cls: "go" },
+  FILLED: { label: "Filled", cls: "go" },
+};
+
+/** The chip for a verdict, or null for one with nothing to add. */
+export const entryOutcomeChip = (
+  o: EntryOutcome,
+): { label: string; cls: string } | null => (o.code ? ENTRY_OUTCOME_CHIP[o.code] ?? null : null);
 
 /**
  * The gate's verdict on a decision that wanted to open a position.
@@ -165,12 +218,18 @@ export const entryOutcome = (
   d: Pick<BotDecisionV2, "outcome"> | null | undefined,
 ): EntryOutcome => {
   const outcome = asRecord(d?.outcome);
-  if (!outcome) return { code: null, refused: false, detail: null };
+  if (!outcome) return { code: null, refused: false, expired: false, armed: false, detail: null };
   const raw = outcome.entry_outcome;
   const code = typeof raw === "string" ? raw.toUpperCase() : null;
   const rawDetail = outcome.entry_outcome_detail;
   const detail = typeof rawDetail === "string" && rawDetail.trim() ? rawDetail.trim() : null;
-  return { code, refused: code === "REFUSED", detail };
+  return {
+    code,
+    refused: code === "REFUSED",
+    expired: code === "EXPIRED",
+    armed: code === "ARMED",
+    detail,
+  };
 };
 
 /* ------------------------------------------------------------------ *

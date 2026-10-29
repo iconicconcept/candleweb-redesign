@@ -26,11 +26,22 @@ import {
   realisedPct,
   realisedPnl,
   riskNowParts,
+  signedMoney,
   toneClass,
   unattributedNote,
   winRateLabel,
 } from "../../../lib/tradingV2Metrics";
-import { confidenceRule, tradeRecord, tradeTitle } from "../../../lib/tradingV2Trades";
+import {
+  DeciderRead,
+  confidenceRule,
+  deciderLine,
+  deciderRead,
+  deciderReads,
+  hasPastDeciders,
+  tradeDeciderName,
+  tradeRecord,
+  tradeTitle,
+} from "../../../lib/tradingV2Trades";
 import usePoll, { POLL } from "../../../lib/hooks/usePoll";
 import { useRevalidateEffect } from "../../../lib/hooks/useRevalidate";
 
@@ -208,7 +219,28 @@ const TradeDetailPage = () => {
   const meta = trade ? STATUS_META[trade.status] ?? STATUS_META.PAUSED : null;
   const running = trade?.status === "ACTIVE";
   const isAi = trade?.decider_type === "CANDLEAI";
-  const decider = isAi ? "CandleAI" : trade?.bot_name || "Own bot";
+  const decider = tradeDeciderName(trade);
+
+  /* Who decided this trade, and what each of them made on it.
+     `record_by_decider` is all time; `by_decider` off the metrics call covers
+     the same split over `window_days` only. They are different numbers by
+     design, so they are shown as two columns rather than reconciled. */
+  const ownRecord = deciderRead(trade?.current_decider_record);
+  const deciderRows = deciderReads(trade);
+  const swapped = hasPastDeciders(trade);
+  const windowed = Array.isArray(metrics?.by_decider)
+    ? (metrics?.by_decider ?? [])
+        .map(deciderRead)
+        .filter((r): r is DeciderRead => !!r)
+    : [];
+
+  /* Which split the section draws. `record_by_decider` is preferred — it is
+     all time, which is the honest answer to "who has decided this trade" —
+     but the metrics window is used when the trade row carried no split and
+     the metrics call did. Reading the section off one array and gating it on
+     the other would have drawn an empty grid labelled "0 deciders". */
+  const splitRows = deciderRows.length ? deciderRows : windowed;
+  const splitIsAllTime = deciderRows.length > 0;
 
   /* The design writes the caps as "2.0% · $40" and "50% · $1,000" — the rule
      and what it comes to on this allocation, which is the number that
@@ -311,7 +343,16 @@ const TradeDetailPage = () => {
                 }}
               >
                 <span className={`fx-run2 ${meta.cls}`}>{meta.label}</span>
-                <span className={`fx-byb ${isAi ? "ai2" : ""}`}>● {decider}</span>
+                {/* The record on the chip is the CURRENT decider's own — not
+                    the trade's, which the band below reports and which counts
+                    every decider the trade has had. */}
+                <span
+                  className={`fx-byb ${isAi ? "ai2" : ""}`}
+                  title={ownRecord ? `${ownRecord.name}: ${deciderLine(ownRecord)}` : undefined}
+                >
+                  ● {decider}
+                  {ownRecord && <> · {deciderLine(ownRecord)}</>}
+                </span>
                 <span className="fx-src">
                   {pairLine} · {venueLine}
                 </span>
@@ -349,12 +390,21 @@ const TradeDetailPage = () => {
                       })}`}
                 </i>
               </div>
+              {/* The TRADE's win rate, under every decider it has had. When
+                  it has had more than one, that is not the same number as the
+                  one on the decider chip above, and the caption has to say so
+                  — otherwise the two read as a contradiction and the section
+                  below looks like it is reporting different results. */}
               <div className="fx-cp">
                 <span>Win rate</span>
                 <b className={record?.rate == null ? "mut2" : undefined}>
                   {record?.rate == null ? "—" : winRateLabel(record.rate)}
                 </b>
-                <i>{record?.caption ?? "not reported yet"}</i>
+                <i title={swapped ? "This trade's own record, under every decider it has had." : undefined}>
+                  {swapped
+                    ? `all deciders · ${record?.caption ?? "not reported yet"}`
+                    : record?.caption ?? "not reported yet"}
+                </i>
               </div>
               <div className="fx-cp">
                 <span>Net · {DEFAULT_WINDOW_DAYS}d</span>
@@ -506,6 +556,62 @@ const TradeDetailPage = () => {
                 </p>
               )}
             </section>
+
+            {/* ---- who has decided this trade ----
+                 The answer to the question the band cannot answer: its
+                 figures count every decider this trade has had, and after a
+                 swap that is nobody's record in particular. Drawn only when
+                 there is a split worth showing — one decider and this section
+                 would restate the band. */}
+            {splitRows.length > 1 && (
+              <section className="fx-sec rv">
+                <div className="fx-sh">
+                  <h2>Who has decided this trade</h2>
+                  <span className="sub2">
+                    {splitRows.length} deciders ·{" "}
+                    {splitIsAllTime ? "all time" : `last ${DEFAULT_WINDOW_DAYS} days`}
+                  </span>
+                </div>
+                <p className="fx-hint" style={{ marginTop: 0 }}>
+                  A trade keeps its results when its decider changes, so the win rate in the band
+                  above belongs to the trade rather than to any one of these. Each row below is
+                  only what that decider itself opened and closed.
+                </p>
+                <div className="fx-cfg">
+                  {splitRows.map((r) => {
+                    /* The same decider's slice of the metrics window, where
+                       the metrics call returned one. Matched on `key` first —
+                       names are unique per trade but a key is explicit. */
+                    const w = splitIsAllTime
+                      ? windowed.find((x) => x.key === r.key || x.name === r.name) ?? null
+                      : null;
+                    return (
+                      <div className="fx-cg" key={r.key}>
+                        <span>
+                          {r.name}
+                          {r.current ? " · now" : ""}
+                        </span>
+                        <b className={r.rate == null ? "mut2" : "tealb"}>
+                          {r.rate == null ? "—" : winRateLabel(r.rate)}
+                        </b>
+                        <p className="fx-hint" style={{ marginTop: "6px" }}>
+                          {r.caption}
+                          {r.netMoney != null && <> · {signedMoney(r.netMoney)}</>}
+                        </p>
+                        {/* All time and the window are different numbers on
+                            purpose; saying which is which is the only way the
+                            two can sit on one card without reading as a bug. */}
+                        {w && (
+                          <p className="fx-hint" style={{ marginTop: "4px" }}>
+                            last {DEFAULT_WINDOW_DAYS}d: {deciderLine(w)}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
 
             {/* ---- decisions + the right rail, the design's two columns ---- */}
             <div className="fx-two2">

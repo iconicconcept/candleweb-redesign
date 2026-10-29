@@ -218,6 +218,9 @@
 :root[data-theme="light"] .fx-mini.claim {
   background: var(--fx-teal);
 }
+:root[data-theme="light"] .fx-mini.amber9 {
+  background: var(--fx-amber);
+}
 /* room for the floating mobile tab bar (.fx-tabs is `position: fixed`, so it
    never claims layout space on its own — without this the bar just sits on
    top of whatever the page renders last). Desktop swaps to the icon rail and
@@ -605,6 +608,29 @@ button.fx-me[aria-expanded="true"] {
   background: var(--fx-teal);
   border-color: transparent;
   font-weight: 600;
+}
+/* The amber sibling of `.fx-mini.go`, for an action that is ready and worth
+   interrupting for rather than merely available — the Overview's "Launch
+   review" once a bot has the closed trades a review needs. Amber is already
+   the dashboard's "this is about to do something real" tone (`.fx-cta.live6`,
+   `.fx-revpill`), so a teal one here would read as just another link. */
+.fx-mini.amber9 {
+  color: #241802;
+  background: var(--fx-amber);
+  border-color: transparent;
+  font-weight: 600;
+}
+.fx-mini.amber9:hover {
+  color: #241802;
+  background: var(--fx-amber);
+  border-color: transparent;
+  box-shadow: 0 6px 18px rgba(255, 194, 77, 0.28);
+}
+.fx-mini.amber9:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 .fx-mini:disabled {
   opacity: 0.55;
@@ -5090,6 +5116,14 @@ button.fx-me[aria-expanded="true"] {
   font-size: 12px;
   color: var(--fx-teal2);
 }
+/* `.fx-mini` sets only horizontal padding — in a toolbar its height comes
+   from the row. `.fx-mh` is a baseline row with nothing else tall in it, so
+   the Launch review button has to stand its own height up, and sits on the
+   text baseline beside the heading rather than below it. */
+.fx-mh .fx-mini {
+  padding: 8px 14px;
+  align-self: center;
+}
 .fx-mnote {
   margin: 14px 0 0;
   font-size: 12.5px;
@@ -5369,6 +5403,22 @@ button.fx-ip.more2 {
   background: rgba(46, 230, 168, 0.07);
   cursor: pointer;
   line-height: inherit;
+}
+/* Tone variants for the chip, used by the gate's verdict on a decision row.
+   `.fx-ip`'s own grey is deliberately the EXPIRED case — a limit entry the
+   market never reached is not a fault and must not be styled as one — so only
+   the two that really are a refusal and a success get a colour. Both are
+   expressed in the same tokens as `.fx-mini.dgr` and `.fx-xst`, so they flip
+   with the light theme without an override of their own. */
+.fx-ip.dgr {
+  color: var(--fx-rose);
+  border-color: rgba(255, 107, 133, 0.32);
+  background: rgba(255, 107, 133, 0.07);
+}
+.fx-ip.go {
+  color: var(--fx-teal2);
+  border-color: rgba(46, 230, 168, 0.3);
+  background: rgba(46, 230, 168, 0.07);
 }
 /* indicators get the full card width on narrow screens so the chips flow
    across instead of stacking inside one half-width column */
@@ -9908,4 +9958,332 @@ a.fx-row {
   .fx-indp-cat {
     display: none;
   }
+}
+
+/* ---- recommendation detail ----
+   From candleweb-recommendation-focus.html. The page reuses most of what is
+   already here (.fx-two2/.fx-side2 columns, .fx-unlock/.fx-ul/.fx-tip2 apply
+   panel, .fx-sh headings, .fx-hint, .fx-mini, .fx-cta, .fx-ta, .fx-riskline);
+   this block is the part that was only in that file.
+
+   Three entrance animations from the design are deliberately NOT carried
+   over: `fxGrow` on the comparison bars, `fxPop` on the applied tick and
+   `fxShine` on the "replace with" block. None of those keyframes exist in
+   this stylesheet, and the design pairs fxGrow with `transform:scaleX(0)` —
+   which, with no keyframes to move it, leaves every bar scaled to nothing.
+   `.fx-psteps i` above was ported the same way for the same reason, and the
+   reduced-motion rule (`.fx-root * {animation:none}`) would strip them on
+   those settings regardless. The design's own look is otherwise unchanged:
+   the bar widths come from the data, inline, not from an animation. */
+.fx-sev2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--fx-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 6px 12px;
+  border-radius: 99px;
+  border: 1px solid;
+}
+.fx-sev2.hi {
+  color: var(--fx-rose);
+  border-color: rgba(255, 107, 133, 0.45);
+  background: rgba(255, 107, 133, 0.09);
+}
+.fx-sev2.mid {
+  color: var(--fx-amber);
+  border-color: rgba(255, 194, 77, 0.42);
+  background: rgba(255, 194, 77, 0.09);
+}
+.fx-sev2.lo {
+  color: var(--fx-t3);
+  border-color: var(--fx-line2);
+}
+
+/* the four impact tiles */
+.fx-cost {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 clamp(24px, 3.4vw, 52px);
+  margin-top: clamp(20px, 2.6vw, 28px);
+  padding: 22px 0;
+  border-top: 1px solid var(--fx-line);
+  border-bottom: 1px solid var(--fx-line);
+}
+.fx-cst {
+  padding: 2px 0;
+}
+.fx-cst span {
+  display: block;
+  font-family: var(--fx-mono);
+  font-size: 9px;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+  color: var(--fx-t3);
+  margin-bottom: 8px;
+}
+.fx-cst b {
+  font-size: clamp(21px, 2.5vw, 29px);
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  font-variant-numeric: tabular-nums;
+}
+.fx-cst b.up5 {
+  color: var(--fx-teal);
+}
+.fx-cst b.dn5 {
+  color: var(--fx-rose);
+}
+.fx-cst b.mut2 {
+  color: var(--fx-t3);
+}
+.fx-cst i {
+  font-style: normal;
+  display: block;
+  font-size: 11.5px;
+  color: var(--fx-t3);
+  margin-top: 6px;
+}
+/* On a phone the four tiles would each take a line and push the diff off the
+   first screen; two up keeps the block the height the design gives it. */
+@media (max-width: 640px) {
+  .fx-cst {
+    min-width: 42%;
+    padding-bottom: 10px;
+  }
+}
+
+/* the prompt diff */
+.fx-diff2 {
+  margin-top: 8px;
+}
+.fx-dl2 {
+  font-family: var(--fx-mono);
+  font-size: 12px;
+  line-height: 1.75;
+  padding: 30px 15px 13px;
+  border-radius: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin-bottom: 8px;
+  position: relative;
+  overflow: hidden;
+}
+.fx-dl2.old2 {
+  background: rgba(255, 107, 133, 0.08);
+  border-left: 2px solid rgba(255, 107, 133, 0.55);
+  color: #d8a3ac;
+}
+.fx-dl2.new2 {
+  background: rgba(46, 230, 168, 0.09);
+  border-left: 2px solid rgba(46, 230, 168, 0.6);
+  color: var(--fx-teal2);
+}
+.fx-dtag {
+  position: absolute;
+  top: 10px;
+  left: 15px;
+  font-family: var(--fx-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fx-t3);
+}
+/* `#d8a3ac` is a dark-surface tint and goes grey-pink on white, so the light
+   theme takes the rose token instead. */
+:root[data-theme="light"] .fx-root .fx-dl2.old2 {
+  color: var(--fx-rose2);
+}
+
+/* the evidence panel and its comparison bars */
+.fx-evid {
+  border: 1px solid var(--fx-line);
+  border-radius: 15px;
+  background: var(--k26);
+  padding: 18px;
+  margin-top: 8px;
+}
+.fx-evid p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--fx-t2);
+  line-height: 1.72;
+}
+.fx-evid b {
+  color: var(--fx-t1);
+  font-weight: 600;
+}
+.fx-bars {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin-top: 18px;
+}
+.fx-cmp2 {
+  display: grid;
+  grid-template-columns: 130px 1fr 76px;
+  gap: 12px;
+  align-items: center;
+  font-size: 13px;
+}
+.fx-cmp2 span {
+  color: var(--fx-t2);
+}
+.fx-cmp2 .bar3 {
+  height: 9px;
+  border-radius: 99px;
+  background: var(--w07);
+  overflow: hidden;
+}
+.fx-cmp2 .bar3 i {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+}
+.fx-cmp2 .bar3 i.good3 {
+  background: linear-gradient(90deg, var(--fx-deep), var(--fx-teal));
+}
+.fx-cmp2 .bar3 i.bad3 {
+  background: linear-gradient(90deg, #a8384c, var(--fx-rose));
+}
+.fx-cmp2 b {
+  text-align: right;
+  font-family: var(--fx-mono);
+  font-size: 13px;
+}
+.fx-cmp2 b.up5 {
+  color: var(--fx-teal);
+}
+.fx-cmp2 b.dn5 {
+  color: var(--fx-rose);
+}
+/* The label column is a fixed 130px in the design; below that width the
+   three columns cannot all fit, so the label takes its own line. */
+@media (max-width: 560px) {
+  .fx-cmp2 {
+    grid-template-columns: 1fr 76px;
+  }
+  .fx-cmp2 span {
+    grid-column: 1 / -1;
+  }
+}
+
+/* the trades behind it */
+.fx-tradelist {
+  margin-top: 8px;
+}
+.fx-tl2 {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 14px;
+  padding: 12px 2px;
+  border-top: 1px solid var(--fx-line);
+  font-size: 13px;
+}
+@media (min-width: 700px) {
+  .fx-tl2 {
+    grid-template-columns: 64px 120px 1fr 84px;
+    align-items: baseline;
+  }
+}
+.fx-tl2 .d5 {
+  font-family: var(--fx-mono);
+  font-size: 11px;
+  color: var(--fx-t3);
+}
+.fx-tl2 .p5 {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.fx-tl2 .r5 {
+  font-family: var(--fx-mono);
+  font-size: 11.5px;
+  color: var(--fx-t3);
+  line-height: 1.55;
+}
+.fx-tl2 .v5 {
+  text-align: right;
+  font-family: var(--fx-mono);
+  font-size: 13px;
+}
+.fx-tl2 .v5 small {
+  display: block;
+  color: var(--fx-t3);
+  font-size: 10.5px;
+  margin-top: 3px;
+}
+
+/* "3 of 6 suggestions applied" */
+.fx-applied {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  border: 1px solid rgba(46, 230, 168, 0.35);
+  background: rgba(46, 230, 168, 0.07);
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-top: 22px;
+}
+.fx-applied i {
+  width: 26px;
+  height: 26px;
+  border-radius: 9px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  background: var(--fx-teal);
+  color: #04140f;
+  font-style: normal;
+  font-size: 12px;
+}
+.fx-applied b {
+  display: block;
+  font-size: 13.5px;
+  color: var(--fx-teal2);
+  margin-bottom: 3px;
+}
+.fx-applied span {
+  display: block;
+  font-size: 12.3px;
+  color: var(--fx-t2);
+  line-height: 1.5;
+}
+/* Dismissed is not a success and must not borrow the teal: the same tile in
+   neutral, for a recommendation the user has turned down. */
+.fx-applied.off8 {
+  border-color: var(--fx-line2);
+  background: var(--w03);
+}
+.fx-applied.off8 i {
+  background: var(--w09);
+  color: var(--fx-t2);
+}
+.fx-applied.off8 b {
+  color: var(--fx-t1);
+}
+
+/* Previous / 1 of 4 / Next */
+.fx-recnav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding-top: 24px;
+  border-top: 1px solid var(--fx-line);
+  margin-top: 26px;
+  font-family: var(--fx-mono);
+  font-size: 11px;
+  color: var(--fx-t3);
+}
+/* `.fx-mini` is sized for a toolbar row and has no vertical padding of its
+   own; in this nav it is the only thing setting the row's height. */
+.fx-recnav .fx-mini {
+  padding: 9px 13px;
+}
+.fx-recnav .fx-mini:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
 }

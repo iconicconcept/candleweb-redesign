@@ -68,6 +68,18 @@ const TRIGGERS: Record<string, RevalidateKey[]> = {
      its reason, and a trade may have been stopped by it. */
   botentryrefused: ["decisions", "trades"],
 
+  /* A limit entry was never reached, so it was cancelled: the decision's
+     `entry_outcome` has moved from ARMED to EXPIRED and the trade can take an
+     entry again — which it could not while that one was armed. Without this
+     the row sat on "waiting for price" for up to a minute after it had
+     stopped waiting. */
+  limitentryexpired: ["decisions", "trades"],
+
+  /* A review finished or failed. Readiness carries `reviews_available`, which
+     a finished review has spent (or a failed one given back), so the button's
+     state is wrong until this is re-read. §7. */
+  botreview: ["reviewReadiness"],
+
   /* A trade stopped running — its row and the status chips change. */
   tradepaused: ["trades", "status"],
 
@@ -106,7 +118,21 @@ const warned = new Set<string>();
  * for types mentioning the things this dashboard is about, so a referral
  * notification never prompts anyone to go looking for a missing trigger.
  */
-const TRADING_WORDS = ["position", "trade", "bot", "order", "decision", "stop"];
+/* "entry", "limit" and "review" are here because the three types added last
+   contain none of the earlier words: "Limit entry expired" and "Bot review"
+   would have gone unmatched AND unreported, which is the exact pair of
+   silences this guard exists to break. */
+const TRADING_WORDS = [
+  "position",
+  "trade",
+  "bot",
+  "order",
+  "decision",
+  "stop",
+  "entry",
+  "limit",
+  "review",
+];
 
 export const warnUnmatchedType = (type: string | null | undefined): void => {
   if (process.env.NODE_ENV === "production") return;
