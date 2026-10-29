@@ -453,6 +453,12 @@
     flex-direction: column;
     align-items: stretch;
     gap: 0;
+    /* Overrides the desktop pill's `justify-content: center`, which this panel
+       inherits. A centred column taller than its scroll box overflows past
+       the top as well as the bottom, and that top overflow can't be scrolled
+       to — so the first item (the Get Started button) was clipped off,
+       leaving only its glow showing. */
+    justify-content: flex-start;
     height: auto;
     padding: 80px clamp(20px, 4.5vw, 64px) 32px;
     border: 0;
@@ -492,6 +498,27 @@
     text-align: left;
     cursor: pointer;
   }
+  /* A solid band behind the logo row while the menu is open. The menu
+     scrolls under the row, and the row is transparent, so without this the
+     button and links showed through behind the logo. It sits between the
+     menu (z 100) and the row (z 110), matches the menu's top padding so
+     nothing is covered at rest, and fades its last 12px so items slide
+     under it rather than meeting a hard edge. */
+  .pub-nav-wrap.menu-open .pub-nav::before {
+    position: fixed;
+    top: 0;
+    right: 0;
+    left: 0;
+    z-index: 105;
+    height: 80px;
+    background: linear-gradient(
+      180deg,
+      var(--pub-s2) calc(100% - 12px),
+      transparent
+    );
+    pointer-events: none;
+    content: "";
+  }
   /* Keep the nav row on top of the panel so the close button is reachable. */
   .pub-nav .pub-brand,
   .pub-nav .pub-nav-end {
@@ -516,6 +543,27 @@
   .pub-login {
     display: none;
   }
+  /* The CTA moves into the menu on mobile — the nav row keeps only the brand,
+     the theme toggle and the burger. */
+  .pub-nav-end .pub-btn-amber {
+    display: none;
+  }
+  /* Full menu width, first in the menu, above "Bring your bot". The links use
+     a bottom border and flush padding, so this needs its own box back. */
+  .pub-nav-mid.is-open .pub-m-cta {
+    display: inline-flex;
+    flex: 0 0 auto;
+    width: 100%;
+    height: 50px;
+    justify-content: center;
+    /* Breathing room under the logo row. Margin rather than more panel
+       padding, so the band behind the row keeps matching that padding. */
+    margin: 14px 0 14px;
+    padding: 0 20px;
+    border: 1px solid transparent;
+    border-radius: 99px;
+    font-size: 16px;
+  }
 }
 @media (max-width: 700px) {
   .pub-footer {
@@ -527,6 +575,11 @@
   }
 }
 @media (max-width: 560px) {
+  /* Half a point down: the line wraps to two on a phone either way, and 13px
+     made it the loudest thing above the logo. */
+  .pub-announcement {
+    font-size: 12.5px;
+  }
   .pub-nav {
     padding-top: 18px;
     gap: 10px;
@@ -549,6 +602,9 @@
   .pub-nav-end .pub-menu {
     width: 44px;
     height: 44px;
+  }
+  .pub-nav-wrap.menu-open .pub-nav::before {
+    height: 68px;
   }
   .pub-nav-mid.is-open {
     padding-top: 68px;
@@ -613,6 +669,16 @@
   display: block;
 }
 /* menu-row variant (mobile) — hidden on desktop, shown inside the open panel */
+/* The in-menu amber CTA. Hidden on desktop, where `.pub-nav-end` carries the
+   real one; see the mobile block for the swap. */
+/* Scoped under `.pub-nav-mid` on purpose: the CTA renders as an <a>, and
+   `.pub-nav-mid a { display: flex }` (0,1,1) outranks a bare `.pub-m-cta`
+   (0,1,0) — which is how it first shipped showing inside the desktop nav pill.
+   At (0,2,0) this wins, and the mobile `.pub-nav-mid.is-open .pub-m-cta`
+   (0,3,0) still wins over it. */
+.pub-nav-mid .pub-m-cta {
+  display: none;
+}
 .pub-m-theme {
   display: none;
 }
@@ -719,6 +785,9 @@
 }
 :root[data-site-theme="light"] .pub-nav-mid.is-open a:hover {
   background: rgba(16, 22, 18, 0.05);
+}
+:root[data-site-theme="light"] .pub-nav-wrap.menu-open .pub-nav::before {
+  background: linear-gradient(180deg, #ffffff calc(100% - 12px), rgba(255, 255, 255, 0));
 }
 :root[data-site-theme="light"] .pub-nav-mid.is-open {
   background: #ffffff;

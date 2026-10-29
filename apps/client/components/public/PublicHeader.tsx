@@ -301,6 +301,33 @@ export default function PublicHeader({
             <BrandLogo className="pub-logo" height={18} priority />
           </Link>
           <div className={`pub-nav-mid ${menuOpen ? "is-open" : ""}`}>
+            {/* First in the markup, so it sits at the top of the menu without
+                relying on CSS `order` (which left it after "Log in").
+                The amber CTA, for mobile. `.pub-nav-end`'s copy is hidden
+                below 1000px, so this is the one that shows there — the same
+                arrangement `.pub-m-login` already has with `.pub-login`.
+                Rendered on the same condition as the desktop one, so a
+                signed-in user gets neither. */}
+            {!signedIn &&
+              (cta?.onClick ? (
+                <button
+                  className="pub-btn pub-btn-amber pub-m-cta"
+                  onClick={() => {
+                    closeMenu();
+                    cta.onClick?.();
+                  }}
+                >
+                  {cta.label} <span>↗</span>
+                </button>
+              ) : (
+                <Link
+                  href={cta?.href || "/register"}
+                  className="pub-btn pub-btn-amber pub-m-cta"
+                  onClick={closeMenu}
+                >
+                  {cta?.label || "Get Started"} <span>↗</span>
+                </Link>
+              ))}
             {NAV_LINKS.map((link) => (
               <Link
                 key={link.label}
