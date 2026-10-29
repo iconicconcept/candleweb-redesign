@@ -15,6 +15,9 @@
   --landing-amber: #ffb93d;
   --landing-amber-2: #ffd489;
   --landing-rose: #ff6b85;
+  /* Where the waterline hero bottoms out. Shared, because the section below
+     the hero continues it — see `#how` at the foot of this file. */
+  --landing-deep-end: #04090b;
   position: relative;
   isolation: isolate;
   /* `clip` (not `hidden`) so a position:sticky header can escape this box. */
@@ -1516,7 +1519,7 @@
   --wl-wave-back: rgba(126, 240, 210, 0.22);
   --wl-wave-crest: rgba(126, 240, 210, 0.75);
   --wl-wave-glow: rgba(49, 224, 176, 0.6);
-  --wl-deep-end: #04090b;
+  --wl-deep-end: var(--landing-deep-end);
   --wl-console: rgba(5, 12, 13, 0.85);
   --wl-bubble: rgba(126, 240, 210, 0.7);
   --wl-lens: rgba(126, 240, 210, 0.32);
@@ -2282,6 +2285,30 @@ button.landing-btn {
   }
 }
 
+/* ---- the hero and the section under it are one surface ----
+   `#how` follows the waterline hero, and the two used to be told apart three
+   ways at once: `.landing-band`'s top border and pale overlay, and — the one
+   that actually read as a green wash — `.landing-aura`'s teal lobe, which
+   sits at 25% of the page. The waterline hero is far taller than the hero it
+   replaced, so that 25% mark moved off the hero and landed on this band.
+
+   Fixed here rather than by moving the aura, which lights the whole page:
+   this band now starts on the hero's own `--landing-deep-end` (literally the
+   same token, so they cannot drift), which paints over the aura beneath it
+   (the aura is z-index -1), then fades back to the page by its foot. The
+   bottom border stays — it is the boundary to the section BELOW, which is
+   not the one that was asked about. Every other `.landing-band` is
+   untouched. */
+.landing-stage .landing-band#how {
+  border-top: 0;
+  background: linear-gradient(
+    180deg,
+    var(--landing-deep-end) 0%,
+    var(--landing-deep-end) 42%,
+    transparent 100%
+  );
+}
+
 /* ============================================================================
    LIGHT THEME — additive. Only applies under :root[data-site-theme="light"]
    (the default). Every dark rule above is left exactly as shipped; this block
@@ -2301,6 +2328,7 @@ button.landing-btn {
   --landing-deep: #0b7d5f;
   --landing-amber: #ffb93d;
   --landing-rose: #e5384f;
+  --landing-deep-end: #cfe9e3;
   /* --landing-amber-2 stays light gold for the amber CTA gradient; amber text
      on light surfaces is re-coloured per-rule below. */
 
@@ -2404,7 +2432,6 @@ button.landing-btn {
   --wl-wave-back: rgba(16, 163, 127, 0.3);
   --wl-wave-crest: #10a37f;
   --wl-wave-glow: rgba(16, 163, 127, 0.35);
-  --wl-deep-end: #cfe9e3;
   --wl-console: rgba(255, 255, 255, 0.9);
   --wl-bubble: rgba(255, 255, 255, 0.95);
   --wl-lens: rgba(255, 255, 255, 0.75);

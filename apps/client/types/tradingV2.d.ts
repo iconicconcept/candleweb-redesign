@@ -506,7 +506,11 @@ export interface FleetHealthV2 {
   /** The fleet's WORST bot, not an average: if any bot failed today this is 0. */
   days_without_failure: number | null;
   failed_30d: number | null;
-  /** Always null — nothing spends a bot review yet. */
+  /**
+   * Has always answered null. The fleet's "Reviews waiting" tile is built
+   * from each bot's own `review-readiness/` instead — see `useBotReadiness`.
+   * Kept declared so the field is not mistaken for one nobody looked at.
+   */
   reviews_waiting: number | null;
   unavailable: BotHealthV2Unavailable;
   bots: FleetHealthV2Bot[];

@@ -25,6 +25,7 @@ import {
 import useBotMetrics, { BOT_METRIC_CAP } from "../../lib/hooks/useBotMetrics";
 import useOpenPositions from "../../lib/hooks/useOpenPositions";
 import useBook from "../../lib/hooks/useBook";
+import useBotReadiness from "../../lib/hooks/useBotReadiness";
 import usePoll, { POLL } from "../../lib/hooks/usePoll";
 import { useRevalidateEffect } from "../../lib/hooks/useRevalidate";
 import { commonQuote, forBotId, openPnlTotal, posMoney } from "../../lib/positionsV2";
@@ -35,6 +36,12 @@ import {
   toneClass,
   winRateLabel,
 } from "../../lib/tradingV2Metrics";
+
+/* The fallback bar, used only until `review-readiness` answers with the real
+   one. The threshold is an entitlement — a plan can set its own — so the
+   response's `closed_trades_needed` always wins over this. Same constant, and
+   same reasoning, as the Overview and the bot detail page. */
+const REVIEW_AT = 20;
 
 const BotsPage = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -101,6 +108,15 @@ const BotsPage = () => {
     bots.map((b) => b.id),
     book,
   );
+  /* Whether each bot could be reviewed right now — one request per bot,
+     capped, same as the metrics above. There is no fleet-wide answer to this:
+     `/bots/health/` carries a `reviews_waiting` that has always been null,
+     which is why this tile read "Not measured yet". */
+  const readiness = useBotReadiness(
+    axiosToken,
+    bots.map((b) => b.id),
+  );
+
   /* One positions request for the whole list, attributed per bot by `bot_id`
      rather than one request per row. */
   const {
@@ -263,16 +279,31 @@ const BotsPage = () => {
                       )}
                     </span>
                   </div>
+                  {/* Bots with enough history to be reviewed. Counted off
+                      each bot's own `review-readiness`, since the fleet
+                      payload has never filled `reviews_waiting` in.
+
+                      It counts `eligible`, not `ready`: `ready` also needs a
+                      review left to spend, so a user who has run out would
+                      see 0 here while bots sat waiting. The caption carries
+                      that distinction instead. */}
                   <div className="fx-stk2">
                     <span>Reviews waiting</span>
-                    {/* Always null — nothing spends a bot review yet, so none
-                        can be waiting. Never render this as a 0. */}
-                    <b className="none3">{NOT_MEASURED}</b>
-                    <span
-                      className="why3"
-                      title={unavailableReason(fleet?.unavailable, "reviews_waiting")}
-                    >
-                      Nothing spends a review yet.
+                    {!readiness.asked ? (
+                      <b className="none3">Reading…</b>
+                    ) : (
+                      <b className={readiness.eligibleCount > 0 ? "amb3" : undefined}>
+                        {readiness.eligibleCount}
+                      </b>
+                    )}
+                    <span className="why3">
+                      {!readiness.asked
+                        ? "Checking each bot's closed trades."
+                        : readiness.eligibleCount === 0
+                          ? "No bot has enough closed trades on its prompt yet."
+                          : readiness.reviewsLeft === 0
+                            ? "Ready to review — but no reviews left to spend."
+                            : `${readiness.eligibleCount === 1 ? "This bot has" : "These bots have"} what a review needs.`}
                     </span>
                   </div>
                 </div>
@@ -381,6 +412,11 @@ const BotsPage = () => {
             const stamp = signalStamp(fb?.last_signal);
             const botOpen = forBotId(positions, b.id);
             const botOpenPnl = openPnlTotal(botOpen);
+            /* `undefined` = beyond the readiness cap and never asked for, the
+               same three-state read the PnL cell makes. */
+            const rd = readiness.forBot(b.id);
+            const rdClosed = rd?.closed_trades_on_prompt ?? null;
+            const rdNeeded = rd?.closed_trades_needed ?? REVIEW_AT;
             return (
               <div key={b.id} className={`fx-bcard ${meta.dead ? "dead" : ""} ${b.status === "PAUSED" ? "off5" : ""}`}>
                 <div className="fx-bl1">
@@ -516,6 +552,30 @@ const BotsPage = () => {
                       </span>
                     ))
                   )}
+                  {/* `.fx-revpill` — styled for this since the bots page was
+                      ported, but never rendered. Amber is the dashboard's
+                      "there is something to act on" tone, so the pill appears
+                      only when there actually is: a bot that could be
+                      reviewed now. Progress toward that lives on the bot's
+                      own page, which this links to — a pill on every card
+                      counting to 20 would be noise on a long list. */}
+                  {rd?.eligible === true && (
+                    <Link className="fx-revpill" href={`/dashboard/bots/${b.id}`}>
+                      ◔{" "}
+                      {readiness.reviewsLeft === 0
+                        ? "Ready — no reviews left"
+                        : "Ready to review"}
+                    </Link>
+                  )}
+                  {/* Not eligible, but close enough to be worth saying. */}
+                  {rd?.eligible === false &&
+                    rdClosed != null &&
+                    rdClosed > 0 &&
+                    rdClosed < rdNeeded && (
+                      <span className="fx-tr2" title="Closed trades on this bot's current prompt.">
+                        {rdClosed} of {rdNeeded} to a review
+                      </span>
+                    )}
                 </div>
 
                 <div className="fx-bacts">

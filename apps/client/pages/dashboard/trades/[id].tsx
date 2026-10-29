@@ -79,15 +79,15 @@ const CTA_STYLE = { flex: "0 0 auto", padding: "11px 18px", fontSize: "13.5px" }
  * caveat that used to sit under the band is gone, replaced by
  * `unattributed_positions` — what is in NEITHER figure.
  *
- * Two things still cannot be filled and say so rather than showing an
- * invented number:
+ * One thing still cannot be filled and says so rather than showing an
+ * invented number: **the order under each decision**, and the band's "N
+ * became orders". That is `outcome` on `GET /decisions/{id}/` — detail-only
+ * and typed `additionalProperties: {}`. P3 §3.M13.
  *
- *  - **The order under each decision**, and the band's "N became orders".
- *    That is `outcome` on `GET /decisions/{id}/` — detail-only and typed
- *    `additionalProperties: {}`. P3 §3.M13.
- *  - **"Does confidence mean anything?"**, which buckets closed positions by
- *    confidence. Same `outcome` dependency, one request per decision, and
- *    bucket averages belong server-side. P3 §3.M14.
+ * The design's "Does confidence mean anything?" panel was removed at the
+ * client's request. It had never been more than a note explaining why the
+ * buckets could not be built (§3.M14), and a panel whose whole content is an
+ * apology earns less than the space it takes.
  *
  * The design's title is a trade *name* ("ETH momentum"), and the trade now
  * carries one. `display_name` is what goes on screen — it falls back to
@@ -637,37 +637,13 @@ const TradeDetailPage = () => {
               </section>
 
               <aside className="fx-side2" data-rv>
-                {/* ---- does confidence mean anything? ----
-                     The design buckets this trade's closed positions by the
-                     bot's confidence and shows each bucket's average return.
-                     `confidence` is on every decision; the RETURN is in
-                     `outcome`, which is detail-only and undocumented — so the
-                     buckets would be one request per decision against guessed
-                     keys. Bucket averages also belong server-side. §3.M14. */}
-                <div className="fx-sh">
-                  <h2>Does confidence mean anything?</h2>
-                </div>
-                <div className="fx-cal">
-                  <p className="fx-calnote" style={{ marginTop: 0 }}>
-                    <b>Not yet.</b> Answering this means comparing what each decision scored itself
-                    against what it actually returned. The score is on every decision; the return
-                    lives with the order it became, which has no list endpoint — so the buckets
-                    would mean one request per decision, against field names nobody has documented.
-                  </p>
-                  <p className="fx-calnote" style={{ marginTop: "10px" }}>
-                    Confidence is self-reported by your bot and isn&rsquo;t calibrated by us — it
-                    only ever means something because your own results say so. This panel turns on
-                    with a calibration endpoint.
-                  </p>
-                </div>
-
                 {/* ---- this trade's progress ----
                      Milestones that run off the closed-position count. The
                      design's middle row ("Never breached a limit · 1 order
                      refused, correctly") needs the gate's refusal verdict, so
                      it states what it is waiting for rather than claiming a
                      clean record nobody has checked. */}
-                <div className="fx-unlock" style={{ marginTop: "14px" }}>
+                <div className="fx-unlock">
                   <h4>This trade&rsquo;s progress</h4>
                   <p className="us">
                     {closed == null
