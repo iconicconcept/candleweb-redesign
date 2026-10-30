@@ -569,9 +569,9 @@
     width: 100%;
     height: 50px;
     justify-content: center;
-    /* Breathing room under the logo row. Margin rather than more panel
-       padding, so the band behind the row keeps matching that padding. */
-    margin: 14px 0 14px;
+    /* Breathing room under the Theme row, plus a gap at the bottom of
+       the scrolling list. */
+    margin: 10px 0 14px;
     padding: 0 20px;
     border: 1px solid transparent;
     border-radius: 99px;

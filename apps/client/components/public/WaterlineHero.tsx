@@ -713,7 +713,7 @@ export default function WaterlineHero() {
               exchanges, round-the-clock monitoring and a review of every trade.
             </p>
             <div className="landing-hero-cta landing-rise rise-left">
-              <Link className="landing-btn landing-btn-amber" href="#access">
+              <Link className="landing-btn landing-btn-amber" href="/register">
                 Get Started <span>↗</span>
               </Link>
               <Link className="landing-btn landing-btn-teal" href="#how">
