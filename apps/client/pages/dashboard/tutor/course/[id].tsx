@@ -539,7 +539,7 @@ export default function CourseFocus() {
                   <button
                     className="fx-mini"
                     type="button"
-                    style={{ width: "100%", padding: "13px 0", marginTop: 12 }}
+                    style={{ width: "100%", padding: "13px 0", marginTop: 12, justifyContent: "center", textAlign: "center" }}
                     onClick={() => setShowAllModules((v) => !v)}
                   >
                     {showAllModules ? "Show fewer modules" : `Show all ${filteredModules.length} modules`}

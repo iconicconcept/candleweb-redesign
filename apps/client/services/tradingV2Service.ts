@@ -56,6 +56,13 @@ const getErrorMessage = (err: any): string => {
   const e = err as AxiosError;
   const data = e.response?.data as any;
   if (!data) return e.message ?? e.toString();
+  /* A route the server doesn't have answers with its HTML error page, not
+     JSON — never put a whole page of markup in front of the user. */
+  if (typeof data === "string" && /^\s*</.test(data)) {
+    return e.response?.status === 404
+      ? "This isn't available on the server yet."
+      : `The server sent an unexpected response (${e.response?.status ?? "no status"}).`;
+  }
   if (typeof data === "string") return data;
   if (data.message) return data.message;
   if (typeof data === "object") {

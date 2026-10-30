@@ -312,9 +312,7 @@ const PricingPage = () => {
          money today — it only decides when the current plan stops — so it goes
          to the subscription page, which says what is lost and from when. */
       if (planRank(plan) > planRank(byCode[held.plan_code])) {
-        /* from a paid plan, start from the answer already on file; a free
-           plan never asked */
-        setAutoRenew(byCode[held.plan_code]?.is_free ? true : held.auto_renew ?? true);
+        setAutoRenew(true);
         setIntent({ kind: "change", plan });
         return;
       }
@@ -348,7 +346,17 @@ const PricingPage = () => {
 
   /* ---------------- one checkout, three things to buy ---------------- */
 
+  /* ×, Escape and the backdrop close the dialog even while the checkout is
+     being opened; an answer that arrives after that is dropped, not followed. */
+  const closedRef = useRef(false);
+  const closeIntent = () => {
+    closedRef.current = true;
+    setPaying(false);
+    setIntent(null);
+  };
+
   const submit = async (it: Intent) => {
+    closedRef.current = false;
     setPaying(true);
     let res: any;
     if (it.kind === "reviews") {
@@ -372,6 +380,7 @@ const PricingPage = () => {
         }),
       );
     }
+    if (closedRef.current) return;
     if (res.meta.requestStatus !== "fulfilled") {
       /* subscriptionV2Service has already said why — a second toast here is
          the same refusal twice. */
@@ -1218,7 +1227,8 @@ const PricingPage = () => {
                 }
           }
           busy={paying}
-          onCancel={() => setIntent(null)}
+          closableWhileBusy
+          onCancel={closeIntent}
           onContinue={() => submit(intent)}
         />
       )}

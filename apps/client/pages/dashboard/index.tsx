@@ -1121,13 +1121,6 @@ const DashboardPage = () => {
                                   "The closed trades are there, but something else is still missing."
                                 : `${(reviewNeeded - closedOnPrompt).toLocaleString()} to go — editing the prompt, model or decision style starts the count again.`}
                     </p>
-                    {/* Everything still standing between this bot and a
-                        review, in the backend's own words. `eligible` can be
-                        false for a reason the bar cannot show — no stored
-                        prompt, most often. */}
-                    {readinessAsked && !reviewEligible && (readiness?.blockers ?? []).length > 0 && (
-                      <p className="fx-mnote">{readiness?.blockers?.[0]?.message}</p>
-                    )}
                     {outOfReviews && (
                       <p className="fx-mnote">
                         <Link className="fx-link" href="/dashboard/subscription">

@@ -37,11 +37,6 @@ const Tick = () => (
   </svg>
 );
 
-const RenewGlyph = () => (
-  <svg viewBox="0 0 24 24" aria-hidden="true">
-    <path d="M4.5 12a7.5 7.5 0 0113-5.1L20 9.5M20 4.5v5h-5M19.5 12a7.5 7.5 0 01-13 5.1L4 14.5M4 19.5v-5h5" />
-  </svg>
-);
 
 type Props = {
   /** What is being bought, e.g. "Builder · ₦10,000 a month". */
@@ -53,6 +48,9 @@ type Props = {
   /** A plan checkout asks whether to charge again when the period ends —
       the backend reads no answer as no. One-off purchases leave this out. */
   renew?: { on: boolean; period: "month" | "year"; planName: string; onToggle: () => void };
+  /** ×, Escape and the backdrop still close it while `busy` — for a page
+      that drops a checkout answer arriving after the dialog was closed. */
+  closableWhileBusy?: boolean;
   onCancel: () => void;
   onContinue: () => void;
 };
@@ -63,12 +61,15 @@ export default function PaymentMethodModal({
   busy,
   continueLabel = "Continue",
   renew,
+  closableWhileBusy,
   onCancel,
   onContinue,
 }: Props) {
+  const canClose = !busy || !!closableWhileBusy;
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !busy) onCancel();
+      if (e.key === "Escape" && canClose) onCancel();
     };
     document.addEventListener("keydown", onKey);
     const previous = document.body.style.overflow;
@@ -77,12 +78,12 @@ export default function PaymentMethodModal({
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = previous;
     };
-  }, [onCancel, busy]);
+  }, [onCancel, canClose]);
 
   return (
     <div
       className="ac-cd-scrim"
-      onClick={(e) => e.target === e.currentTarget && !busy && onCancel()}
+      onClick={(e) => e.target === e.currentTarget && canClose && onCancel()}
     >
       <div
         className="ac-cd-dlg ac-pm-dlg"
@@ -94,7 +95,7 @@ export default function PaymentMethodModal({
           type="button"
           className="ac-pm-x"
           onClick={onCancel}
-          disabled={busy}
+          disabled={!canClose}
           aria-label="Close"
         >
           &times;
@@ -138,30 +139,27 @@ export default function PaymentMethodModal({
             </button>
           </div>
 
+          {/* A setting for this plan, not a way to pay — so a switch, on
+              unless the user turns it off. */}
           {renew && (
-            <div className="ac-pm-list" style={{ marginTop: 9 }}>
+            <div className="ac-pm-sw">
+              <span className="ac-pm-t">
+                <b>Renew automatically</b>
+                <span>
+                  {renew.on
+                    ? `Charged again every ${renew.period} until you cancel.`
+                    : `Off. ${renew.planName} runs to the end of the ${renew.period} and stops.`}
+                </span>
+              </span>
               <button
                 type="button"
-                className={`ac-pm ${renew.on ? "on" : ""}`}
-                aria-pressed={renew.on}
+                role="switch"
+                className={`ac-tg ${renew.on ? "" : "off"}`}
+                aria-checked={renew.on}
+                aria-label="Renew automatically"
                 onClick={renew.onToggle}
                 disabled={busy}
-              >
-                <span className="ac-pm-i">
-                  <RenewGlyph />
-                </span>
-                <span className="ac-pm-t">
-                  <b>Renew automatically</b>
-                  <span>
-                    {renew.on
-                      ? `Charged again every ${renew.period} until you cancel.`
-                      : `Off. ${renew.planName} runs to the end of the ${renew.period} and stops.`}
-                  </span>
-                </span>
-                <span className="ac-pm-c" aria-hidden="true">
-                  {renew.on && <Tick />}
-                </span>
-              </button>
+              />
             </div>
           )}
 

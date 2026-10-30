@@ -929,6 +929,10 @@
     grid-template-columns: 1fr;
     gap: 32px;
   }
+  /* Stacked, the course image leads: it is what the text below describes. */
+  .ac-hero-media {
+    order: -1;
+  }
 }
 @media (max-width: 960px) {
   .ac-steps {
@@ -1832,6 +1836,55 @@ h1.ac-cd-title {
   stroke-width: 2.2;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+/* "Renew automatically" — a setting, not a way to pay, so a switch row
+   rather than another option card. Mirrors the dashboard's .fx-tg; colours
+   are literal because this dialog is dark whatever the site theme. */
+.ac-pm-sw {
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  margin-top: 14px;
+  padding: 14px 2px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+.ac-pm-sw .ac-pm-t {
+  flex: 1;
+}
+.ac-tg {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 25px;
+  margin-top: 2px;
+  border: 0;
+  border-radius: 99px;
+  position: relative;
+  cursor: pointer;
+  background: #2ee6a8;
+  transition: background 0.22s;
+}
+.ac-tg::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  background: #04140f;
+  transition: all 0.22s cubic-bezier(0.34, 1.3, 0.5, 1);
+}
+.ac-tg.off {
+  background: rgba(255, 255, 255, 0.13);
+}
+.ac-tg.off::after {
+  right: auto;
+  left: 3px;
+  background: #8c9299;
+}
+.ac-tg:disabled {
+  cursor: default;
+  opacity: 0.6;
 }
 .ac-pm-soon {
   font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace;

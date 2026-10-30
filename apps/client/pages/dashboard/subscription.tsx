@@ -69,11 +69,6 @@ const CoinGlyph = () => (
     <path d="M9.4 8.2h4a2.2 2.2 0 010 4.4h-4M9.4 12.6h4.4a2.2 2.2 0 010 4.4H9.4M9.4 6.6v12M11.6 5.2v2M11.6 18.6v2" />
   </svg>
 );
-const RenewGlyph = () => (
-  <svg viewBox="0 0 24 24">
-    <path d="M4.5 12a7.5 7.5 0 0113-5.1L20 9.5M20 4.5v5h-5M19.5 12a7.5 7.5 0 01-13 5.1L4 14.5M4 19.5v-5h5" />
-  </svg>
-);
 const ShieldGlyph = () => (
   <svg viewBox="0 0 24 24">
     <path d="M12 3l7 3v6c0 4-3 6.5-7 9-4-2.5-7-5-7-9V6z" />
@@ -613,6 +608,7 @@ const SubscriptionPage = () => {
 
   const continuePay = async () => {
     if (!pay) return;
+    payClosedRef.current = false;
     setBusy(true);
     let res: any;
     if (pay.kind === "invoice") {
@@ -628,6 +624,11 @@ const SubscriptionPage = () => {
     } else {
       const thunk = pay.kind === "subscribe" ? subscriptionV2Service.subscribe : subscriptionV2Service.changePlan;
       res = await dispatch(thunk({ api: axiosToken, plan: pay.plan.code, cycle: pay.cycle, autoRenew }));
+    }
+    /* closed while the checkout was being opened: drop the answer, don't redirect */
+    if (payClosedRef.current) {
+      setBusy(false);
+      return;
     }
     if (res.meta.requestStatus !== "fulfilled") {
       setBusy(false);
@@ -696,9 +697,19 @@ const SubscriptionPage = () => {
 
   const openPay = (intent: PayIntent) => {
     setPayMethod("card");
-    /* an upgrade from a paid plan starts from the answer already on file */
-    setAutoRenew(intent.kind === "change" && !currentPlan?.is_free ? live?.auto_renew ?? true : true);
+    /* on by default; the user can switch it off before paying */
+    setAutoRenew(true);
     setPay(intent);
+  };
+
+  /* × , Escape and the backdrop always close the dialog — even while the
+     checkout is being opened, which used to leave × dead with no way out.
+     A request still in flight is then ignored rather than redirecting. */
+  const payClosedRef = useRef(false);
+  const closePay = () => {
+    payClosedRef.current = true;
+    setBusy(false);
+    setPay(null);
   };
 
   /* ---------- pay dialog copy ---------- */
@@ -1375,7 +1386,7 @@ const SubscriptionPage = () => {
         {/* ---- how would you like to pay ---- */}
         <Dialog
           open={!!pay}
-          onClose={() => !busy && setPay(null)}
+          onClose={closePay}
           labelledBy="pay-title"
           icon={<CardStackIcon />}
           title={<span id="pay-title">How would you like to pay?</span>}
@@ -1425,38 +1436,25 @@ const SubscriptionPage = () => {
           {/* Renewal is the user's answer, never assumed — the backend reads a
               missing answer as no, and this is where they give it. */}
           {(pay?.kind === "subscribe" || pay?.kind === "change") && (
-            <div className="fx-pays pick9" style={{ marginTop: 8 }}>
+            <div className="fx-sw" style={{ marginTop: 6 }}>
+              <div className="tx">
+                <b>Renew automatically</b>
+                <span>
+                  {autoRenew
+                    ? `Charged again every ${renewEach} until you cancel.`
+                    : `Off. ${pay.plan.name} runs to the end of the ${renewEach} and stops.`}
+                </span>
+              </div>
               <button
                 type="button"
-                className={`fx-pay9 ${autoRenew ? "on9" : ""}`}
-                aria-pressed={autoRenew}
+                role="switch"
+                className={`fx-tg ${autoRenew ? "" : "off4"}`}
+                aria-checked={autoRenew}
+                aria-label="Renew automatically"
                 onClick={() => setAutoRenew((v) => !v)}
-              >
-                <span className="pi9">
-                  <RenewGlyph />
-                </span>
-                <span className="pt9">
-                  <b>Renew automatically</b>
-                  <span>
-                    {autoRenew
-                      ? `Charged again every ${renewEach} until you cancel.`
-                      : `Off. ${pay.plan.name} runs to the end of the ${renewEach} and stops.`}
-                  </span>
-                </span>
-                <span className="pc9" aria-hidden="true">
-                  <Tick />
-                </span>
-              </button>
+              />
             </div>
           )}
-          <p className="fx-dwarn">
-            You&rsquo;ll finish on Flutterwave&rsquo;s secure checkout, then come back here.{" "}
-            {pay?.kind === "reviews"
-              ? "The reviews are added once the payment is confirmed, and they never expire."
-              : "Your plan changes once the payment is confirmed."}{" "}
-            Either way your trading funds stay on your own
-            exchange &mdash; this pays for the platform, nothing else.
-          </p>
         </Dialog>
 
         {/* ---- move to another plan (up or down) ---- */}

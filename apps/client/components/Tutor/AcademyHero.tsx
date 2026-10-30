@@ -132,7 +132,7 @@ const AcademyHero = () => {
           </div>
         )}
       </div>
-      <div className="landing-rise rise-right">
+      <div className="landing-rise rise-right ac-hero-media">
         <div className="ac-art">
           {image ? (
             <Image

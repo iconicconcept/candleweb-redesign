@@ -81,7 +81,9 @@ export default function AuthPanel({ initialMode }: { initialMode: Mode }) {
   const consentGiven = () => {
     if (agreed) return true;
     error("Please read and agree to the Terms of Service to create an account");
-    agreeRef.current?.focus();
+    /* the box sits at the foot of the form — bring it into view, then focus */
+    agreeRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    agreeRef.current?.focus({ preventScroll: true });
     return false;
   };
 
@@ -666,21 +668,25 @@ function WalletChoices({
   onWallet: (walletConnect: boolean) => void;
 }) {
   const gate = blocked
-    ? "Agree to the Terms of Service above to continue"
+    ? "Agree to the Terms of Service below to continue"
     : undefined;
   return (
     <div className="auth-choices">
-      {/* <button
+      {/* Never greyed out for the terms: the box is at the foot of the form,
+          out of sight from here, so a dead button gave no reason. The click
+          handler checks consent instead — it says why and takes the user to
+          the box. */}
+      <button
         type="button"
         className="auth-gbtn"
-        disabled={busy || blocked}
+        disabled={busy}
         title={gate}
         onClick={onGoogle}
       >
         <GoogleMark />
         {mode === "login" ? "Continue with Google" : "Sign up with Google"}
-      </button> */}
-      <div className="auth-wsel">
+      </button>
+      {/* <div className="auth-wsel">
         <button
           type="button"
           className="auth-wbtn"
@@ -716,7 +722,7 @@ function WalletChoices({
             </p>
           </div>
         )}
-      </div>
+      </div> */}
     </div>
   );
 }
