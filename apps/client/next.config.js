@@ -1,35 +1,23 @@
 /**
- * Sent with every response.
+ * Production is a static export: `next build` writes plain files to `out/`,
+ * which are uploaded to cPanel's public_html — no Node.js on the server.
  *
- * The CSP is deliberately narrow: it stops other sites framing the app
- * (clickjacking on "Apply change" / "Start trade"), plugins, and <base> /
- * form hijacks, without restricting where scripts and styles load from —
- * an allowlist for those needs testing against GA, SendX, fonts, Cloudinary
- * and the API before it can be enforced.
+ * Dynamic pages (/blog/[id], /dashboard/trades/[id], …) have no data
+ * fetching, so each is exported once as a literal file —
+ * out/blog/[id]/index.html — and public/.htaccess serves it for every real
+ * id. The page reads its id from the address in the browser, as it always
+ * has. That only holds while those pages stay free of getStaticProps /
+ * getServerSideProps, and the app keeps no API routes, rewrites or
+ * middleware: `next dev` refuses all of those under `output: "export"`, so
+ * adding one shows up straight away.
  *
- * Camera stays allowed for the Yellow Card widget on /buy-crypto, which
- * uses it for ID checks.
+ * Security headers and the dynamic-page rewrites live in public/.htaccess,
+ * which Apache reads; a static export cannot send headers itself.
  */
-const securityHeaders = [
-  {
-    key: "Content-Security-Policy",
-    value: "frame-ancestors 'none'; object-src 'none'; base-uri 'self'",
-  },
-  { key: "X-Frame-Options", value: "DENY" },
-  { key: "X-Content-Type-Options", value: "nosniff" },
-  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-  { key: "Strict-Transport-Security", value: "max-age=63072000" },
-  {
-    key: "Permissions-Policy",
-    value: 'camera=(self "https://widget.yellowcard.io"), microphone=(), geolocation=()',
-  },
-];
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
-  },
+  output: "export",
   reactStrictMode: true,
   swcMinify: false,
   webpack: (config, options) => {

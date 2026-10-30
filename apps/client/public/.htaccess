@@ -1,0 +1,70 @@
+# Candleweb — static export served by Apache (cPanel public_html).
+#
+# `next build` copies this file into out/ with the rest of public/, so it
+# goes up with every deploy. It does three jobs a static site cannot do
+# itself: serve the dynamic pages, send the security headers, and set caching.
+
+Options -Indexes -MultiViews
+DirectoryIndex index.html
+ErrorDocument 404 /404.html
+
+# ---------------------------------------------------------------------------
+# Dynamic pages
+#
+# Each dynamic page is exported once, as a literal file —
+# out/blog/[id]/index.html. Every real id is answered with that file, and the
+# page reads the id from the address in the browser. Moving between pages
+# inside the app needs nothing from the server: these pages carry no data.
+# ---------------------------------------------------------------------------
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # Anything that exists on disk is served as it is.
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  RewriteRule ^blog/[^/]+/?$ /blog/[id]/index.html [L]
+  RewriteRule ^tutor/course/[^/]+/?$ /tutor/course/[id]/index.html [L]
+  RewriteRule ^dashboard/trades/[^/]+/?$ /dashboard/trades/[id]/index.html [L]
+  RewriteRule ^dashboard/tutor/course/[^/]+/?$ /dashboard/tutor/course/[id]/index.html [L]
+  RewriteRule ^dashboard/bots/[^/]+/?$ /dashboard/bots/[id]/index.html [L]
+  RewriteRule ^dashboard/bots/[^/]+/settings/?$ /dashboard/bots/[id]/settings/index.html [L]
+  RewriteRule ^dashboard/bots/[^/]+/review/?$ /dashboard/bots/[id]/review/index.html [L]
+  RewriteRule ^dashboard/bots/[^/]+/review/[^/]+/[^/]+/?$ /dashboard/bots/[id]/review/[reviewId]/[rid]/index.html [L]
+</IfModule>
+
+# ---------------------------------------------------------------------------
+# Security headers (moved here from next.config.js, which cannot send them
+# from a static export).
+#
+# The CSP is deliberately narrow: no other site may frame the app
+# (clickjacking on "Apply change" / "Start trade"), no plugins, no <base>
+# hijack. Camera stays allowed for the Yellow Card widget on /buy-crypto,
+# which uses it for ID checks. HSTS is sent on HTTPS only.
+# ---------------------------------------------------------------------------
+<IfModule mod_headers.c>
+  Header always set Content-Security-Policy "frame-ancestors 'none'; object-src 'none'; base-uri 'self'"
+  Header always set X-Frame-Options "DENY"
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Permissions-Policy "camera=(self \"https://widget.yellowcard.io\"), microphone=(), geolocation=()"
+  Header always set Strict-Transport-Security "max-age=63072000" env=HTTPS
+</IfModule>
+
+# ---------------------------------------------------------------------------
+# Caching
+#
+# Files under /_next/static carry a content hash in their name, so they can
+# be kept for a year. Pages are re-checked on every visit, so a new upload
+# shows up straight away instead of after a stale cache expires.
+# ---------------------------------------------------------------------------
+<IfModule mod_headers.c>
+  <If "%{REQUEST_URI} =~ m#^/_next/static/#">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </If>
+  <FilesMatch "\.html$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>

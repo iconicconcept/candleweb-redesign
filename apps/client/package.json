@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "next dev -p 5791",
     "build": "next build",
-    "start": "next start -p 5791",
+    "start": "node scripts/preview-export.js",
     "lint": "next lint"
   },
   "dependencies": {

@@ -1,4 +1,3 @@
-import type { NextPageContext } from "next";
 import ErrorStage, { IS_ERROR_PAGE } from "../components/public/ErrorStage";
 
 /**
@@ -57,11 +56,10 @@ export default function ErrorPage({ statusCode }: Props) {
   );
 }
 
-/* `statusCode` is null for a client-side exception: there was a response and
-   it was fine, so inventing a 500 for it would be a lie the page then has to
-   tell the user. */
-ErrorPage.getInitialProps = ({ res, err }: NextPageContext): Props => ({
-  statusCode: res?.statusCode ?? err?.statusCode ?? null,
-});
+/* No getInitialProps: the site is a static export, with no server to ask for
+   a status code. A missing page is served /404.html and a server failure
+   /500.html, so this only renders for a client-side exception — where
+   `statusCode` is absent, which is the case the page is written for:
+   there was a response and it was fine, so inventing a 500 would be a lie. */
 
 ErrorPage.isErrorPage = IS_ERROR_PAGE;
