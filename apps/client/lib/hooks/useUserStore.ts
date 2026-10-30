@@ -16,11 +16,14 @@ const userStore = (set: any) => ({
   },
 });
 
+/* Devtools exposes the whole store, token included, to any browser extension
+   that hooks the Redux DevTools API — development only. */
 const useUserStore = create(
   devtools(
     persist(userStore, {
       name: "userStore",
-    })
+    }),
+    { enabled: process.env.NODE_ENV !== "production" }
   )
 );
 

@@ -10,6 +10,7 @@ import { AppDispatch } from '../../../redux/store'
 import { useDispatch } from 'react-redux'
 import useAxiosAuth from '../../../lib/hooks/useAxiosAuth'
 import taskService from '../../../services/taskService'
+import { sanitizeHtml } from '../../../lib/sanitizeHtml'
 
 type Props = {
     hasTimer?: boolean
@@ -43,7 +44,7 @@ export const TaskStreakCard = ({ hasTimer, task, onVerify }: Props) => {
                 <div className="task__streak--Info--info flex flex-col sm:items-start">
                     <div className="flex items-center gap-3">
                         <Heading textsize='md' boldness='med' classstyle='inter cursor-pointer flex gap-2 items-center' onClick={() => {
-                            window.open(task?.url, '_blank');
+                            window.open(task?.url, '_blank', 'noopener,noreferrer');
                         }}>{task?.title} <span><FiExternalLink className='text-sm' /></span> </Heading>
                         <button onClick={(e) => {
                              e.stopPropagation();
@@ -55,8 +56,8 @@ export const TaskStreakCard = ({ hasTimer, task, onVerify }: Props) => {
                     {state.isExpanded && (
                         <div className="mt-2 flex flex-col gap-1 w-full">
                             <Typography textsize='xs' classstyle='inter sm:!text-xs cursor-pointer' onClick={() => {
-                                window.open(task?.url, '_blank');
-                            }} color='gray' dangerouslySetInnerHTML={{ __html: task?.description ?? "" }}></Typography>
+                                window.open(task?.url, '_blank', 'noopener,noreferrer');
+                            }} color='gray' dangerouslySetInnerHTML={{ __html: sanitizeHtml(task?.description) }}></Typography>
                             {task?.url && (
                                 <a href={task.url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline break-all">
                                     {task.url}
@@ -170,7 +171,7 @@ export const TaskCompletedCard = ({ hasTimer, reward }: Props) => {
                     </div>
                     {isExpanded && (
                         <div className="mt-2 flex flex-col gap-1 w-full">
-                            <Typography textsize='xs' classstyle='inter sm:!text-xs' color='gray' dangerouslySetInnerHTML={{ __html: reward?.description ?? "" }}></Typography>
+                            <Typography textsize='xs' classstyle='inter sm:!text-xs' color='gray' dangerouslySetInnerHTML={{ __html: sanitizeHtml(reward?.description) }}></Typography>
                             {reward?.verification_link && (
                                 <a href={reward.verification_link} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline break-all">
                                     {reward.verification_link}

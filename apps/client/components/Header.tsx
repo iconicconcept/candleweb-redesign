@@ -586,17 +586,17 @@ export const Header = ({ Icon, Logo, route }: IHeaderProps) => {
             <div className="footer__socials flex items-center justify-between mt-5 md:hidden w-full px-4">
               <Link
                 href="https://www.linkedin.com/in/candleweb-services-b517a8276"
-                target="_blank"
+                target="_blank" rel="noopener noreferrer"
               >
                 <AiFillLinkedin className="flex items-center justify-center w-10 h-10 p-2 rounded-full bg-card-gradient" />
               </Link>
               <Link
                 href="https://twitter.com/Candleweb_AI?t=3swlPh95OFEqwxeL8SX3Yg&s=09"
-                target="_blank"
+                target="_blank" rel="noopener noreferrer"
               >
                 <AiFillTwitterCircle className="flex items-center justify-center w-10 h-10 p-2 rounded-full bg-card-gradient" />
               </Link>
-              <Link href="https://t.me/+udxNPk_Jzho2ZDM8" target="_blank">
+              <Link href="https://t.me/+udxNPk_Jzho2ZDM8" target="_blank" rel="noopener noreferrer">
                 <FaTelegram className="flex items-center justify-center w-10 h-10 p-2 rounded-full bg-card-gradient" />
               </Link>
               <Link href="/#">

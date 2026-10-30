@@ -37,6 +37,12 @@ const Tick = () => (
   </svg>
 );
 
+const RenewGlyph = () => (
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M4.5 12a7.5 7.5 0 0113-5.1L20 9.5M20 4.5v5h-5M19.5 12a7.5 7.5 0 01-13 5.1L4 14.5M4 19.5v-5h5" />
+  </svg>
+);
+
 type Props = {
   /** What is being bought, e.g. "Builder · ₦10,000 a month". */
   summary: string;
@@ -44,6 +50,9 @@ type Props = {
   note: string;
   busy?: boolean;
   continueLabel?: string;
+  /** A plan checkout asks whether to charge again when the period ends —
+      the backend reads no answer as no. One-off purchases leave this out. */
+  renew?: { on: boolean; period: "month" | "year"; planName: string; onToggle: () => void };
   onCancel: () => void;
   onContinue: () => void;
 };
@@ -53,6 +62,7 @@ export default function PaymentMethodModal({
   note,
   busy,
   continueLabel = "Continue",
+  renew,
   onCancel,
   onContinue,
 }: Props) {
@@ -127,6 +137,33 @@ export default function PaymentMethodModal({
               <span className="ac-pm-soon">Soon</span>
             </button>
           </div>
+
+          {renew && (
+            <div className="ac-pm-list" style={{ marginTop: 9 }}>
+              <button
+                type="button"
+                className={`ac-pm ${renew.on ? "on" : ""}`}
+                aria-pressed={renew.on}
+                onClick={renew.onToggle}
+                disabled={busy}
+              >
+                <span className="ac-pm-i">
+                  <RenewGlyph />
+                </span>
+                <span className="ac-pm-t">
+                  <b>Renew automatically</b>
+                  <span>
+                    {renew.on
+                      ? `Charged again every ${renew.period} until you cancel.`
+                      : `Off. ${renew.planName} runs to the end of the ${renew.period} and stops.`}
+                  </span>
+                </span>
+                <span className="ac-pm-c" aria-hidden="true">
+                  {renew.on && <Tick />}
+                </span>
+              </button>
+            </div>
+          )}
 
           <p className="ac-pm-note">{note}</p>
         </div>

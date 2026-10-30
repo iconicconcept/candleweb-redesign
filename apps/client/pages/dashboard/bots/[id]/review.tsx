@@ -777,7 +777,7 @@ const BotReviewPage = () => {
                   </div>
 
                   <div className="card progress">
-                    <svg className="ring" viewBox="0 0 42 42" aria-hidden="true">
+                    <svg className="progress-ring" viewBox="0 0 42 42" aria-hidden="true">
                       <circle className="bg" cx="21" cy="21" r="17" />
                       <circle
                         className="fg"

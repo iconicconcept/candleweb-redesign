@@ -58,7 +58,14 @@ export interface SubscriptionV2 {
   current_period_start: string;
   /** null on a free plan, which never renews */
   current_period_end: string | null;
-  renews_on: string;
+  /** blank when the plan will not charge again */
+  renews_on: string | null;
+  /** when what is paid for (or granted) runs out */
+  period_ends_on?: string | null;
+  /** the server's own answer to "is there another charge coming" */
+  will_renew?: boolean;
+  /** the user agreed at checkout to be charged again; off = the plan runs out */
+  auto_renew?: boolean;
   cancel_at_period_end: boolean;
   ended_at: string | null;
   months_on_plan: number;
@@ -130,6 +137,12 @@ export interface PaymentMethodV2 {
 }
 
 /** POST /subscribe/ and /change-plan/ — whichever of these the case returns */
+/** GET /payments/verify/ — `paid` stays false until the provider confirms */
+export interface PaymentVerifyV2 {
+  paid: boolean;
+  message?: string;
+}
+
 export interface CheckoutResultV2 {
   checkout_url?: string | null;
   subscription?: SubscriptionV2 | null;

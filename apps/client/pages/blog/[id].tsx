@@ -14,6 +14,7 @@ import blogService from "../../services/blogService";
 import { imageUri } from "../../utils/constants";
 import useCopyToClipboard from "../../lib/hooks/useClipboard";
 import { success } from "../../components/alert/Toast";
+import { sanitizeHtml } from "../../lib/sanitizeHtml";
 /* eslint-disable react/no-unescaped-entities */
 
 type Props = { id?: string };
@@ -139,7 +140,7 @@ export default function BlogDetails({ id }: Props) {
   }, [dispatch, slug, router.isReady]);
 
   const { html, toc } = useMemo(
-    () => buildArticle(blog?.content),
+    () => buildArticle(sanitizeHtml(blog?.content)),
     [blog?.content],
   );
 

@@ -16,6 +16,7 @@ import {
   EntitlementsV2,
   InvoiceV2,
   PaymentMethodV2,
+  PaymentVerifyV2,
   PlanV2,
   ReviewBalanceV2,
   ReviewPackV2,
@@ -143,18 +144,25 @@ const returnUrl = (checkout: string, override?: string) => {
   return { callback_url: `${window.location.origin}/dashboard/subscription?checkout=${checkout}` };
 };
 
-type PlanChoice = { api: AxiosInstance; plan: string; cycle: SubCycle; callbackUrl?: string };
+/* `autoRenew` is the user's own answer to "charge me again when the period
+   ends" — the server treats a missing answer as no. */
+type PlanChoice = {
+  api: AxiosInstance;
+  plan: string;
+  cycle: SubCycle;
+  callbackUrl?: string;
+  autoRenew?: boolean;
+};
 
 /** POST /subscribe/ — free plan starts now (`subscription`), paid returns `checkout_url`.
-    `auto_renew` is sent explicitly rather than left to the server default: the page
-    promises a renewal date, offers "Cancel plan" and can undo it with /resume/, all of
-    which only make sense on a renewing subscription. */
+    The subscription page asks for `autoRenew`; a caller that doesn't ask yet
+    (the pricing page) keeps sending yes, as it always has. */
 const subscribe = createAsyncThunk("subscriptionV2/subscribe", async (p: PlanChoice, thunkApi) => {
   try {
     return await post(p.api, "subscribe/", {
       plan: p.plan,
       cycle: p.cycle,
-      auto_renew: true,
+      auto_renew: p.autoRenew ?? true,
       ...returnUrl("plan", p.callbackUrl),
     });
   } catch (err: any) {
@@ -162,12 +170,14 @@ const subscribe = createAsyncThunk("subscriptionV2/subscribe", async (p: PlanCho
   }
 });
 
-/** POST /change-plan/ — upgrade returns `checkout_url` + `amount_due`; downgrade is `scheduled` */
+/** POST /change-plan/ — upgrade returns `checkout_url` + `amount_due`; downgrade is `scheduled`.
+    `auto_renew` left out keeps the subscription's current setting. */
 const changePlan = createAsyncThunk("subscriptionV2/changePlan", async (p: PlanChoice, thunkApi) => {
   try {
     return await post(p.api, "change-plan/", {
       plan: p.plan,
       cycle: p.cycle,
+      ...(p.autoRenew === undefined ? {} : { auto_renew: p.autoRenew }),
       ...returnUrl("plan", p.callbackUrl),
     });
   } catch (err: any) {
@@ -215,7 +225,7 @@ const payInvoice = createAsyncThunk(
 );
 
 /** POST /reviews/purchase/ — opens a checkout for a pack. Nothing is credited
-    until the webhook settles it, so re-read /me/reviews/ after the return. */
+    until the payment is verified, so re-read /me/reviews/ after the return. */
 const buyReviews = createAsyncThunk(
   "subscriptionV2/buyReviews",
   async (p: { api: AxiosInstance; pack: string; callbackUrl?: string }, thunkApi) => {
@@ -226,6 +236,26 @@ const buyReviews = createAsyncThunk(
       });
     } catch (err: any) {
       return fail(err, thunkApi);
+    }
+  },
+);
+
+/** GET /payments/verify/?reference= — asks the provider about one checkout
+    and, if it was paid, settles its invoice there and then: the plan starts or
+    the reviews land without waiting for the webhook. `paid` stays false until
+    the provider confirms. Safe to repeat and safe to race the webhook. Not
+    toasted on failure — the return page falls back to watching /me/. */
+const verifyPayment = createAsyncThunk(
+  "subscriptionV2/verifyPayment",
+  async (p: { api: AxiosInstance; reference: string }, thunkApi) => {
+    try {
+      const { data } = await p.api.get(`${BASE}payments/verify/`, {
+        params: { reference: p.reference },
+      });
+      const body = unwrap<PaymentVerifyV2>(data) ?? ({} as PaymentVerifyV2);
+      return { ...body, paid: body.paid === true } as PaymentVerifyV2;
+    } catch (err: any) {
+      return thunkApi.rejectWithValue(getErrorMessage(err));
     }
   },
 );
@@ -244,6 +274,7 @@ const subscriptionV2Service = {
   resume,
   payInvoice,
   buyReviews,
+  verifyPayment,
 };
 
 export default subscriptionV2Service;

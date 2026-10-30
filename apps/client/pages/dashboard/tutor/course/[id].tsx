@@ -240,7 +240,7 @@ export default function CourseFocus() {
       toast.error(`${type === "presentation" ? "Presentation" : "Recording"} link not yet available`);
       return;
     }
-    window.open(link, "_blank");
+    window.open(link, "_blank", "noopener,noreferrer");
   };
 
   const nextSession =
@@ -264,6 +264,8 @@ export default function CourseFocus() {
     // Open the tab now, while we're still inside the click — a window opened
     // after the request returns gets caught by popup blockers.
     const tab = window.open("", "_blank");
+    // The class link is external: cut the new tab's handle back to this one.
+    if (tab) tab.opener = null;
     setJoining(true);
     try {
       const link = await courseService.checkInToClass(axiosToken, target.id);

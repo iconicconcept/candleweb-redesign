@@ -40,7 +40,9 @@ const BlogCard = ({ vertical, reduceCategories, fullWidth, blog }: Props) => {
                 <div className="blog__description">
                     <Link href={"/blog?id=" + blog.blog_slug} style={{ width: "100%" }}>
 
-                        <Typography textsize='xs' classstyle='!text-[#C0C5D0]' dangerouslySetInnerHTML={{ __html: blog.content.substring(0, 200) + "..." }}></Typography>
+                        {/* Plain text: cutting HTML at 200 characters could split a tag, and a
+                            card excerpt needs no markup to render. */}
+                        <Typography textsize='xs' classstyle='!text-[#C0C5D0]'>{blog.content.replace(/<[^>]+>/g, "").substring(0, 200) + "..."}</Typography>
                     </Link>
                 </div>
                 <div className="h-3"></div>

@@ -6,6 +6,7 @@ import { AppDispatch, RootState } from "../../redux/store";
 import subscriptionV2Service from "../../services/subscriptionV2Service";
 import { Pending, writePending, readPending, clearPending } from "../../lib/subscriptionPending";
 import tradingV2Service from "../../services/tradingV2Service";
+import exchangeServices from "../../services/exchangeService";
 import useAxiosAuth from "../../lib/hooks/useAxiosAuth";
 import useUserStore from "../../lib/hooks/useUserStore";
 import { isAuthorizationHeaderSet } from "../../utils/check_auth";
@@ -17,7 +18,7 @@ import Dialog from "../../components/dashboard/focus/Dialog";
 import RailsBackdrop from "../../components/dashboard/focus/RailsBackdrop";
 import { CardStackIcon, CheckIcon, ShieldIcon } from "../../components/dashboard/focus/icons";
 import { SubscriptionSkeletonLoader } from "../../components/dashboard/skeleton/SkeletonLoader";
-import { DESIGN_EXCHANGES } from "../../lib/exchangeCatalog";
+import { offeredExchanges } from "../../lib/exchangeCatalog";
 import {
   altLine,
   annualSaving,
@@ -66,6 +67,11 @@ const CoinGlyph = () => (
   <svg viewBox="0 0 24 24">
     <circle cx="12" cy="12" r="9" />
     <path d="M9.4 8.2h4a2.2 2.2 0 010 4.4h-4M9.4 12.6h4.4a2.2 2.2 0 010 4.4H9.4M9.4 6.6v12M11.6 5.2v2M11.6 18.6v2" />
+  </svg>
+);
+const RenewGlyph = () => (
+  <svg viewBox="0 0 24 24">
+    <path d="M4.5 12a7.5 7.5 0 0113-5.1L20 9.5M20 4.5v5h-5M19.5 12a7.5 7.5 0 01-13 5.1L4 14.5M4 19.5v-5h5" />
   </svg>
 );
 const ShieldGlyph = () => (
@@ -305,6 +311,17 @@ function ReviewPacks({
  * the page
  * ------------------------------------------------------------------ */
 
+/** The first thing a plan adds over the one below it, from the catalogue's
+    own entitlements — "Live execution", "Every exchange", "15 agents at once". */
+const unlockOf = (prev: PlanV2 | undefined, plan: PlanV2) => {
+  const a = prev?.entitlements;
+  const b = plan.entitlements;
+  if (b.live_execution && !a?.live_execution) return "Live execution";
+  if (b.max_exchanges == null && a?.max_exchanges != null) return "Every exchange";
+  if ((b.max_exchanges ?? 0) > (a?.max_exchanges ?? 0)) return `${b.max_exchanges} exchanges`;
+  return `${b.max_concurrent_agents} agents at once`;
+};
+
 /* the design's small "→" explainer links */
 const explain = (msg: string) => toast(msg, { duration: 6500, style: { maxWidth: 460 } });
 const HOW_BILLING =
@@ -338,7 +355,7 @@ const SubscriptionPage = () => {
     paymentMethods,
   } = useSelector((state: RootState) => state.subscriptionV2);
   const { bots, botsLoaded } = useSelector((state: RootState) => state.tradingV2);
-  const { exchangeRecord } = useSelector((state: RootState) => state.exchange);
+  const { exchanges, exchangeRecord } = useSelector((state: RootState) => state.exchange);
 
   const [cycle, setCycle] = useState<SubCycle>("monthly");
   const [cur, setCur] = useState<SubCurrency>("NGN");
@@ -348,6 +365,8 @@ const SubscriptionPage = () => {
 
   const [pay, setPay] = useState<PayIntent | null>(null);
   const [payMethod, setPayMethod] = useState<"card" | "crypto">("card");
+  /* the user's own answer to "charge me again when the period ends" */
+  const [autoRenew, setAutoRenew] = useState(true);
   const [moveTo, setMoveTo] = useState<PlanV2 | null>(null);
   const [cancelOpen, setCancelOpen] = useState(false);
 
@@ -366,6 +385,7 @@ const SubscriptionPage = () => {
   useEffect(() => {
     if (!plansLoaded) dispatch(subscriptionV2Service.listPlans());
     if (!reviewPacksLoaded) dispatch(subscriptionV2Service.listReviewPacks());
+    if (exchanges.length < 1) dispatch(exchangeServices.getExchanges());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -379,22 +399,68 @@ const SubscriptionPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [axiosToken, dispatch]);
 
-  /* Back from a Flutterwave checkout. The redirect proves nothing — only the
-     webhook settles a payment — so re-read /me/ (or the invoice) a few times
-     and only call it a success when the thing we paid for actually shows up.
+  /* Back from a Flutterwave checkout. The redirect itself proves nothing, so
+     the reference it carries goes to /payments/verify/: the server asks
+     Flutterwave and, if the checkout was paid, settles the invoice there and
+     then — the plan starts or the reviews land without waiting for the
+     webhook. With no reference to send, or if verify can't be reached, fall
+     back to re-reading /me/ (or the invoice) until what was paid for shows up.
      What we were paying for is remembered in sessionStorage before leaving,
-     so this works whatever query string the provider sends back with. */
+     so the message fits whatever query string the provider sends back with. */
   useEffect(() => {
     if (!router.isReady || !isAuthorizationHeaderSet(axiosToken)) return;
     const q = router.query;
     const pending = readPending();
     const fromQuery = !!(q.status || q.tx_ref || q.transaction_id || q.checkout);
     if (!pending && !fromQuery) return;
+    const reference = String(q.tx_ref ?? q.reference ?? "");
+    const cancelled = String(q.status ?? "").toLowerCase().includes("cancel");
     let stop = false;
     let done = false;
     setConfirming(true);
+
+    /* Verify has already settled the invoice, so one re-read shows the new
+       plan, balance and receipt. */
+    const announcePaid = async () => {
+      const res: any = await loadMine();
+      if (pending?.kind === "reviews") {
+        const n = pending.quantity;
+        success(`${n} bot review${n === 1 ? "" : "s"} added. Reviews you buy never expire.`);
+      } else if (pending?.kind === "invoice") {
+        success("Payment received. Thank you — your plan carries on as normal.");
+      } else {
+        const sub: SubscriptionV2 | null = res?.payload?.subscription ?? null;
+        success(
+          isLivePlan(sub)
+            ? `You're on ${sub.plan_name}. A receipt is on its way to your email.`
+            : "Payment received. A receipt is on its way to your email.",
+        );
+      }
+    };
+
     (async () => {
-      for (let i = 0; i < 6 && !stop && !done; i++) {
+      /* A card payment is usually confirmed by the time the provider
+         redirects; a few spaced retries cover the ones that lag. */
+      let verifyAnswered = false;
+      if (reference && !cancelled) {
+        for (let i = 0; i < 4 && !stop && !done; i++) {
+          if (i > 0) await new Promise((r) => setTimeout(r, 2500));
+          if (stop) return;
+          const res: any = await dispatch(
+            subscriptionV2Service.verifyPayment({ api: axiosToken, reference }),
+          );
+          if (res.meta.requestStatus === "rejected") break;
+          verifyAnswered = true;
+          if (res.payload?.paid) {
+            await announcePaid();
+            done = true;
+          }
+        }
+      }
+      if (stop) return;
+
+      /* No reference, or verify unreachable: watch for the webhook instead. */
+      for (let i = 0; i < 6 && !stop && !done && !cancelled && !verifyAnswered; i++) {
         await new Promise((r) => setTimeout(r, i === 0 ? 800 : 3000));
         if (stop) return;
         if (pending?.kind === "reviews") {
@@ -433,9 +499,8 @@ const SubscriptionPage = () => {
       }
       if (stop) return;
       if (!done) {
-        if (String(q.status ?? "").toLowerCase().includes("cancel"))
-          warning("Checkout was cancelled. Nothing was charged.");
-        else if (pending)
+        if (cancelled) warning("Checkout was cancelled. Nothing was charged.");
+        else if (pending || reference)
           warning("Your payment is still being confirmed. This page updates once it lands — check back in a minute.");
       }
       clearPending();
@@ -454,7 +519,47 @@ const SubscriptionPage = () => {
   const currentPlan = live ? plans.find((p) => p.code === live.plan_code) : undefined;
   const freePlan = sortedPlans.find((p) => p.is_free);
   const runningBots = bots.filter((b) => b.status === "ACTIVE").length;
-  const openInvoice = invoices.find((i) => i.status === "open" || i.status === "failed");
+
+  /* Money still to come, as the backend states it. A plan that came with a
+     course or from an admin charges nothing, and a paid plan bought without
+     agreeing to renew simply runs out — neither has a next charge, and the
+     page must not invent one. */
+  const granted = live?.source === "course_grant" || live?.source === "admin";
+  const grantWord = live?.source === "course_grant" ? "included with your course" : "set by Candleweb";
+  const freeLike = !!currentPlan?.is_free || granted;
+  const endsOn = live?.period_ends_on ?? live?.current_period_end ?? null;
+  const renews =
+    !!live &&
+    !freeLike &&
+    !live.cancel_at_period_end &&
+    !!live.renews_on &&
+    (live.will_renew ?? live.auto_renew ?? true);
+  const term = !live
+    ? ""
+    : currentPlan?.is_free
+      ? "free, never renews"
+      : granted
+        ? endsOn
+          ? `${grantWord} · runs to ${longDate(endsOn)}`
+          : grantWord
+        : live.cancel_at_period_end
+          ? `ends ${longDate(endsOn)}`
+          : renews
+            ? `renews ${longDate(live.renews_on)}`
+            : `runs to ${longDate(endsOn)} · does not renew`;
+
+  /* Only a renewal that failed is "due". Every checkout raises an open
+     invoice, and one that was walked away from expires after 30 minutes —
+     paying it is not something to put a button on. */
+  const dueInvoice =
+    live?.status === "past_due"
+      ? invoices.find((i) => (i.status === "open" || i.status === "failed") && i.kind === "subscription") ??
+        invoices.find((i) => i.status === "open" || i.status === "failed")
+      : undefined;
+
+  /* The page's catalogue of exchanges, filtered to what the backend offers. */
+  const exchangesOffered = offeredExchanges(exchanges);
+  const paidPlans = sortedPlans.filter((p) => !p.is_free);
 
   /* the switches start on what the subscriber is actually billed — a plan
      change sends the switch's cycle, so an annual subscriber must not be
@@ -522,7 +627,7 @@ const SubscriptionPage = () => {
       );
     } else {
       const thunk = pay.kind === "subscribe" ? subscriptionV2Service.subscribe : subscriptionV2Service.changePlan;
-      res = await dispatch(thunk({ api: axiosToken, plan: pay.plan.code, cycle: pay.cycle }));
+      res = await dispatch(thunk({ api: axiosToken, plan: pay.plan.code, cycle: pay.cycle, autoRenew }));
     }
     if (res.meta.requestStatus !== "fulfilled") {
       setBusy(false);
@@ -573,7 +678,7 @@ const SubscriptionPage = () => {
     setBusy(false);
     if (res.meta.requestStatus !== "fulfilled") return;
     setCancelOpen(false);
-    const until = res.payload?.active_until ?? live?.current_period_end;
+    const until = res.payload?.active_until ?? endsOn;
     warning(
       `Plan cancelled. ${live?.plan_name} runs until ${longDate(until)} — open positions keep their stops after that. You can undo this from this page until then.`,
     );
@@ -591,10 +696,17 @@ const SubscriptionPage = () => {
 
   const openPay = (intent: PayIntent) => {
     setPayMethod("card");
+    /* an upgrade from a paid plan starts from the answer already on file */
+    setAutoRenew(intent.kind === "change" && !currentPlan?.is_free ? live?.auto_renew ?? true : true);
     setPay(intent);
   };
 
   /* ---------- pay dialog copy ---------- */
+
+  /* A plan change is charged in the currency the subscription is billed in;
+     a first checkout is in naira, as the dialog says. */
+  const payCur: SubCurrency = pay?.kind === "change" && live ? live.billing_currency : "NGN";
+  const renewEach = pay && "cycle" in pay ? (pay.cycle === "monthly" ? "month" : "year") : "month";
 
   const payLine = (() => {
     if (!pay) return "";
@@ -603,8 +715,10 @@ const SubscriptionPage = () => {
       return `${pay.pack.quantity} bot review${pay.pack.quantity === 1 ? "" : "s"} · ${money(pay.pack.amount, pay.pack.currency)}`;
     const p = pay.plan;
     const each = pay.cycle === "monthly" ? "a month" : "a year";
-    const price = `${money(priceOf(p, "NGN", pay.cycle), "NGN")} ${each}`;
-    return pay.kind === "change" ? `${p.name} · prorated today, then ${price}` : `${p.name} · ${price}`;
+    const price = `${money(priceOf(p, payCur, pay.cycle), payCur)} ${each}`;
+    return pay.kind === "change" && !currentPlan?.is_free
+      ? `${p.name} · ${price}, less what is left of ${live?.plan_name}`
+      : `${p.name} · ${price}`;
   })();
 
   /* ---------- views ---------- */
@@ -622,11 +736,7 @@ const SubscriptionPage = () => {
     : live
       ? [
           live.plan_name,
-          currentPlan?.is_free || !live.current_period_end
-            ? "free, never renews"
-            : live.cancel_at_period_end
-              ? `ends ${longDate(live.current_period_end)}`
-              : `renews ${longDate(live.renews_on)}`,
+          term,
           `${runningBots} of ${entitlements?.max_concurrent_agents ?? currentPlan?.entitlements.max_concurrent_agents ?? "—"} agents running`,
         ].join(" · ")
       : "Nothing running · nothing charged";
@@ -673,7 +783,7 @@ const SubscriptionPage = () => {
                 ) : live.cancel_at_period_end ? (
                   <span className="fx-chip warn4">
                     <i />
-                    {live.plan_name}, ends {shortDate(live.current_period_end)}
+                    {live.plan_name}, ends {shortDate(endsOn)}
                   </span>
                 ) : (
                   <span className="fx-chip ok4">
@@ -681,7 +791,7 @@ const SubscriptionPage = () => {
                     {live.plan_name}, active
                   </span>
                 )}
-                {!currentPlan?.is_free && (
+                {!freeLike && (
                   <span className="fx-chip ok4">
                     <i />
                     Paying in {currencyWord(live.billing_currency)}
@@ -698,18 +808,22 @@ const SubscriptionPage = () => {
               <div className="fx-hero-in">
                 <p className="fx-eqlab">You pay</p>
                 <p className="fx-eq">
-                  <CountUp amount={Number(live.price_amount || 0)} cur={live.billing_currency} />
+                  <CountUp amount={granted ? 0 : Number(live.price_amount || 0)} cur={live.billing_currency} />
                 </p>
                 <span className="fx-delta">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
                     <circle cx="12" cy="12" r="9" />
                     <path d="M12 7.4v5l3.2 2" />
                   </svg>
-                  {currentPlan?.is_free || !live.current_period_end
+                  {currentPlan?.is_free
                     ? "free, never renews"
-                    : live.cancel_at_period_end
-                      ? `plan ends ${shortDate(live.current_period_end)} · no further charges`
-                      : `every ${live.cycle === "monthly" ? "month" : "year"} · next charge ${shortDate(live.renews_on)}`}
+                    : granted
+                      ? `${grantWord}${endsOn ? ` · runs to ${shortDate(endsOn)}` : ""} · no charges`
+                      : live.cancel_at_period_end
+                        ? `plan ends ${shortDate(endsOn)} · no further charges`
+                        : renews
+                          ? `every ${live.cycle === "monthly" ? "month" : "year"} · next charge ${shortDate(live.renews_on)}`
+                          : `runs to ${shortDate(endsOn)} · renewal is off`}
                 </span>
 
                 <div className="fx-substat">
@@ -829,38 +943,45 @@ const SubscriptionPage = () => {
                   <div className="fx-riskline">
                     <span>Paying with</span>
                     <b>
-                      {(paymentMethods.find((m) => m.is_default) ?? paymentMethods[0])?.label ??
-                        (currentPlan?.is_free ? "Nothing — free plan" : `Card · ${currencyWord(live.billing_currency)}`)}
+                      {freeLike
+                        ? granted
+                          ? `Nothing — ${grantWord}`
+                          : "Nothing — free plan"
+                        : (paymentMethods.find((m) => m.is_default) ?? paymentMethods[0])?.label ??
+                          `Card · ${currencyWord(live.billing_currency)}`}
                     </b>
                   </div>
                   <div className="fx-riskline">
                     <span>Next charge</span>
                     <b>
-                      {currentPlan?.is_free || !live.current_period_end || live.cancel_at_period_end
-                        ? "None"
-                        : `${shortDate(live.renews_on)} · ${money(live.price_amount, live.billing_currency)}`}
+                      {renews
+                        ? `${shortDate(live.renews_on)} · ${money(live.price_amount, live.billing_currency)}`
+                        : freeLike || live.cancel_at_period_end
+                          ? "None"
+                          : "None — renewal is off"}
                     </b>
                   </div>
                   <div className="fx-riskline">
                     <span>Billed in</span>
                     <b>{live.billing_currency === "USD" ? "Dollars" : "Naira"}</b>
                   </div>
-                  {openInvoice && (
+                  {dueInvoice && (
                     <button
                       className="fx-mini wide9 go9"
                       type="button"
                       style={{ marginTop: 14 }}
                       disabled={busy}
-                      onClick={() => openPay({ kind: "invoice", invoice: openInvoice })}
+                      onClick={() => openPay({ kind: "invoice", invoice: dueInvoice })}
                     >
-                      Pay {money(openInvoice.total, openInvoice.currency)} due
+                      Pay {money(dueInvoice.total, dueInvoice.currency)} due
                     </button>
                   )}
                   <p style={{ margin: "13px 0 0", fontSize: "12.4px", color: "var(--fx-t3)", lineHeight: 1.6 }}>
                     The currency switch in Plans previews prices, it does not change how you are billed.
                   </p>
                 </div>
-                {!currentPlan?.is_free &&
+                {/* Nothing to cancel on a granted plan or one that won't renew anyway. */}
+                {!freeLike &&
                   (live.cancel_at_period_end ? (
                     <button
                       className="fx-mini wide9 go9"
@@ -870,7 +991,7 @@ const SubscriptionPage = () => {
                     >
                       Keep {live.plan_name} — undo cancellation
                     </button>
-                  ) : (
+                  ) : renews ? (
                     <button
                       className="fx-mini wide9"
                       type="button"
@@ -879,7 +1000,7 @@ const SubscriptionPage = () => {
                     >
                       Cancel plan
                     </button>
-                  ))}
+                  ) : null)}
               </section>
             </div>
 
@@ -894,7 +1015,7 @@ const SubscriptionPage = () => {
               </Safe>
             </section>
 
-            <BillingHistory invoices={invoices} />
+            <BillingHistory invoices={invoices} dueNumber={dueInvoice?.number} />
           </>
         ) : (
           /* ================= no plan yet ================= */
@@ -942,15 +1063,23 @@ const SubscriptionPage = () => {
                 </div>
 
                 <div className="fx-substat">
-                  <div className="fx-ss">
-                    <span>Indicators available</span>
-                    <b>400</b>
-                    <i>and counting</i>
-                  </div>
+                  {/* The catalogue states a number only where a plan is capped;
+                      a paid plan's null means every indicator. */}
+                  {freePlan?.entitlements.max_indicators != null && (
+                    <div className="fx-ss">
+                      <span>Indicators on {freePlan.name}</span>
+                      <b>{freePlan.entitlements.max_indicators}</b>
+                      <i>
+                        {paidPlans.some((p) => p.entitlements.max_indicators == null)
+                          ? "every one on a paid plan"
+                          : `up to ${Math.max(...paidPlans.map((p) => p.entitlements.max_indicators ?? 0))} on a paid plan`}
+                      </i>
+                    </div>
+                  )}
                   <div className="fx-ss">
                     <span>Exchanges supported</span>
-                    <b>{DESIGN_EXCHANGES.length}</b>
-                    <i>{DESIGN_EXCHANGES.map((x) => x.name).join(", ")}</i>
+                    <b>{exchangesOffered.length}</b>
+                    <i>{exchangesOffered.map((x) => x.name).join(", ")}</i>
                   </div>
                   {freePlan && (
                     <div className="fx-ss">
@@ -1165,17 +1294,14 @@ const SubscriptionPage = () => {
                         </span>
                       </div>
                     )}
-                    {sortedPlans
-                      .filter((p) => !p.is_free)
-                      .slice(0, 2)
-                      .map((p, i) => (
-                        <div className="fx-nx" key={p.code}>
-                          <em>{i === 0 ? "Next" : "Later"}</em>
-                          <span>
-                            <b>{i === 0 ? "Live execution" : "More than one exchange"}</b> &mdash; needs {p.name}
-                          </span>
-                        </div>
-                      ))}
+                    {paidPlans.slice(0, 2).map((p, i) => (
+                      <div className="fx-nx" key={p.code}>
+                        <em>{i === 0 ? "Next" : "Later"}</em>
+                        <span>
+                          <b>{unlockOf(i === 0 ? freePlan : paidPlans[0], p)}</b> &mdash; needs {p.name}
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -1277,7 +1403,9 @@ const SubscriptionPage = () => {
               </span>
               <span className="pt9">
                 <b>Pay with card</b>
-                <span>In naira. Card, bank transfer or USSD through Flutterwave.</span>
+                <span>
+                  In {currencyWord(payCur)}. Card, bank transfer or USSD through Flutterwave.
+                </span>
               </span>
               <span className="pc9" aria-hidden="true">
                 <Tick />
@@ -1294,6 +1422,33 @@ const SubscriptionPage = () => {
               <span className="pc9">Soon</span>
             </button>
           </div>
+          {/* Renewal is the user's answer, never assumed — the backend reads a
+              missing answer as no, and this is where they give it. */}
+          {(pay?.kind === "subscribe" || pay?.kind === "change") && (
+            <div className="fx-pays pick9" style={{ marginTop: 8 }}>
+              <button
+                type="button"
+                className={`fx-pay9 ${autoRenew ? "on9" : ""}`}
+                aria-pressed={autoRenew}
+                onClick={() => setAutoRenew((v) => !v)}
+              >
+                <span className="pi9">
+                  <RenewGlyph />
+                </span>
+                <span className="pt9">
+                  <b>Renew automatically</b>
+                  <span>
+                    {autoRenew
+                      ? `Charged again every ${renewEach} until you cancel.`
+                      : `Off. ${pay.plan.name} runs to the end of the ${renewEach} and stops.`}
+                  </span>
+                </span>
+                <span className="pc9" aria-hidden="true">
+                  <Tick />
+                </span>
+              </button>
+            </div>
+          )}
           <p className="fx-dwarn">
             You&rsquo;ll finish on Flutterwave&rsquo;s secure checkout, then come back here.{" "}
             {pay?.kind === "reviews"
@@ -1343,7 +1498,7 @@ const SubscriptionPage = () => {
           >
             <div className="fx-riskline">
               <span>{live.plan_name} stays active until</span>
-              <b>{longDate(live.current_period_end)}</b>
+              <b>{longDate(endsOn)}</b>
             </div>
             <div className="fx-riskline">
               <span>Open positions</span>
@@ -1351,7 +1506,7 @@ const SubscriptionPage = () => {
             </div>
             <div className="fx-riskline">
               <span>New entries</span>
-              <b className="fx-dn">Stop {shortDate(live.current_period_end)}</b>
+              <b className="fx-dn">Stop {shortDate(endsOn)}</b>
             </div>
             <div className="fx-riskline">
               <span>Your trade record</span>
@@ -1531,9 +1686,27 @@ const INVOICE_STATUS: Record<string, { label: string; cls: string }> = {
   void: { label: "Void", cls: "off9" },
 };
 
-function BillingHistory({ invoices }: { invoices: InvoiceV2[] }) {
+const HISTORY_STEP = 10;
+
+/* An open invoice is only "Due" when it is the failed renewal the Pay
+   button settles. Any other open one is a checkout that was left — it
+   expires unpaid, and nothing is owed on it. */
+function BillingHistory({ invoices, dueNumber }: { invoices: InvoiceV2[]; dueNumber?: string }) {
+  /* Ten at first, ten more at a time — a long-standing subscriber's history
+     would otherwise run the page on for screens. */
+  const [shown, setShown] = useState(HISTORY_STEP);
+  const sectionRef = useRef<HTMLElement>(null);
+  const visible = invoices.slice(0, shown);
+  const left = invoices.length - visible.length;
+
+  const showLess = () => {
+    setShown(HISTORY_STEP);
+    /* collapsing from far down would leave the reader below the section */
+    sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   return (
-    <section className="fx-sec">
+    <section className="fx-sec" ref={sectionRef}>
       <div className="fx-sh">
         <h2>
           Billing history{" "}
@@ -1549,8 +1722,11 @@ function BillingHistory({ invoices }: { invoices: InvoiceV2[] }) {
       ) : (
         <>
           <div className="fx-pos">
-            {invoices.map((inv) => {
-              const st = INVOICE_STATUS[inv.status] ?? { label: inv.status, cls: "" };
+            {visible.map((inv) => {
+              const st =
+                inv.status === "open" && inv.number !== dueNumber
+                  ? { label: "Not paid", cls: "off9" }
+                  : INVOICE_STATUS[inv.status] ?? { label: inv.status, cls: "" };
               return (
                 <div className="fx-brow" key={inv.id}>
                   <span className="bd9">{rowDate(inv.paid_at ?? inv.issued_at)}</span>
@@ -1561,6 +1737,25 @@ function BillingHistory({ invoices }: { invoices: InvoiceV2[] }) {
               );
             })}
           </div>
+          {invoices.length > HISTORY_STEP && (
+            <div className="fx-more2" style={{ marginTop: 14 }}>
+              <span>
+                Showing {visible.length} of {invoices.length}
+              </span>
+              <div style={{ display: "flex", gap: 8 }}>
+                {shown > HISTORY_STEP && (
+                  <button className="fx-mini" type="button" onClick={showLess}>
+                    Show less
+                  </button>
+                )}
+                {left > 0 && (
+                  <button className="fx-mini" type="button" onClick={() => setShown((n) => n + HISTORY_STEP)}>
+                    Show {Math.min(HISTORY_STEP, left)} more
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
           <div className="fx-stopl" style={{ marginTop: 12 }}>
             <span>Charges are shown in the currency they were taken in.</span>
           </div>
@@ -1593,6 +1788,8 @@ function MovePlanDialog({
 }) {
   const up = planRank(to) > planRank(from);
   const fromFree = !!from?.is_free;
+  const endsOn = live.period_ends_on ?? live.current_period_end;
+  const period = live.cycle === "annual" ? "year" : "month";
   const a = from?.entitlements;
   const b = to.entitlements;
   const rows: [string, string, string][] = a
@@ -1635,20 +1832,20 @@ function MovePlanDialog({
       ))}
       <div className="fx-riskline">
         <span>Charged today</span>
-        <b>{!up ? "Nothing" : fromFree ? "The full price, at checkout" : "Prorated at checkout"}</b>
+        <b>{!up ? "Nothing" : fromFree ? "The full price, at checkout" : `Less what is left of ${live.plan_name}`}</b>
       </div>
       {!up && (
         <div className="fx-riskline">
           <span>Takes effect</span>
-          <b>{longDate(live.current_period_end)}</b>
+          <b>{longDate(endsOn)}</b>
         </div>
       )}
       <p className="fx-dwarn">
         {up && fromFree
           ? `Your running agents keep running through the change. ${to.name} starts once the payment is confirmed and renews from that day.`
           : up
-          ? `Your running agents keep running through the change. Today's charge is only the difference for what is left of this period, and your renewal date (${longDate(live.renews_on)}) does not move.`
-          : `Nothing is charged now. ${live.plan_name} and everything it includes stays until ${longDate(live.current_period_end)}, then you move to ${to.name}. Open positions keep their stops either way.`}
+          ? `Your running agents keep running through the change. Today's charge is ${to.name}'s full price less the unused part of ${live.plan_name}. A fresh ${period} starts once the payment is confirmed, so your renewal date moves to a ${period} from that day.`
+          : `Nothing is charged now. ${live.plan_name} and everything it includes stays until ${longDate(endsOn)}, then you move to ${to.name}. Open positions keep their stops either way.`}
       </p>
     </Dialog>
   );

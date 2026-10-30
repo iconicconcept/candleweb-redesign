@@ -105,7 +105,7 @@ const SubscriptionModal = ({ isOpen, setIsOpen, subscription, continueFunction, 
                     continueFunction?.(subscription?.id!, selectedNetwork);
                 }}>Continue</Button>
                 <div className="mt-7 w-full flex items-center justify-center">
-                    <Typography textsize='xs'>By continuing, you agree to the <Link href={"/terms"} target='_blank' className='underline'>Terms of Use</Link> applicable to Candle AI and confirm you have read our <Link href={"/privacy"} target='_blank' className='underline'>privacy policy</Link></Typography>
+                    <Typography textsize='xs'>By continuing, you agree to the <Link href={"/terms"} target='_blank' rel="noopener noreferrer" className='underline'>Terms of Use</Link> applicable to Candle AI and confirm you have read our <Link href={"/privacy"} target='_blank' rel="noopener noreferrer" className='underline'>privacy policy</Link></Typography>
                 </div>
             </div>
         </Modal>

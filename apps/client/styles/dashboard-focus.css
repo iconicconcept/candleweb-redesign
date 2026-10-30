@@ -10550,7 +10550,9 @@ a.fx-row {
   opacity: 1;
 }
 
-/* ---- progress ring ---- */
+/* ---- progress ring ----
+   `.progress-ring`, not `.ring`: Tailwind ships a `.ring` utility that draws a
+   3px blue box-shadow, and the short name picked it up as a square outline. */
 .fx-review .progress {
   display: flex;
   align-items: center;
@@ -10558,26 +10560,26 @@ a.fx-row {
   margin-bottom: 12px;
   padding: 14px 18px;
 }
-.fx-review .ring {
+.fx-review .progress-ring {
   width: 42px;
   height: 42px;
   flex: 0 0 auto;
 }
-.fx-review .ring circle {
+.fx-review .progress-ring circle {
   fill: none;
   stroke-width: 4;
 }
-.fx-review .ring .bg {
+.fx-review .progress-ring .bg {
   stroke: var(--soft2);
 }
-.fx-review .ring .fg {
+.fx-review .progress-ring .fg {
   stroke: var(--fx-teal);
   stroke-linecap: round;
   transform: rotate(-90deg);
   transform-origin: 50% 50%;
   transition: stroke-dasharray 0.6s ease;
 }
-.fx-review .ring text {
+.fx-review .progress-ring text {
   fill: var(--fx-t1);
   font-family: var(--fx-mono);
   font-size: 10px;

@@ -33,12 +33,12 @@ const TeamCard = (props: Props) => {
                 Head of IT
             </Typography>
             <div className="team__social flex items-center gap-3">
-                <Link href={"#"} target="_blank">
-                    {/* <Link href={team.fb} target="_blank"> */}
+                <Link href={"#"} target="_blank" rel="noopener noreferrer">
+                    {/* <Link href={team.fb} target="_blank" rel="noopener noreferrer"> */}
                     <FaFacebook className="text-xl" />
                 </Link>
-                <Link href={"#"} target="_blank">
-                    {/* <Link href={team.ig} target="_blank"> */}
+                <Link href={"#"} target="_blank" rel="noopener noreferrer">
+                    {/* <Link href={team.ig} target="_blank" rel="noopener noreferrer"> */}
                     <RiInstagramFill className="text-xl" />
                 </Link>
             </div>

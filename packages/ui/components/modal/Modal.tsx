@@ -30,7 +30,7 @@ interface IModalProps {
   title: any;
   width?: string;
   padding?: string;
-  ref?: typeof React.useRef;
+  ref?: React.Ref<HTMLButtonElement>;
   isOpen?: boolean;
   onChnage?: (e: boolean) => void;
 }

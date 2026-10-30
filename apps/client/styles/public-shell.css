@@ -549,8 +549,21 @@
     display: none;
   }
   /* Full menu width, first in the menu, above "Bring your bot". The links use
-     a bottom border and flush padding, so this needs its own box back. */
-  .pub-nav-mid.is-open .pub-m-cta {
+     a bottom border and flush padding, so this needs its own box back.
+     At (0,4,0) it outranks the menu-link rules — `.pub-nav-mid.is-open a`
+     and its :hover, and the light theme's (all 0,3,1) — which otherwise
+     repaint it in link colours, and on touch, where scrolling over it fires
+     :hover, flash a grey fill over the amber. The amber is restated here so
+     it holds in every state and both themes. */
+  .pub-nav-mid.is-open .pub-btn.pub-m-cta,
+  .pub-nav-mid.is-open .pub-btn.pub-m-cta:hover,
+  .pub-nav-mid.is-open .pub-btn.pub-m-cta:focus-visible,
+  .pub-nav-mid.is-open .pub-btn.pub-m-cta:active {
+    color: #241802;
+    background: linear-gradient(180deg, var(--pub-amber-2), var(--pub-amber));
+    box-shadow: 0 6px 20px rgba(255, 185, 61, 0.22);
+  }
+  .pub-nav-mid.is-open .pub-btn.pub-m-cta {
     display: inline-flex;
     flex: 0 0 auto;
     width: 100%;
@@ -674,8 +687,8 @@
 /* Scoped under `.pub-nav-mid` on purpose: the CTA renders as an <a>, and
    `.pub-nav-mid a { display: flex }` (0,1,1) outranks a bare `.pub-m-cta`
    (0,1,0) — which is how it first shipped showing inside the desktop nav pill.
-   At (0,2,0) this wins, and the mobile `.pub-nav-mid.is-open .pub-m-cta`
-   (0,3,0) still wins over it. */
+   At (0,2,0) this wins, and the mobile `.pub-nav-mid.is-open .pub-btn.pub-m-cta`
+   (0,4,0) still wins over it. */
 .pub-nav-mid .pub-m-cta {
   display: none;
 }

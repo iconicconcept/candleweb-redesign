@@ -42,14 +42,14 @@ const Footer = (props: IFooterProps) => {
             </Link>
           </div>
           <div className="footer__socials flex items-center gap-2">
-            <Link href="https://www.linkedin.com/company/candleweb-services/" target="_blank">
+            <Link href="https://www.linkedin.com/company/candleweb-services/" target="_blank" rel="noopener noreferrer">
               <AiFillLinkedin className="flex items-center justify-center w-10 h-10 p-2 rounded-full bg-card-gradient transition duration-700 hover:text-primary" />
             </Link>
-            <Link href="https://twitter.com/Candleweb_AI?t=3swlPh95OFEqwxeL8SX3Yg&s=09" target="_blank">
+            <Link href="https://twitter.com/Candleweb_AI?t=3swlPh95OFEqwxeL8SX3Yg&s=09" target="_blank" rel="noopener noreferrer">
               {/* <FaXTwitter className="flex items-center justify-center w-10 h-10 p-2 rounded-full bg-card-gradient transition duration-700 hover:text-primary" /> */}
               <svg className="flex items-center justify-center w-10 h-10 p-2 rounded-full bg-card-gradient transition duration-700 hover:text-primary" xmlns="http://www.w3.org/2000/svg" xmlnsXlink="http://www.w3.org/1999/xlink" viewBox="0,0,256,256" width="50px" height="50px"><g fill="#ffffff" fillRule="nonzero" stroke="none" strokeWidth="1" strokeLinecap="butt" strokeLinejoin="miter" strokeMiterlimit="10" strokeDasharray="" strokeDashoffset="0" fontFamily="none" fontWeight="none" fontSize="none" style={{ mixBlendMode: "normal" }}><g transform="scale(5.12,5.12)"><path d="M11,4c-3.866,0 -7,3.134 -7,7v28c0,3.866 3.134,7 7,7h28c3.866,0 7,-3.134 7,-7v-28c0,-3.866 -3.134,-7 -7,-7zM13.08594,13h7.9375l5.63672,8.00977l6.83984,-8.00977h2.5l-8.21094,9.61328l10.125,14.38672h-7.93555l-6.54102,-9.29297l-7.9375,9.29297h-2.5l9.30859,-10.89648zM16.91406,15l14.10742,20h3.06445l-14.10742,-20z"></path></g></g></svg>
             </Link>
-            <Link href="https://t.me/candleweb" target="_blank">
+            <Link href="https://t.me/candleweb" target="_blank" rel="noopener noreferrer">
               <FaTelegram className="flex items-center justify-center w-10 h-10 p-2 rounded-full bg-card-gradient transition duration-700 hover:text-primary" />
             </Link>
             <Link href="https://instagram.com/candleweb_ai?igshid=OGQ5ZDc2ODk2ZA==">
@@ -83,7 +83,7 @@ const Footer = (props: IFooterProps) => {
               Resources
             </Heading>
             <ul className="footer__resource--items">
-              <Link href="/whitepaper.pdf" target="_blank">
+              <Link href="/whitepaper.pdf" target="_blank" rel="noopener noreferrer">
                 <li className="footer__resource--item text-xs inter text-gray-400 duration-[1500ms] ease-in-out hover:text-primary cursor-pointer mb-3">
                   WhitePaper
                 </li>
@@ -98,12 +98,12 @@ const Footer = (props: IFooterProps) => {
                   Media Designs
                 </li>
               </Link>
-              <Link href="https://medium.com/@candleweb/list/1e42f8710067" target="_blank">
+              <Link href="https://medium.com/@candleweb/list/1e42f8710067" target="_blank" rel="noopener noreferrer">
                 <li className="footer__resource--item text-xs inter text-gray-400 duration-[1500ms] ease-in-out hover:text-primary cursor-pointer mb-3">
                   Tutorials
                 </li>
               </Link>
-              <Link href="/blog" target="_blank">
+              <Link href="/blog" target="_blank" rel="noopener noreferrer">
                 <li className="footer__resource--item text-xs inter text-gray-400 duration-[1500ms] ease-in-out hover:text-primary cursor-pointer mb-3">
                   Blog
                 </li>
@@ -168,13 +168,13 @@ const Footer = (props: IFooterProps) => {
             </Link>
           </div>
           <div className="footer__socials flex items-center gap-2">
-            <Link href="https://www.linkedin.com/company/candleweb-services/" target="_blank">
+            <Link href="https://www.linkedin.com/company/candleweb-services/" target="_blank" rel="noopener noreferrer">
               <AiFillLinkedin className="flex items-center justify-center w-10 h-10 p-2 rounded-full bg-card-gradient" />
             </Link>
-            <Link href="https://twitter.com/Candleweb_AI?t=3swlPh95OFEqwxeL8SX3Yg&s=09" target="_blank">
+            <Link href="https://twitter.com/Candleweb_AI?t=3swlPh95OFEqwxeL8SX3Yg&s=09" target="_blank" rel="noopener noreferrer">
               <AiFillTwitterCircle className="flex items-center justify-center w-10 h-10 p-2 rounded-full bg-card-gradient" />
             </Link>
-            <Link href="https://t.me/candleweb" target="_blank">
+            <Link href="https://t.me/candleweb" target="_blank" rel="noopener noreferrer">
               <FaTelegram className="flex items-center justify-center w-10 h-10 p-2 rounded-full bg-card-gradient" />
             </Link>
             <Link href="https://instagram.com/candleweb_ai?igshid=OGQ5ZDc2ODk2ZA==">
@@ -212,7 +212,7 @@ const Footer = (props: IFooterProps) => {
 
               <AccordionContent>
                 <ul className="footer__resource--items">
-                  <Link href="/whitepaper.pdf" target="_blank">
+                  <Link href="/whitepaper.pdf" target="_blank" rel="noopener noreferrer">
                     <li className="footer__resource--item text-xs inter text-gray-400 duration-[1500ms] ease-in-out hover:text-primary cursor-pointer mb-3">
                       WhitePaper
                     </li>
@@ -227,7 +227,7 @@ const Footer = (props: IFooterProps) => {
                       Media Designs
                     </li>
                   </Link>
-                  <Link href="https://medium.com/@candleweb/list/1e42f8710067" target="_blank">
+                  <Link href="https://medium.com/@candleweb/list/1e42f8710067" target="_blank" rel="noopener noreferrer">
                     <li className="footer__resource--item text-xs inter text-gray-400 duration-[1500ms] ease-in-out hover:text-primary cursor-pointer mb-3">
                       Tutorials
                     </li>
@@ -289,12 +289,12 @@ const Footer = (props: IFooterProps) => {
 
               <AccordionContent>
                 <ul className="footer__company--items">
-                  <Link href="/terms" target="_blank">
+                  <Link href="/terms" target="_blank" rel="noopener noreferrer">
                     <li className="footer__company--item text-xs inter text-gray-400 duration-[1500ms] ease-in-out hover:text-primary cursor-pointer mb-3">
                       Terms & Condition
                     </li>
                   </Link>
-                  <Link href="/privacy" target="_blank">
+                  <Link href="/privacy" target="_blank" rel="noopener noreferrer">
                     <li className="footer__company--item text-xs inter text-gray-400 duration-[1500ms] ease-in-out hover:text-primary cursor-pointer mb-3">
                       Privacy Policy
                     </li>
@@ -307,12 +307,12 @@ const Footer = (props: IFooterProps) => {
       </div>
       <hr className="bg-txt-yellow sm:hidden h-0 md:h-[2px] border-none max-w-[1065px] m-auto sm:mx-9 lg:mx-7" />
       <div className="footer__terms sm:hidden pb-14 pt-8 flex items-center justify-between max-w-[1065px] m-auto sm:mx-9 lg:mx-7">
-        <Link href={"/terms"} target="_blank">
+        <Link href={"/terms"} target="_blank" rel="noopener noreferrer">
           <Typography textsize="xs" color="gray">
             Terms & Condition
           </Typography>
         </Link>
-        <Link href={"/privacy"} target="_blank">
+        <Link href={"/privacy"} target="_blank" rel="noopener noreferrer">
           <Typography textsize="xs" color="gray">
             Privacy Policy
           </Typography>

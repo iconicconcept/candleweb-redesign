@@ -28,7 +28,10 @@ const NO_RETURN = ["/login", "/register", "/auth"];
  * off-site.
  */
 export const safeReturnTo = (returnTo: string) => {
-  if (!returnTo || !returnTo.startsWith("/") || returnTo.startsWith("//")) return "";
+  /* Browsers read "/\evil.com" as "//evil.com", so a backslash is refused
+     anywhere — no real path here contains one. */
+  if (!returnTo || !returnTo.startsWith("/") || returnTo.startsWith("//") || returnTo.includes("\\"))
+    return "";
   const path = returnTo.split(/[?#]/)[0].replace(/\/+$/, "");
   if (!path) return ""; // "/" and "///" — the homepage
   if (NO_RETURN.some((p) => path === p || path.startsWith(`${p}/`))) return "";

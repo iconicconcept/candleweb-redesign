@@ -21,6 +21,7 @@ import { ExchangeProp } from "../../types/exchange";
 import useEthereum from "../../lib/hooks/useEthereum";
 import { loginUser } from "../../utils/loginUser";
 import useUserStore from "../../lib/hooks/useUserStore";
+import { safeReturnTo } from "../../lib/authRedirect";
 
 
 
@@ -135,7 +136,7 @@ const Register = () => {
           wallet: wallet_address, signerPassword: walletDetails?.signMessage!, setIsLoading, onSuccess: (value, type) => {
             if (type === "success") {
               setUser(value)
-              const redirect = router.query.redirect as string;
+              const redirect = safeReturnTo((router.query.redirect as string) ?? "");
               if (redirect) {
                 router.push(redirect);
               } else {
@@ -326,7 +327,7 @@ const Register = () => {
                         wallet: res.walletAddress, signerPassword: res.signMessage, setIsLoading, onSuccess: (value, type) => {
                           if (type === "success") {
                             setUser(value)
-                            const redirect = router.query.redirect as string;
+                            const redirect = safeReturnTo((router.query.redirect as string) ?? "");
                             if (redirect) {
                               router.push(redirect);
                             } else {
@@ -382,7 +383,7 @@ const Register = () => {
           <div className="divider my-1"></div>
           <Typography classstyle="ml-5 !font-light">Copy and share your referral link with your friends and family to earn some rewards.</Typography>
           <div className="divider my-5"></div>
-          <Link href={"https://medium.com/@candleweb/how-to-create-a-metamask-wallet-50341174ba"} target="_blank"> <Button>Read more...</Button></Link>
+          <Link href={"https://medium.com/@candleweb/how-to-create-a-metamask-wallet-50341174ba"} target="_blank" rel="noopener noreferrer"> <Button>Read more...</Button></Link>
 
         </div>
       </Modal>

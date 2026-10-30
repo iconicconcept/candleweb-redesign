@@ -85,6 +85,7 @@ import React, { useEffect, useRef } from "react";
 import Loader from "../../components/Loader";
 import { axiosApi } from "../../lib/axiosApi";
 import useUserStore from "../../lib/hooks/useUserStore";
+import { safeReturnTo } from "../../lib/authRedirect";
 
 type Props = {};
 
@@ -113,29 +114,29 @@ const clearRedirectStorage = () => {
 
 const getRedirectPath = (dataRedirect?: string): string => {
     // LAYER 1: From backend response (most reliable — survived the full OAuth round-trip)
-    if (dataRedirect && dataRedirect.startsWith('/')) {
-        return dataRedirect;
+    if (dataRedirect && safeReturnTo(dataRedirect)) {
+        return safeReturnTo(dataRedirect);
     }
 
     // LAYER 2: Cookie
     const fromCookie = getCookie(REDIRECT_KEY);
-    if (fromCookie && fromCookie.startsWith('/')) {
-        return fromCookie;
+    if (fromCookie && safeReturnTo(fromCookie)) {
+        return safeReturnTo(fromCookie);
     }
 
     // LAYER 3: localStorage
     try {
         const fromLocal = localStorage.getItem(REDIRECT_KEY);
-        if (fromLocal && fromLocal.startsWith('/')) {
-            return fromLocal;
+        if (fromLocal && safeReturnTo(fromLocal)) {
+            return safeReturnTo(fromLocal);
         }
     } catch (e) {}
 
     // LAYER 4: sessionStorage
     try {
         const fromSession = sessionStorage.getItem(REDIRECT_KEY);
-        if (fromSession && fromSession.startsWith('/')) {
-            return fromSession;
+        if (fromSession && safeReturnTo(fromSession)) {
+            return safeReturnTo(fromSession);
         }
     } catch (e) {}
 

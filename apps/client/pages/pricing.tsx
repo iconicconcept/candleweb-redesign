@@ -109,6 +109,8 @@ const PricingPage = () => {
   /** What is waiting on "card or crypto", or null. */
   const [intent, setIntent] = useState<Intent | null>(null);
   const [paying, setPaying] = useState(false);
+  /* the user's own answer to "charge me again when the period ends" */
+  const [autoRenew, setAutoRenew] = useState(true);
 
   useEffect(() => {
     dispatch(subscriptionV2Service.listPlans());
@@ -310,6 +312,9 @@ const PricingPage = () => {
          money today — it only decides when the current plan stops — so it goes
          to the subscription page, which says what is lost and from when. */
       if (planRank(plan) > planRank(byCode[held.plan_code])) {
+        /* from a paid plan, start from the answer already on file; a free
+           plan never asked */
+        setAutoRenew(byCode[held.plan_code]?.is_free ? true : held.auto_renew ?? true);
         setIntent({ kind: "change", plan });
         return;
       }
@@ -321,6 +326,7 @@ const PricingPage = () => {
       submit({ kind: "subscribe", plan });
       return;
     }
+    setAutoRenew(true);
     setIntent({ kind: "subscribe", plan });
   };
 
@@ -357,7 +363,13 @@ const PricingPage = () => {
       const thunk =
         it.kind === "change" ? subscriptionV2Service.changePlan : subscriptionV2Service.subscribe;
       res = await dispatch(
-        thunk({ api: axiosToken, plan: it.plan.code, cycle: it.plan.is_free ? "monthly" : cycle }),
+        thunk({
+          api: axiosToken,
+          plan: it.plan.code,
+          cycle: it.plan.is_free ? "monthly" : cycle,
+          /* a free plan never charges, so there is nothing to agree to */
+          autoRenew: it.plan.is_free ? undefined : autoRenew,
+        }),
       );
     }
     if (res.meta.requestStatus !== "fulfilled") {
@@ -895,9 +907,11 @@ const PricingPage = () => {
                     label="Pairs and indicators"
                     plans={ordered}
                     value={(e) =>
-                      e.max_pairs == null
-                        ? "Unlimited pairs, 400+ indicators"
-                        : `${e.max_pairs} pair, ${e.max_indicators} indicators`
+                      `${
+                        e.max_pairs == null
+                          ? "Unlimited pairs"
+                          : `${e.max_pairs} pair${e.max_pairs === 1 ? "" : "s"}`
+                      }, ${e.max_indicators == null ? "every indicator" : `${e.max_indicators} indicators`}`
                     }
                   />
                   <CompareRow
@@ -1171,18 +1185,37 @@ const PricingPage = () => {
                   num(intent.pack.amount),
                   (intent.pack.currency as Currency) || "NGN",
                 )}`
-              : `${intent.plan.name} · ${
-                  perMonth(intent.plan, cur, cycle) === 0
-                    ? "free"
-                    : `${money(perMonth(intent.plan, cur, cycle), cur)} ${
-                        cycle === "annual" ? "a year" : "a month"
-                      }`
-                }`
+              : /* What checkout will actually charge for the period: the
+                   full yearly price on Yearly, and in the currency billed —
+                   naira for a first plan, the subscription's own currency
+                   for a change. The page's switch is only a preview. */
+                (() => {
+                  const payCur: Currency =
+                    intent.kind === "change" && subscription
+                      ? (subscription.billing_currency as Currency)
+                      : "NGN";
+                  const amount = billed(intent.plan, payCur, cycle);
+                  return `${intent.plan.name} · ${
+                    amount === 0
+                      ? "free"
+                      : `${money(amount, payCur)} ${cycle === "annual" ? "a year" : "a month"}`
+                  }`;
+                })()
           }
           note={
             intent.kind === "reviews"
               ? "You'll finish on the processor's secure checkout, then land on your subscription page. The reviews are added once the payment is confirmed, and they never expire."
               : "You'll finish on the processor's secure checkout, then land on your subscription page. Your plan changes once the payment is confirmed — your trading funds stay on your own exchange."
+          }
+          renew={
+            intent.kind === "reviews"
+              ? undefined
+              : {
+                  on: autoRenew,
+                  period: cycle === "annual" ? "year" : "month",
+                  planName: intent.plan.name,
+                  onToggle: () => setAutoRenew((v) => !v),
+                }
           }
           busy={paying}
           onCancel={() => setIntent(null)}
