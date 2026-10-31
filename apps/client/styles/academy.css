@@ -498,6 +498,15 @@
   letter-spacing: 0.16em;
   text-transform: uppercase;
 }
+.ac-c-cats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.ac-c-cats .ac-c-cat {
+  margin-bottom: 0;
+}
 .ac-c-body h3 {
   margin: 0 0 12px;
   font-size: 22px;

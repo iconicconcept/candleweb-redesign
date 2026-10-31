@@ -429,12 +429,12 @@ const ConnectExchangePage = () => {
               {/* the design's read-only verification run (reach the exchange,
                   read balance, read permissions, confirm withdraw off, check IP
                   lock) needs a per-key read-back: BACKEND_API_REQUESTS §1.14 */}
-              <p className="fx-hint" style={{ margin: "0 0 4px" }}>
+              {/* <p className="fx-hint" style={{ margin: "0 0 4px" }}>
                 <span className="fx-preview">
                   <i>◔</i> The read-only key check before saving needs the key-permissions endpoint
                   (§1.14)
                 </span>
-              </p>
+              </p> */}
 
               <div className="fx-actions" style={{ marginTop: "22px" }}>
                 <Link className="fx-cta ghost2" href="/dashboard/exchanges">

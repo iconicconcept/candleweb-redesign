@@ -5810,12 +5810,12 @@ button.fx-ip.more2 {
   transition: all 0.22s cubic-bezier(0.34, 1.3, 0.5, 1);
 }
 .fx-tg.off4 {
-  background: var(--w13);
+  background: rgba(255, 255, 255, 0.2);
 }
 .fx-tg.off4::after {
   right: auto;
   left: 3px;
-  background: #8c9299;
+  background: #d4d8dc;
 }
 :root[data-theme="light"] .fx-root .fx-tg.off4 {
   background: rgba(14, 21, 18, 0.22);

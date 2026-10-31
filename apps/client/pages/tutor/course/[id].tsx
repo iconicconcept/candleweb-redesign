@@ -15,6 +15,7 @@ import PaymentMethodModal from "../../../components/public/PaymentMethodModal";
 import Loader from "../../../components/Loader";
 import { imageUri } from "../../../utils/constants";
 import { FAQ } from "../../../types/tutor";
+import { courseCategories } from "../../../lib/courseCategories";
 
 /**
  * Public course detail — the page someone reads while deciding whether to
@@ -355,7 +356,7 @@ const CourseDetailPage = () => {
           <nav className="ac-crumbs" aria-label="Breadcrumb">
             <Link href="/tutor">Academy</Link>
             <i aria-hidden="true">/</i>
-            <Link href="/tutor#courses">{course?.category || "Courses"}</Link>
+            <Link href="/tutor#courses">{courseCategories(course?.category)[0] || "Courses"}</Link>
           </nav>
 
           {loading && !course && (
@@ -386,7 +387,11 @@ const CourseDetailPage = () => {
                     <span className={`ac-cd-state ${isOpen ? "open" : "soon"}`}>
                       {isOpen ? "Enrolling now" : "Coming soon"}
                     </span>
-                    {course.category && <span className="ac-c-cat">{course.category}</span>}
+                    {courseCategories(course.category).map((tag) => (
+                      <span key={tag} className="ac-c-cat">
+                        {tag}
+                      </span>
+                    ))}
                   </div>
 
                   <h1 className="ac-cd-title">{course.title}</h1>

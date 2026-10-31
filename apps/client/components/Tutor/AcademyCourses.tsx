@@ -12,6 +12,7 @@ import { resetPaymentStatus } from "../../redux/slices/paymentSlice";
 import useUserStore from "../../lib/hooks/useUserStore";
 import useAxiosAuth from "../../lib/hooks/useAxiosAuth";
 import { imageUri } from "../../utils/constants";
+import { courseCategories } from "../../lib/courseCategories";
 import { signUpPath } from "../../lib/authRedirect";
 import Loader from "../Loader";
 import { Written } from "../public/Written";
@@ -197,7 +198,7 @@ const AcademyCourses = () => {
   const categories = useMemo(() => {
     const set = new Set<string>();
     courses.forEach((course: any) => {
-      if (course.category) set.add(course.category);
+      courseCategories(course.category).forEach((tag) => set.add(tag));
     });
     return ["All", ...Array.from(set)];
   }, [courses]);
@@ -206,7 +207,9 @@ const AcademyCourses = () => {
     () =>
       filter === "All"
         ? courses
-        : courses.filter((course: any) => course.category === filter),
+        : courses.filter((course: any) =>
+            courseCategories(course.category).includes(filter),
+          ),
     [courses, filter],
   );
   const visible = showAll ? filtered : filtered.slice(0, 3);
@@ -322,9 +325,16 @@ const AcademyCourses = () => {
                 </div>
 
                 <div className="ac-c-body">
-                  <span className="ac-c-cat">
-                    {course.category || "Course"}
-                  </span>
+                  <div className="ac-c-cats">
+                    {(courseCategories(course.category).length
+                      ? courseCategories(course.category)
+                      : ["Course"]
+                    ).map((tag) => (
+                      <span key={tag} className="ac-c-cat">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
                   <h3>
                     <Link href={`/tutor/course/${course.id}`}>
                       {course.title}
