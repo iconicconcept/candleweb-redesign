@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useRefreshToken } from '../../lib/hooks/useRefreshToken';
-import { signInPath } from '../../lib/authRedirect';
+import { currentPath, signInPath } from '../../lib/authRedirect';
 import Loader from '../Loader';
 import useUserStore from '../../lib/hooks/useUserStore';
 import { Typography } from 'ui';
@@ -95,7 +95,7 @@ const CheckLogin = ({ children }: Props) => {
        (no token at all, a refresh that never answered) had no exit. */
     useEffect(() => {
         if (isLoading || !hasHydration || user.access_token) return;
-        router.replace(signInPath(router.asPath));
+        router.replace(signInPath(currentPath()));
     }, [isLoading, hasHydration, user.access_token, router]);
 
     return (

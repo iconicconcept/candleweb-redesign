@@ -159,6 +159,13 @@ const withIds = (data: TradeV2Payload): TradeV2Payload => {
  */
 export type TradeV2Rejection = { message: string; fields: Record<string, string> };
 
+/**
+ * One toast slot for save and start. "Start trading" on the new-trade page
+ * saves and then starts, which stacked "Trade saved." and "Trade started."
+ * as two boxes; sharing the id makes the second replace the first in place.
+ */
+const TRADE_WRITE_TOAST = "trade-write";
+
 /** POST /trading_v2/trades/ — create (status=PAUSED) */
 const createTrade = createAsyncThunk(
   "tradingV2/create",
@@ -173,7 +180,7 @@ const createTrade = createAsyncThunk(
          it is mounted. Doing this in the thunk rather than at each call site
          is what keeps a page from having to know which other pages exist. */
       thunkApi.dispatch(revalidate(["trades", "status"]));
-      success("Trade saved.");
+      success("Trade saved.", TRADE_WRITE_TOAST);
       payload.onSuccess?.(data);
       return data;
     } catch (err: any) {
@@ -200,7 +207,7 @@ const updateTrade = createAsyncThunk(
       const { data } = await payload.api.patch<TradeV2>(`${BASE}${payload.id}/`, withIds(payload.data));
       thunkApi.dispatch(upsertTradeV2(data));
       thunkApi.dispatch(revalidate(["trades", "status"]));
-      success("Trade updated.");
+      success("Trade updated.", TRADE_WRITE_TOAST);
       payload.onSuccess?.(data);
       return data;
     } catch (err: any) {
@@ -238,7 +245,7 @@ const startTrade = createAsyncThunk(
       const { data } = await payload.api.post<TradeV2>(`${BASE}${payload.id}/start/`);
       thunkApi.dispatch(upsertTradeV2(data));
       thunkApi.dispatch(revalidate(["trades", "status"]));
-      success("Trade started.");
+      success("Trade started.", TRADE_WRITE_TOAST);
       payload.onSuccess?.(data);
       return data;
     } catch (err: any) {

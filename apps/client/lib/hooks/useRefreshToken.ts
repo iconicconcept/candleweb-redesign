@@ -26,7 +26,7 @@ import {
 import { setBalance } from "../../redux/slices/userSlice";
 import { AppDispatch } from "../../redux/store";
 import { uri } from "../axiosApi";
-import { signInPath } from "../authRedirect";
+import { currentPath, signInPath } from "../authRedirect";
 
 const BASE_URL = uri;
 
@@ -113,10 +113,10 @@ export const useRefreshToken = () => {
          off the homepage over an expired cookie is the worse outcome. It was
          also pushing to /register — the wrong page for someone who plainly has
          an account. */
-      const currentPath = router.pathname;
-      if (currentPath.startsWith("/dashboard")) {
-        router.replace(signInPath(router.asPath));
-      } else if (currentPath.startsWith("/tutor")) {
+      const route = router.pathname;
+      if (route.startsWith("/dashboard")) {
+        router.replace(signInPath(currentPath()));
+      } else if (route.startsWith("/tutor")) {
         router.replace("/tutor");
       }
       error("Session expired. Please log in again.", "expired");

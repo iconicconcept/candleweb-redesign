@@ -1,0 +1,313 @@
+{
+  "name": "My Candleweb Trading Bot Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 3
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        0
+      ],
+      "id": "d5e9ea9f-ff6c-4b32-a6a0-5cc45847be3c",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "url": "https://api.candleweb.io/api/trading_v2/trades/YOUR_TRADE_ID/candles/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Candleweb-Key",
+              "value": "cw_dev_179a42cc9c8333cf"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        208,
+        0
+      ],
+      "id": "cb04c5b4-e434-44fb-af0b-f3ce89379aca",
+      "name": "Get the candles"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "7cb31e44-3467-4a2b-a252-bb4d84a2f944",
+              "leftValue": "={{ $json.candles }}",
+              "rightValue": "",
+              "operator": {
+                "type": "array",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        384,
+        -32
+      ],
+      "id": "ff9f5691-64fa-4ac6-935d-6ff0c6964dd5",
+      "name": "Has Data?"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Market: {{ $json.market }} on the {{ $json.timeframe }} timeframe.\nThe data is {{ $json.stale ? 'STALE (delayed) - be cautious' : 'fresh' }}.\n\nOpen position on this market (null means none):\n{{ JSON.stringify($json.position) }}\n\nWhat a BUY right now would do (stop, size, and whether it would be accepted):\n{{ JSON.stringify($json.risk_preview) }}\n\nHow the last position closed (null means none yet):\n{{ JSON.stringify($json.last_exit) }}\n\nCandles, oldest first. The last one may still be forming (closed false):\n{{ JSON.stringify($json.candles) }}\n\nDecide what to do now.",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are a careful crypto trading assistant for a long-only spot trade. You receive\nrecent candles with indicators, the open position (if any), and what a BUY would do\nright now. Give ONE decision.\n\nWhat your decision does:\n- BUY opens a position at the market, but only if your confidence is above\n  risk_preview.min_confidence and your risk is LOW or MEDIUM. Candleweb sets the\n  stop and the size. A BUY does nothing while a position is open, or when\n  risk_preview.would_arm is false (risk_preview.blocked_by says why).\n- SELL closes the open position at the market, but only if risk_preview.agent_exits\n  is true and your confidence is above risk_preview.min_confidence. It never opens\n  a short. With no open position, SELL does nothing.\n- HOLD does nothing. If the picture is unclear, choose HOLD. HOLD is always valid.\n\nRules:\n- confidence: a whole number from 0 to 100 for how sure you are. Be honest: it\n  decides whether Candleweb acts.\n- risk: LOW, MEDIUM or HIGH for how risky acting on this decision is right now.\n  HIGH never opens a position.\n- Before a BUY, compare the move you expect with risk_preview.stop_pct (the stop\n  distance as a fraction of the price) and the fees. If the move you expect is\n  smaller than the stop, choose HOLD.\n- If risk_preview is null, do not BUY.\n- rationale: one or two short sentences, citing the specific numbers you used\n  (for example RSI or price levels).\n- Use only the data given. Never invent prices or indicator values.\n- If the data is marked STALE, choose HOLD and say why.\n- Reply only in the required format."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        880,
+        -128
+      ],
+      "id": "3d62240b-ec03-4979-8ffa-7ff5ba5a76e1",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n\"type\": \"object\",\n\"additionalProperties\": false,\n\"required\": [\"decision\", \"confidence\", \"risk\", \"rationale\"],\n\"properties\": {\n\"decision\": {\n\"type\": \"string\",\n\"enum\": [\"BUY\", \"SELL\", \"HOLD\"],\n\"description\": \"What to do now. HOLD when unclear.\"\n},\n\"confidence\": {\n\"type\": \"integer\",\n\"minimum\": 0,\n\"maximum\": 100,\n\"description\": \"How sure you are, 0 to 100.\"\n},\n\"risk\": {\n\"type\": \"string\",\n\"enum\": [\"LOW\", \"MEDIUM\", \"HIGH\"],\n\"description\": \"How risky acting on this decision is right now.\"\n},\n\"rationale\": {\n\"type\": \"string\",\n\"minLength\": 1,\n\"maxLength\": 500,\n\"description\": \"One or two sentences citing the numbers used.\"\n}\n}\n}\n"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1024,
+        32
+      ],
+      "id": "e30b937a-23e4-4863-b542-f1c68bc07dbb",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.candleweb.io/api/trading_v2/trades/YOUR_TRADE_ID/decision/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Candleweb-Key",
+              "value": "cw_dev_179a42cc3333e25cd0c561cf"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\ntrade_id: $('Get the candles').item.json.trade_id,\ndelivery_id: $('Get the candles').item.json.delivery_id,\nmarket_data_ids: $('Get the candles').item.json.market_data_ids,\ndecision: $json.output.decision,\nconfidence: $json.output.confidence,\nrisk: $json.output.risk,\nrationale: $json.output.rationale\n}) }}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1200,
+        -112
+      ],
+      "id": "77392526-8b7f-4372-8fb3-41849ffd3758",
+      "name": "Send Decision"
+    },
+    {
+      "parameters": {
+        "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        832,
+        80
+      ],
+      "id": "df2f6f44-4e68-45fb-bdcc-903f814125ef",
+      "name": "OpenRouter Chat Model"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "3399788a-9cd3-4150-b54b-a42e7772aa33",
+              "name": "sessionId",
+              "value": "session",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        528,
+        -80
+      ],
+      "id": "ffbb50af-770b-44c0-99be-ee80b1d65ab4",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "contextWindowLength": 20
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        928,
+        80
+      ],
+      "id": "502e8819-427c-472c-8640-86498bd38674",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// What the AI sees: the market and your position, and no ids.\n// Send Decision copies the ids Candleweb needs straight from Get the candles.\nconst data = $('Get the candles').item.json;\n\nconst withoutId = (block) => {\n  if (!block) return null;\n  const { position_id, ...rest } = block;\n  return rest;\n};\n\nreturn {\n  json: {\n    sessionId: $json.sessionId,\n    market: data.pair,\n    timeframe: data.timeframe,\n    stale: data.is_stale,\n    position: withoutId(data.position),\n    risk_preview: data.risk_preview,\n    last_exit: withoutId(data.last_exit),\n    candles: (data.candles || []).map((c) => ({\n      time: c.open_time,\n      open: c.open,\n      high: c.high,\n      low: c.low,\n      close: c.close,\n      volume: c.volume,\n      closed: c.is_closed,\n      indicators: c.indicators,\n    })),\n  },\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        704,
+        -80
+      ],
+      "id": "6f1c2a44-8b0e-4d57-9a3e-2c7d51e0b9a1",
+      "name": "Prepare for AI"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get the candles",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get the candles": {
+      "main": [
+        [
+          {
+            "node": "Has Data?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Data?": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Send Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Prepare for AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare for AI": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "tags": []
+}

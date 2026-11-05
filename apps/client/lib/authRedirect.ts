@@ -35,7 +35,23 @@ export const safeReturnTo = (returnTo: string) => {
   const path = returnTo.split(/[?#]/)[0].replace(/\/+$/, "");
   if (!path) return ""; // "/" and "///" — the homepage
   if (NO_RETURN.some((p) => path === p || path.startsWith(`${p}/`))) return "";
+  /* A route pattern such as /dashboard/tutor/course/[id]/ is not a real page:
+     the app would ask the API for a course called "[id]". See `currentPath`. */
+  if (/\[|%5B/i.test(path)) return "";
   return returnTo;
+};
+
+/**
+ * The address actually in the browser, for returning here after a sign-in.
+ *
+ * Not `router.asPath`: on a statically exported dynamic page that is the route
+ * pattern (/dashboard/tutor/course/[id]/) until the router has hydrated, and the
+ * session check runs in a closure from that first render, so it never sees the
+ * real id. Client-side only — call it from an effect or a handler.
+ */
+export const currentPath = () => {
+  const { pathname, search, hash } = window.location;
+  return `${pathname}${search}${hash}`;
 };
 
 const withReturn = (page: string, returnTo: string) => {

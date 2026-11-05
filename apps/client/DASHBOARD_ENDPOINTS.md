@@ -165,7 +165,7 @@ Rebuilt 2026-09-10 on the new **Trades (v2)** API (`/api/trading_v2/`).
 | ✅  | `PATCH /trading_v2/trades/{id}/`                  | "Save changes"                                                                                                                                |
 | ✅  | `DELETE /trading_v2/trades/{id}/`                 | delete                                                                                                                                        |
 | ✅  | `POST /trading_v2/trades/{id}/start/` · `/pause/` | run / pause controls                                                                                                                          |
-| ⛔  | **pairs list**                                    | `pair` is an int id; no endpoint. New-trade form uses a hard-coded placeholder list (`PLACEHOLDER_PAIRS`).                                    |
+| ✅ (2026-11-02) | **pairs list**                         | `GET /currency/retrieve/all/` — `currency_pair[].id` is the trade's `pair`. Only ETHUSDT (1) and BTCUSDT (3) exist; the old placeholder list sent ids 2, 4, 5 (refused) and labelled id 1 as BTC/USDT. |
 | ✅  | **bots list (BotV2)**                             | `GET /trading_v2/bots/` — the `bot` select now loads real bots (see §10). Falls back to an empty list + "Add one" link.                       |
 | ⛔  | **exchange accounts list**                        | `exchange_account` is an int id; `/exchange/record/` may or may not be the same thing. Placeholder list (`PLACEHOLDER_ACCOUNTS`).             |
 | ⛔  | **per-account balance**                           | the New-trade "Free to allocate" panel + the trades-list "capital" band need Total / allocated / free per account. Rendered as a `—` preview. |

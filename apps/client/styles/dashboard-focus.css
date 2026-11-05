@@ -1560,6 +1560,12 @@ button.fx-me[aria-expanded="true"] {
   background: rgba(46, 230, 168, 0.05);
   box-shadow: 0 0 0 3px rgba(46, 230, 168, 0.1);
 }
+/* The open menu is drawn by the OS and inherits nothing, so it needs real
+   colours or a dark theme leaves white-on-white options. */
+.fx-inp select option {
+  background: var(--fx-1);
+  color: var(--fx-t1);
+}
 .fx-inp input::placeholder,
 .fx-ta::placeholder {
   color: var(--fx-t3);

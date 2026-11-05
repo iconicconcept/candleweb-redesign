@@ -7,6 +7,7 @@ import { AppDispatch, RootState } from "../../../redux/store";
 import tradingV2Service, { toId } from "../../../services/tradingV2Service";
 import userService from "../../../services/userService";
 import exchangeServices from "../../../services/exchangeService";
+import currencyService from "../../../services/currencyService";
 import useAxiosAuth from "../../../lib/hooks/useAxiosAuth";
 import { isAuthorizationHeaderSet } from "../../../utils/check_auth";
 import { error } from "../../../components/alert/Toast";
@@ -42,18 +43,19 @@ import { BalanceProp } from "../../../types/user";
 import { ExchangeProp, ExchangeRecord } from "../../../types/exchange";
 
 /* ------------------------------------------------------------------ *
- * Reference lists — no backend endpoint exists for pairs yet. This
- * placeholder keeps the form usable; swap it for a fetch once
- * /api/trading_v2/pairs/ lands. Tracked in DASHBOARD_ENDPOINTS.md.
+ * Reference lists. Pairs come from /currency/retrieve/all/ — the
+ * backend's own list of supported pairs, whose `currency_pair[].id` is
+ * what a trade's `pair` holds. It replaced a hard-coded list of five
+ * guessed ids: two of them did not exist (the save failed) and the rest
+ * pointed at other markets ("BTC/USDT" was id 1, which is ETHUSDT).
  * Exchange accounts are the user's own records (/exchange/record/).
  * ------------------------------------------------------------------ */
-const PLACEHOLDER_PAIRS = [
-  { id: 1, name: "BTC/USDT" },
-  { id: 2, name: "ETH/USDT" },
-  { id: 3, name: "SOL/USDT" },
-  { id: 4, name: "AVAX/USDT" },
-  { id: 5, name: "LINK/USDT" },
-];
+
+/** "BTCUSDT" quoted in "USDT" → "BTC/USDT". Left as is if it doesn't split. */
+const pairLabel = (pair: string, quote?: string) =>
+  quote && pair.endsWith(quote) && pair.length > quote.length
+    ? `${pair.slice(0, -quote.length)}/${quote}`
+    : pair;
 /* Bots are real — /api/trading_v2/bots/. This fallback only shows if the
    list hasn't loaded yet or the account has none. */
 const FALLBACK_BOTS: { id: number; name: string }[] = [];
@@ -131,7 +133,8 @@ const DEFAULTS: FormState = {
   min_confidence: String(DEFAULT_MIN_CONFIDENCE),
   // 0 = none picked yet; the first connected account is filled in on load
   exchange_account: 0,
-  pair: PLACEHOLDER_PAIRS[0].id,
+  // 0 = none picked yet; the first supported pair is filled in on load
+  pair: 0,
   timeframe: "1m",
   allocated_amount: "",
   indicators: DEFAULT_INDICATORS,
@@ -151,6 +154,16 @@ const NewTradePage = () => {
   const { trades, bots } = useSelector((state: RootState) => state.tradingV2);
   const { balance } = useSelector((state: RootState) => state.user);
   const { exchanges, exchangeRecord } = useSelector((state: RootState) => state.exchange);
+  const { currency } = useSelector((state: RootState) => state.currency);
+  const pairOptions = useMemo(
+    () =>
+      currency.flatMap((c) =>
+        (c.currency_pair ?? [])
+          .filter((p) => p.id != null && p.pair)
+          .map((p) => ({ id: p.id as number, name: pairLabel(p.pair as string, c.ticker) })),
+      ),
+    [currency],
+  );
   const botOptions = bots.length ? bots : FALLBACK_BOTS;
 
   const editId = typeof router.query.id === "string" ? parseInt(router.query.id, 10) : null;
@@ -185,6 +198,18 @@ const NewTradePage = () => {
      for each. Public and cached for the tab, so this costs one request. */
   const catalogue = useIndicatorCatalogue();
   const indicatorsTouched = useRef(false);
+
+  /* Public list, no token needed. */
+  useEffect(() => {
+    if (currency.length < 1) dispatch(currencyService.getCurrency());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dispatch]);
+
+  /* New trade: default to the first supported pair once the list loads. */
+  useEffect(() => {
+    if (editing || form.pair || !pairOptions.length) return;
+    setForm((f) => ({ ...f, pair: pairOptions[0].id }));
+  }, [editing, form.pair, pairOptions]);
 
   useEffect(() => {
     if (!isAuthorizationHeaderSet(axiosToken) || botsFetchedRef.current) return;
@@ -352,7 +377,7 @@ const NewTradePage = () => {
     balanceKnown && totalBalance > 0 ? Math.min(100 - otherPct, (alloc / totalBalance) * 100) : 0;
 
   const pairName =
-    PLACEHOLDER_PAIRS.find((p) => p.id === form.pair)?.name ||
+    pairOptions.find((p) => p.id === form.pair)?.name ||
     existing?.pair_name ||
     `Pair #${form.pair}`;
 
@@ -508,6 +533,10 @@ const NewTradePage = () => {
   };
 
   const onSave = async () => {
+    if (!form.pair) {
+      error("Pick a pair to trade.");
+      return;
+    }
     if (isLive && !form.exchange_account) {
       error("A live trade needs an exchange account. Connect one, or switch to Demo in Settings.");
       return;
@@ -784,19 +813,23 @@ const NewTradePage = () => {
                         value={form.pair}
                         onChange={(e) => set("pair", parseInt(e.target.value, 10))}
                       >
-                        {PLACEHOLDER_PAIRS.map((p) => (
+                        {!form.pair && (
+                          <option value={0} disabled>
+                            {pairOptions.length ? "Pick a pair" : "Loading pairs…"}
+                          </option>
+                        )}
+                        {pairOptions.map((p) => (
                           <option key={p.id} value={p.id}>
                             {p.name}
                           </option>
                         ))}
-                        {existing && !PLACEHOLDER_PAIRS.some((p) => p.id === existing.pair) && (
+                        {existing && !pairOptions.some((p) => p.id === existing.pair) && (
                           <option value={existing.pair}>
                             {existing.pair_name || `Pair #${existing.pair}`}
                           </option>
                         )}
                       </select>
                     </div>
-                    <p className="fx-hint">Placeholder list — pending a pairs endpoint.</p>
                   </div>
                 </div>
 
