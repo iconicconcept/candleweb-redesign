@@ -77,6 +77,8 @@ export interface EntitlementsV2 extends PlanEntitlementV2 {
   status: string;
   may_open_new_positions: boolean;
   may_manage_open_positions: boolean;
+  /** False when the account has no plan at all — every flag is off then. */
+  has_active_plan?: boolean;
 }
 
 export interface UsageV2 {

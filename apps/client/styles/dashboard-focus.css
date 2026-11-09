@@ -2688,6 +2688,14 @@ button.fx-me[aria-expanded="true"] {
 .fx-mod.live5:hover .fx-mgo {
   color: #241802;
 }
+/* The next class to attend. Listed after the rules above so hover keeps it. */
+.fx-mod .fx-mgo.next5,
+.fx-mod:hover .fx-mgo.next5 {
+  color: #000;
+  background: var(--fx-amber);
+  border-color: transparent;
+  font-weight: 600;
+}
 
 /* side panels */
 .fx-panel {

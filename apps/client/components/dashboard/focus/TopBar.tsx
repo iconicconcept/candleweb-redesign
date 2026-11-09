@@ -48,6 +48,10 @@ type Props = {
      that heading themselves, matching the design's fx-top — which is just
      the crumb there, no h1/subtitle. */
   hideHeading?: boolean;
+  /* Something that sits on the title's own line, after it — the new-trade
+     page's Demo/Live pill. The title row only wraps when this is given, so
+     every other page renders exactly as before. */
+  titleExtra?: React.ReactNode;
 };
 
 /* Secondary destinations — not in the icon rail. Notifications has its own
@@ -60,7 +64,7 @@ const ACCOUNT_LINKS: { label: string; href: string; Icon: any }[] = [
   { label: "Settings", href: "/dashboard/settings", Icon: GearIcon },
 ];
 
-export default function TopBar({ crumb, title, subtitle, actions, hideHeading }: Props) {
+export default function TopBar({ crumb, title, subtitle, actions, hideHeading, titleExtra }: Props) {
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
   /* Portfolio / Subscription / Invite & earn / Notifications have no icon-rail
@@ -173,9 +177,16 @@ export default function TopBar({ crumb, title, subtitle, actions, hideHeading }:
           {crumb && <p className="fx-crumb">{crumb}</p>}
           {!hideHeading && (
             <>
-              <h1 className="fx-title" style={crumb ? undefined : { marginTop: 0 }}>
-                {title}
-              </h1>
+              {titleExtra ? (
+                <div className="fx-titlerow">
+                  <h1 className="fx-title">{title}</h1>
+                  {titleExtra}
+                </div>
+              ) : (
+                <h1 className="fx-title" style={crumb ? undefined : { marginTop: 0 }}>
+                  {title}
+                </h1>
+              )}
               {subtitle && <p className="fx-sub3">{subtitle}</p>}
             </>
           )}

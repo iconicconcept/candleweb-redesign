@@ -106,6 +106,15 @@ export interface TradeV2 {
   max_size_pct: number;
   direction: TradeV2Direction;
   trailing_stop: boolean;
+  /** Let the decider's SELL close the position at the market. Off: positions
+   *  close by the stop or trailing stop only. Absent on rows that predate it. */
+  agent_exits?: boolean;
+  /** Trade with realised profits as well as the allocation, so size and risk
+   *  grow as it wins. Off: it trades at most its allocation. Absent until the
+   *  API serves it. */
+  reinvest_profits?: boolean;
+  /** "DEMO" or "LIVE" — set at creation from the Settings switch, never changes. */
+  mode?: "DEMO" | "LIVE" | string;
   status: TradeV2Status;
   /** The two URLs the user hands to their own bot — GET for candles, POST for
    * decisions. Present on every trade response (list, detail, create, edit)
@@ -250,6 +259,8 @@ export interface TradeV2Payload {
   max_size_pct?: number;
   direction?: TradeV2Direction;
   trailing_stop?: boolean;
+  agent_exits?: boolean;
+  reinvest_profits?: boolean;
 }
 
 /* ------------------------------------------------------------------ *

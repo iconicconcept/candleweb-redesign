@@ -146,8 +146,15 @@ export default function CourseFocus() {
   const liveModule = modules.find((m: any) => m.isLive);
   const upcomingModule = modules.find((m: any) => m.isUpcoming);
 
+  /* This endpoint answers 403 "Authorization token required." without a token,
+     and nothing retries that. Arriving from an email link, the token can still
+     be on its way from CheckLogin, so wait for it: the page stays on its loading
+     state, and CheckLogin sends anyone without a session to the login page.
+     Keyed on having a token, not its value, so a rotation doesn't reload. */
+  const hasToken = !!user?.access_token;
+
   useEffect(() => {
-    if (!router.isReady) return;
+    if (!router.isReady || !hasToken) return;
     const courseId = normalizeRouteId(id);
     if (!courseId) return;
     setLoading(true);
@@ -162,7 +169,7 @@ export default function CourseFocus() {
         setError(err?.response?.data?.message || err?.message || "Failed to load course details");
         setLoading(false);
       });
-  }, [id, router.isReady]);
+  }, [id, router.isReady, hasToken]);
 
   const courseCode = course?.course_code;
 
@@ -529,7 +536,7 @@ export default function CourseFocus() {
                         <b>{m.topic}</b>
                         <span>{formatModuleDateTime(m.scheduled_datetime, m.duration_minutes)}</span>
                       </span>
-                      <span className="fx-mgo">
+                      <span className={`fx-mgo${m.isNext ? " next5" : ""}`}>
                         {m.isActuallyCompleted ? "Completed" : m.isNext ? "Up next" : m.isLive ? "Live now" : "Upcoming"}
                       </span>
                     </button>

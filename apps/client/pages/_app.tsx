@@ -13,6 +13,7 @@ import "../styles/legal.css";
 import "../styles/auth.css";
 import "../styles/docs.css";
 import "../styles/dashboard-focus.css";
+import "../styles/trade-setup.css";
 import "../styles/blog.css";
 import "../styles/blog-detail.css";
 import type { AppProps } from "next/app";
