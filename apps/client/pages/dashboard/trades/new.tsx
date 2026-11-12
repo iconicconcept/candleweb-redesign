@@ -2541,84 +2541,84 @@ const NewTradePage = () => {
     isLive ? "Live" : "Demo"
   }`;
 
-  const previewControl = (
-    <div className="nt-root nt-pvwrap" ref={pvRef}>
-      <div className="nt-pv">
-        <button
-          type="button"
-          className={`nt-pvsum${previewing ? " on" : ""}`}
-          aria-expanded={pvOpen}
-          aria-controls="nt-pv-panel"
-          aria-label={`Preview as ${pvSummary}`}
-          title={`Preview as ${pvSummary}`}
-          onClick={() => setPvOpen((v) => !v)}
-        >
-          <span className="nt-pvk">Preview as</span>
-          <span>{pvSummary}</span>
-        </button>
-        {pvOpen && (
-          <div className="nt-pvpanel" id="nt-pv-panel">
-            <p className="nt-pvh">Plan</p>
-            <div className="nt-env four tight" role="group" aria-label="Plan">
-              {(Object.keys(PLANS) as PlanKey[]).map((k) => (
-                <button
-                  key={k}
-                  type="button"
-                  className={`nt-eb${effPlan === k ? " sel3" : ""}`}
-                  aria-pressed={effPlan === k}
-                  onClick={() => choosePvPlan(k)}
-                >
-                  <b>{PLANS[k].label}</b>
-                </button>
-              ))}
-            </div>
-            <p className="nt-pvh">Account mode</p>
-            <div className="nt-env tight" role="group" aria-label="Account mode">
-              <button
-                type="button"
-                className={`nt-eb${isLive ? "" : " sel3"}`}
-                aria-pressed={!isLive}
-                disabled={modeFixed}
-                onClick={() => setPvMode("demo")}
-              >
-                <b>Demo</b>
-              </button>
-              <button
-                type="button"
-                className={`nt-eb${isLive ? " sel3 live8" : ""}`}
-                aria-pressed={isLive}
-                disabled={modeFixed || !pvLiveAllowed}
-                onClick={() => setPvMode("live")}
-              >
-                <b>Live</b>
-              </button>
-            </div>
-            {modeFixed ? (
-              <p className="nt-hint" style={{ margin: 0 }}>
-                This trade&rsquo;s Demo or Live mode was fixed when it was created.
-              </p>
-            ) : (
-              !pvLiveAllowed && (
-                <p className="nt-hint" style={{ margin: 0 }}>
-                  Live trading is part of Builder and Desk, so the Settings switch stays on Demo.
-                </p>
-              )
-            )}
-            <p className="nt-fine">
-              {previewing
-                ? "Previewing only. Saving and starting use your real plan and Settings switch, so they're off until you go back."
-                : "This is your account. Pick another plan or mode to see how this form changes for it."}
-            </p>
-            {previewing && (
-              <button type="button" className="nt-mini go" onClick={resetPreview}>
-                Back to my account
-              </button>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  );
+  // const previewControl = (
+  //   <div className="nt-root nt-pvwrap" ref={pvRef}>
+  //     <div className="nt-pv">
+  //       <button
+  //         type="button"
+  //         className={`nt-pvsum${previewing ? " on" : ""}`}
+  //         aria-expanded={pvOpen}
+  //         aria-controls="nt-pv-panel"
+  //         aria-label={`Preview as ${pvSummary}`}
+  //         title={`Preview as ${pvSummary}`}
+  //         onClick={() => setPvOpen((v) => !v)}
+  //       >
+  //         <span className="nt-pvk">Preview as</span>
+  //         <span>{pvSummary}</span>
+  //       </button>
+  //       {pvOpen && (
+  //         <div className="nt-pvpanel" id="nt-pv-panel">
+  //           <p className="nt-pvh">Plan</p>
+  //           <div className="nt-env four tight" role="group" aria-label="Plan">
+  //             {(Object.keys(PLANS) as PlanKey[]).map((k) => (
+  //               <button
+  //                 key={k}
+  //                 type="button"
+  //                 className={`nt-eb${effPlan === k ? " sel3" : ""}`}
+  //                 aria-pressed={effPlan === k}
+  //                 onClick={() => choosePvPlan(k)}
+  //               >
+  //                 <b>{PLANS[k].label}</b>
+  //               </button>
+  //             ))}
+  //           </div>
+  //           <p className="nt-pvh">Account mode</p>
+  //           <div className="nt-env tight" role="group" aria-label="Account mode">
+  //             <button
+  //               type="button"
+  //               className={`nt-eb${isLive ? "" : " sel3"}`}
+  //               aria-pressed={!isLive}
+  //               disabled={modeFixed}
+  //               onClick={() => setPvMode("demo")}
+  //             >
+  //               <b>Demo</b>
+  //             </button>
+  //             <button
+  //               type="button"
+  //               className={`nt-eb${isLive ? " sel3 live8" : ""}`}
+  //               aria-pressed={isLive}
+  //               disabled={modeFixed || !pvLiveAllowed}
+  //               onClick={() => setPvMode("live")}
+  //             >
+  //               <b>Live</b>
+  //             </button>
+  //           </div>
+  //           {modeFixed ? (
+  //             <p className="nt-hint" style={{ margin: 0 }}>
+  //               This trade&rsquo;s Demo or Live mode was fixed when it was created.
+  //             </p>
+  //           ) : (
+  //             !pvLiveAllowed && (
+  //               <p className="nt-hint" style={{ margin: 0 }}>
+  //                 Live trading is part of Builder and Desk, so the Settings switch stays on Demo.
+  //               </p>
+  //             )
+  //           )}
+  //           <p className="nt-fine">
+  //             {previewing
+  //               ? "Previewing only. Saving and starting use your real plan and Settings switch, so they're off until you go back."
+  //               : "This is your account. Pick another plan or mode to see how this form changes for it."}
+  //           </p>
+  //           {previewing && (
+  //             <button type="button" className="nt-mini go" onClick={resetPreview}>
+  //               Back to my account
+  //             </button>
+  //           )}
+  //         </div>
+  //       )}
+  //     </div>
+  //   </div>
+  // );
 
   return (
     <>
@@ -2635,7 +2635,7 @@ const NewTradePage = () => {
             </>
           }
           title={pageTitle}
-          actions={previewControl}
+          // actions={previewControl}
           titleExtra={<span className={`fx-run2 ${isLive ? "live7" : "demo7"}`}>{isLive ? "Live" : "Demo"}</span>}
           subtitle="Set the market, the money, who decides and how positions close. Nothing reaches the exchange until you start it."
         />
