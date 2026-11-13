@@ -38,6 +38,9 @@ const Layout = ({ children, bareChrome = false }: Props) => {
     "privacy",
     "login",
     "register",
+    "verify-email",
+    "forgot-password",
+    "reset-password",
     "pricing",
   ].includes(path);
   const isDashboard = path === "dashboard";

@@ -2,6 +2,7 @@ import Head from "next/head";
 import { ReactNode, useEffect, useState } from "react";
 import PublicHeader from "../components/public/PublicHeader";
 import PublicFooter from "../components/public/PublicFooter";
+import { writeClipboard } from "../lib/hooks/useClipboard";
 /* eslint-disable react/no-unescaped-entities, @next/next/no-img-element */
 
 /* The downloadable template lives in public/, so it is served from the site
@@ -56,9 +57,68 @@ const NAV: { heading: string; items: { id: string; label: string }[] }[] = [
 
 const ALL_IDS = NAV.flatMap((group) => group.items.map((item) => item.id));
 
-const Code = ({ children }: { children: string }) => (
-  <pre className="docs-pre">{children}</pre>
+/** Click-to-copy with a short "Copied" confirmation. */
+const useCopied = (text: string) => {
+  const [state, setState] = useState<"idle" | "ok" | "fail">("idle");
+  useEffect(() => {
+    if (state === "idle") return;
+    const t = setTimeout(() => setState("idle"), 1800);
+    return () => clearTimeout(t);
+  }, [state]);
+  const copy = async () => setState((await writeClipboard(text)) ? "ok" : "fail");
+  return { state, copy };
+};
+
+const CopyIcon = () => (
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <rect x="9" y="9" width="11" height="11" rx="2.5" />
+    <path d="M5 15V6.5A1.5 1.5 0 016.5 5H15" />
+  </svg>
 );
+
+/**
+ * A code block. With `label`, it is something the reader is told to paste,
+ * so it gets a bar with a Copy button. Without, it is an example to read
+ * (a diagram, a shortened response) and stays a plain block.
+ */
+const Code = ({ children, label }: { children: string; label?: string }) => {
+  const { state, copy } = useCopied(children);
+  if (!label) return <pre className="docs-pre">{children}</pre>;
+  return (
+    <div className="docs-code">
+      <div className="docs-code-bar">
+        <span>{label}</span>
+        <button type="button" className={`docs-copy ${state}`} onClick={copy} aria-label={`Copy ${label}`}>
+          <CopyIcon />
+          {state === "ok" ? "Copied" : state === "fail" ? "Select and copy" : "Copy"}
+        </button>
+      </div>
+      <pre className="docs-pre">{children}</pre>
+      <span className="docs-sr" role="status" aria-live="polite">
+        {state === "ok" ? `${label} copied` : ""}
+      </span>
+    </div>
+  );
+};
+
+/** A short value to type into n8n (a header name, a cron expression). */
+const CopyCode = ({ children }: { children: string }) => {
+  const { state, copy } = useCopied(children);
+  return (
+    <span className="docs-icopy">
+      <code>{children}</code>
+      <button
+        type="button"
+        className={`docs-icopy-btn ${state}`}
+        onClick={copy}
+        aria-label={state === "ok" ? "Copied" : `Copy ${children}`}
+        title={state === "ok" ? "Copied" : "Copy"}
+      >
+        {state === "ok" ? "✓" : <CopyIcon />}
+      </button>
+    </span>
+  );
+};
 
 const Note = ({
   kind,
@@ -809,7 +869,7 @@ export default function DocsPage() {
                   Search for <strong>Header Auth</strong> and select it.
                 </li>
                 <li>
-                  Set <strong>Name</strong> to <code>X-Candleweb-Key</code>,
+                  Set <strong>Name</strong> to <CopyCode>X-Candleweb-Key</CopyCode>,
                   spelled exactly like this, with the same capital letters and
                   dashes. Set <strong>Value</strong> to your developer key (
                   <code>cw_dev_...</code>).
@@ -842,11 +902,11 @@ export default function DocsPage() {
               <Table
                 head={["Timeframe", "Cron expression", "Runs"]}
                 rows={[
-                  ["1m", <code key="c">15 * * * * *</code>, "every minute, at second 15"],
-                  ["5m", <code key="c">15 */5 * * * *</code>, "every 5 minutes"],
-                  ["15m", <code key="c">15 */15 * * * *</code>, "every 15 minutes"],
-                  ["1h", <code key="c">15 0 * * * *</code>, "every hour"],
-                  ["4h", <code key="c">15 0 */4 * * *</code>, "every 4 hours"],
+                  ["1m", <CopyCode key="c">15 * * * * *</CopyCode>, "every minute, at second 15"],
+                  ["5m", <CopyCode key="c">15 */5 * * * *</CopyCode>, "every 5 minutes"],
+                  ["15m", <CopyCode key="c">15 */15 * * * *</CopyCode>, "every 15 minutes"],
+                  ["1h", <CopyCode key="c">15 0 * * * *</CopyCode>, "every hour"],
+                  ["4h", <CopyCode key="c">15 0 */4 * * *</CopyCode>, "every 4 hours"],
                 ]}
               />
               <Note kind="tip" title="Why second 15, and why match the timeframe">
@@ -943,7 +1003,7 @@ export default function DocsPage() {
                 <li>
                   Add the condition <strong>Array &gt; is not empty</strong>,
                   with the value set to the expression{" "}
-                  <code>{"{{ $json.candles }}"}</code>.
+                  <CopyCode>{"{{ $json.candles }}"}</CopyCode>.
                 </li>
                 <li>
                   Connect only the <strong>true</strong> output to the next
@@ -973,7 +1033,7 @@ export default function DocsPage() {
                 </li>
                 <li>Replace the code in the box with:</li>
               </ol>
-              <Code>{PREPARE_CODE}</Code>
+              <Code label="Code node · JavaScript">{PREPARE_CODE}</Code>
               <p>
                 Click <strong>Execute step</strong>. The output should show your
                 candles' prices and indicators, and no <code>id</code>,{" "}
@@ -1011,7 +1071,7 @@ export default function DocsPage() {
                   and paste:
                 </li>
               </ol>
-              <Code>{PROMPT}</Code>
+              <Code label="Prompt · Expression">{PROMPT}</Code>
               <Note kind="warn" title="Use this prompt exactly.">
                 Keep <strong>Source for Prompt</strong> set to{" "}
                 <strong>Define below</strong>. Do not use{" "}
@@ -1023,7 +1083,7 @@ export default function DocsPage() {
                 Under <strong>Options</strong>, add a{" "}
                 <strong>System Message</strong> and paste:
               </p>
-              <Code>{SYSTEM_MESSAGE}</Code>
+              <Code label="System Message">{SYSTEM_MESSAGE}</Code>
             </section>
 
             <section className="docs-sec" id="send">
@@ -1064,7 +1124,7 @@ export default function DocsPage() {
                 Switch the <strong>JSON</strong> field to{" "}
                 <strong>Expression</strong> mode and paste:
               </p>
-              <Code>{SEND_BODY}</Code>
+              <Code label="JSON · Expression">{SEND_BODY}</Code>
               <Note kind="tip" title="Why this is safe">
                 The first three lines are copied straight from{" "}
                 <strong>Get Candles</strong>, exactly as Candleweb sent them.
@@ -1133,7 +1193,7 @@ export default function DocsPage() {
                 in Step 10. It allows exactly four fields, and only valid values
                 for each.
               </p>
-              <Code>{SCHEMA}</Code>
+              <Code label="Structured Output Parser · JSON Schema">{SCHEMA}</Code>
               <p>
                 The schema deliberately leaves out <code>trade_id</code>,{" "}
                 <code>delivery_id</code> and <code>market_data_ids</code>. The

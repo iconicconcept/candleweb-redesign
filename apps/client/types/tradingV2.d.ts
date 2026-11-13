@@ -15,6 +15,10 @@
 export type BookV2Param = "demo" | "live";
 
 export type TradeV2Timeframe = "1m" | "5m" | "15m" | "1h" | "4h" | "1d";
+/** How a trade's positions leave: STANDARD (default), LET_RUN or CUSTOM. */
+export type TradeV2ExitStyle = "STANDARD" | "LET_RUN" | "CUSTOM";
+/** The chart a CUSTOM stop is sized from; "" = the trade's own timeframe. */
+export type TradeV2StopTimeframe = "" | "1h" | "4h";
 /**
  * `DeciderTypeEnum` in the API's own schema (`GET /api/schema/`), which is
  * where these two spellings come from — not from a reading of the prose docs,
@@ -109,6 +113,18 @@ export interface TradeV2 {
   /** Let the decider's SELL close the position at the market. Off: positions
    *  close by the stop or trailing stop only. Absent on rows that predate it. */
   agent_exits?: boolean;
+  /** How the stop moves after a position opens. Absent on rows that predate
+   *  it, which behave as STANDARD. */
+  exit_style?: TradeV2ExitStyle;
+  /** CUSTOM only (ignored by the other styles). Decimals may come back as strings. */
+  stop_atr_multiple?: number | string | null;
+  trail_start_r?: number | string | null;
+  trail_distance_r?: number | string | null;
+  /** "" = the trade's own timeframe. */
+  stop_timeframe?: TradeV2StopTimeframe | null;
+  /** Read-only: one line describing the trade's exit, already accounting for
+   *  the stop timeframe and a trailing stop that is off. */
+  exit_summary?: string | null;
   /** Trade with realised profits as well as the allocation, so size and risk
    *  grow as it wins. Off: it trades at most its allocation. Absent until the
    *  API serves it. */
@@ -261,6 +277,15 @@ export interface TradeV2Payload {
   trailing_stop?: boolean;
   agent_exits?: boolean;
   reinvest_profits?: boolean;
+  exit_style?: TradeV2ExitStyle;
+  /** Required with CUSTOM: 1.5–4. */
+  stop_atr_multiple?: number;
+  /** Required with CUSTOM: 1–5. */
+  trail_start_r?: number;
+  /** Required with CUSTOM: 0.5–2. */
+  trail_distance_r?: number;
+  /** Optional with CUSTOM. "" = the trade's own timeframe. */
+  stop_timeframe?: TradeV2StopTimeframe;
 }
 
 /* ------------------------------------------------------------------ *

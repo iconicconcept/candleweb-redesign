@@ -224,7 +224,127 @@
   border-bottom-color: var(--dc-teal);
 }
 
-/* code blocks */
+/* code blocks the reader is told to paste: a bar with the field name and a
+   Copy button, on the same dark slab as the code (in both themes, because
+   the token colours are tuned for it). */
+.docs-code {
+  margin: 0 0 18px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: #101114;
+}
+.docs-code .docs-pre {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.docs-code-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 8px 8px 17px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+.docs-code-bar > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #8b8b83;
+  font: 10.5px var(--dc-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.docs-copy {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #e6e6e0;
+  font: 500 12px var(--dc-mono);
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background 0.15s,
+    color 0.15s;
+}
+.docs-copy svg,
+.docs-icopy-btn svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.docs-copy:hover {
+  border-color: rgba(126, 240, 210, 0.55);
+  color: #7ef0d2;
+}
+.docs-copy.ok {
+  border-color: rgba(126, 240, 210, 0.6);
+  background: rgba(49, 224, 176, 0.14);
+  color: #7ef0d2;
+}
+.docs-copy.fail {
+  color: #ffd489;
+}
+.docs-copy:focus-visible,
+.docs-icopy-btn:focus-visible {
+  outline: 2px solid #31e0b0;
+  outline-offset: 2px;
+}
+.docs-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* a short value to type into n8n, with a one-click copy */
+.docs-icopy {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  vertical-align: baseline;
+}
+.docs-icopy-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--dc-dim);
+  font-size: 12px;
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
+}
+.docs-icopy-btn:hover {
+  border-color: var(--dc-line2);
+  color: var(--dc-teal2);
+}
+.docs-icopy-btn.ok {
+  color: var(--dc-teal2);
+}
+
 .docs-pre {
   margin: 0 0 18px;
   padding: 15px 17px;
@@ -492,4 +612,14 @@
 }
 :root[data-site-theme="light"] .docs-pre .s {
   color: #ffd489;
+}
+
+/* inside a copy frame the frame carries the border and slab */
+:root[data-site-theme="light"] .docs-code {
+  border-color: rgba(16, 22, 18, 0.12);
+  background: #14161a;
+}
+:root[data-site-theme="light"] .docs-code .docs-pre {
+  border: 0;
+  background: transparent;
 }

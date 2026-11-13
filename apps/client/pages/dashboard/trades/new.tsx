@@ -32,6 +32,16 @@ import {
 } from "../../../lib/tradingV2Trades";
 import { metricNum, metricRead } from "../../../lib/tradingV2Metrics";
 import { platformLabel } from "../../../lib/botV2Labels";
+import {
+  CUSTOM_FIELDS,
+  CustomField,
+  EXIT_STYLE_LABEL,
+  STOP_TIMEFRAMES,
+  customFieldError,
+  exitSummaryPreview,
+  numText,
+  toExitStyle,
+} from "../../../lib/tradingV2Exits";
 import { writeClipboard } from "../../../lib/hooks/useClipboard";
 import useBook from "../../../lib/hooks/useBook";
 import {
@@ -41,6 +51,8 @@ import {
   TradeV2DeciderType,
   TradeV2Payload,
   TradeV2Timeframe,
+  TradeV2ExitStyle,
+  TradeV2StopTimeframe,
 } from "../../../types/tradingV2";
 import { BalanceProp } from "../../../types/user";
 import { ExchangeProp, ExchangeRecord } from "../../../types/exchange";
@@ -163,6 +175,11 @@ const FIELD_STEP: Record<string, number> = {
   min_confidence: 2,
   agent_exits: EXITS,
   trailing_stop: EXITS,
+  exit_style: EXITS,
+  stop_atr_multiple: EXITS,
+  trail_start_r: EXITS,
+  trail_distance_r: EXITS,
+  stop_timeframe: EXITS,
   indicators: DATA,
   candle_history_len: DATA,
   name: LAST,
@@ -205,6 +222,12 @@ type FormState = {
   bot: number | null;
   agent_exits: boolean;
   trailing_stop: boolean;
+  exit_style: TradeV2ExitStyle;
+  /** CUSTOM only. Strings, so they can be empty while typing. */
+  stop_atr_multiple: string;
+  trail_start_r: string;
+  trail_distance_r: string;
+  stop_timeframe: TradeV2StopTimeframe;
   indicators: string[];
   candle_history_len: number;
 };
@@ -223,6 +246,11 @@ const DEFAULTS: FormState = {
   bot: null,
   agent_exits: false,
   trailing_stop: true,
+  exit_style: "STANDARD",
+  stop_atr_multiple: CUSTOM_FIELDS.stop_atr_multiple.def,
+  trail_start_r: CUSTOM_FIELDS.trail_start_r.def,
+  trail_distance_r: CUSTOM_FIELDS.trail_distance_r.def,
+  stop_timeframe: "",
   indicators: DEFAULT_INDICATORS,
   candle_history_len: 20,
 };
@@ -245,6 +273,12 @@ const formFrom = (t: TradeV2): FormState => ({
   bot: toId(t.bot),
   agent_exits: !!t.agent_exits,
   trailing_stop: t.trailing_stop !== false,
+  exit_style: toExitStyle(t.exit_style),
+  /* A trade that never had CUSTOM numbers starts from the suggested ones. */
+  stop_atr_multiple: numText(t.stop_atr_multiple) || CUSTOM_FIELDS.stop_atr_multiple.def,
+  trail_start_r: numText(t.trail_start_r) || CUSTOM_FIELDS.trail_start_r.def,
+  trail_distance_r: numText(t.trail_distance_r) || CUSTOM_FIELDS.trail_distance_r.def,
+  stop_timeframe: t.stop_timeframe === "1h" || t.stop_timeframe === "4h" ? t.stop_timeframe : "",
   indicators: dedupeIndicators(indicatorChips(t.indicators)),
   candle_history_len: t.candle_history_len || 20,
 });
@@ -581,6 +615,16 @@ const NewTradePage = () => {
   const confOk = !confErr;
   const confN = parseInt(form.min_confidence, 10);
 
+  /* Custom exit: each number is required and has a range. Checked here so
+     Save is blocked before the API answers 400. */
+  const customErrs: Partial<Record<CustomField, string>> = {};
+  if (form.exit_style === "CUSTOM")
+    (Object.keys(CUSTOM_FIELDS) as CustomField[]).forEach((k) => {
+      const m = customFieldError(k, form[k]);
+      if (m) customErrs[k] = m;
+    });
+  const customOk = Object.keys(customErrs).length === 0;
+
   const nameDup = useMemo(() => {
     const n = form.name.trim().toLowerCase();
     if (!n) return null;
@@ -612,11 +656,12 @@ const NewTradePage = () => {
     if (isLive && !form.exchange_account) e.push({ t: "Choose the exchange account its real orders go to", s: 0 });
     if (aiDecides && aiLocked) e.push({ t: "CandleAI needs the Builder or Desk plan", s: 2 });
     if (!confOk) e.push({ t: "Set a confidence bar from 0 to 99", s: 2 });
+    if (!customOk) e.push({ t: "Finish the Custom exit numbers", s: EXITS });
     if (!aiDecides && staleIndicators.length)
       e.push({ t: `Remove ${staleIndicators.join(", ")}: no longer available`, s: DATA });
     if (nameDup) e.push({ t: "Pick a name you haven’t used yet", focus: "nt-name" });
     return e;
-  }, [form.pair, form.exchange_account, isLive, aiDecides, aiLocked, confOk, staleIndicators, nameDup]);
+  }, [form.pair, form.exchange_account, isLive, aiDecides, aiLocked, confOk, customOk, staleIndicators, nameDup]);
 
   /** What a trade needs before it can run. */
   const startBlockers = useMemo((): Blocker[] => {
@@ -632,7 +677,7 @@ const NewTradePage = () => {
     if (i === 0) return (isLive && !form.exchange_account) || !form.pair ? "todo" : "done";
     if (i === 1) return startBlockers.some((x) => x.s === 1) ? "todo" : "done";
     if (i === 2) return (!aiDecides && !form.bot) || (aiDecides && aiLocked) || !confOk ? "todo" : "done";
-    if (i === EXITS) return "done";
+    if (i === EXITS) return customOk ? "done" : "todo";
     if (i === DATA) return aiDecides ? "auto" : staleIndicators.length ? "todo" : "done";
     return createErrors.length || startBlockers.length ? "todo" : "ready";
   };
@@ -674,8 +719,15 @@ const NewTradePage = () => {
       }
       case EXITS:
         return {
-          v: form.agent_exits ? (aiDecides ? "CandleAI can close" : "Bot can close") : "Let winners run",
-          s: form.trailing_stop ? "trailing stop on" : "fixed stop",
+          v:
+            form.exit_style === "STANDARD"
+              ? "Standard · adapts"
+              : form.exit_style === "CUSTOM"
+                ? "Custom exit"
+                : "Let winners run",
+          s: `${form.trailing_stop ? "trailing stop on" : "fixed stop"} · ${
+            form.agent_exits ? `${aiDecides ? "CandleAI" : "bot"} can close` : "only the stop closes"
+          }`,
         };
       case DATA:
         if (aiDecides) return { v: "Handled by CandleAI", s: "it reads its own data" };
@@ -859,6 +911,17 @@ const NewTradePage = () => {
     trailing_stop: form.trailing_stop,
     agent_exits: form.agent_exits,
     reinvest_profits: form.reinvest_profits,
+    exit_style: form.exit_style,
+    /* The numbers mean something only with CUSTOM; the other styles ignore
+       them, so they are not sent. */
+    ...(form.exit_style === "CUSTOM"
+      ? {
+          stop_atr_multiple: Number(form.stop_atr_multiple),
+          trail_start_r: Number(form.trail_start_r),
+          trail_distance_r: Number(form.trail_distance_r),
+          stop_timeframe: form.stop_timeframe,
+        }
+      : {}),
   });
 
   const persist = async (): Promise<TradeV2 | null> => {
@@ -1808,56 +1871,183 @@ const NewTradePage = () => {
 
   const vExits = () => {
     const barN = confOk ? confN : DEFAULT_MIN_CONFIDENCE;
+    const style = form.exit_style;
+    const whoCan = aiDecides ? "CandleAI" : "your bot";
+    /* A saved trade's own `exit_summary` is the API's wording, so it is shown
+       as long as the exit settings on screen are still the saved ones. */
+    const savedExitSame =
+      !!existing?.exit_summary &&
+      toExitStyle(existing.exit_style) === style &&
+      (existing.trailing_stop !== false) === form.trailing_stop &&
+      (style !== "CUSTOM" ||
+        (numText(existing.stop_atr_multiple) === form.stop_atr_multiple &&
+          numText(existing.trail_start_r) === form.trail_start_r &&
+          numText(existing.trail_distance_r) === form.trail_distance_r &&
+          (existing.stop_timeframe || "") === form.stop_timeframe));
+    const summary = savedExitSame && existing?.exit_summary ? existing.exit_summary : exitSummaryPreview(form);
+    const feeTf = form.timeframe === "1m" || form.timeframe === "5m";
+
+    const styleCard = (v: TradeV2ExitStyle, kind: string, body: React.ReactNode) => (
+      <button
+        key={v}
+        type="button"
+        className={`nt-rc2${style === v ? " sel" : ""}`}
+        aria-pressed={style === v}
+        onClick={() => set("exit_style", v)}
+      >
+        <span className="nt-ck" aria-hidden="true">
+          &#10003;
+        </span>
+        <span className="kinds">
+          <span className="kind4">{kind}</span>
+        </span>
+        <b>{EXIT_STYLE_LABEL[v]}</b>
+        {body}
+        <em>exit_style: {v.toLowerCase()}</em>
+      </button>
+    );
+
+    const customInput = (k: CustomField, help: string) => {
+      const r = CUSTOM_FIELDS[k];
+      const msg = customErrs[k] || fieldErrors[k];
+      return (
+        <div key={k}>
+          <label className="nt-fl" htmlFor={`nt-${k}`}>
+            {r.label}
+          </label>
+          <div className={`nt-inp${msg ? " bad" : ""}`}>
+            <input
+              id={`nt-${k}`}
+              type="text"
+              inputMode="decimal"
+              autoComplete="off"
+              value={form[k]}
+              aria-invalid={!!msg}
+              aria-describedby={`nt-${k}-help`}
+              onChange={(e) => set(k, e.target.value.replace(/[^\d.]/g, ""))}
+            />
+          </div>
+          <p className={`nt-hint${msg ? " badt" : ""}`} id={`nt-${k}-help`}>
+            {msg || `${help} ${r.min}–${r.max}.`}
+          </p>
+        </div>
+      );
+    };
+
     return (
       <>
-        {head(EXITS, "How positions close", "Every position gets a stop the moment it opens. Choose what else may close it.")}
+        {head(
+          EXITS,
+          "How positions close",
+          `Every position gets a stop the moment it opens. Choose how that stop moves, and whether ${whoCan} may also close.`,
+        )}
         <div className="nt-stack">
-          <div className="nt-reach2" role="group" aria-label="How positions close">
-            <button
-              type="button"
-              className={`nt-rc2${form.agent_exits ? "" : " sel"}`}
-              aria-pressed={!form.agent_exits}
-              onClick={() => set("agent_exits", false)}
+          <div>
+            <span className="nt-fl" id="nt-l-exitstyle">
+              Exit style
+            </span>
+            <p className="nt-hint" style={{ margin: "0 0 12px" }}>
+              How the stop moves after a position opens. A change applies to positions opened from then on
+              {editing ? "; a position that is already open keeps the stop it was given." : "."}
+            </p>
+            <div
+              className={`nt-reach2 three${form.trailing_stop ? "" : " dim"}`}
+              role="group"
+              aria-labelledby="nt-l-exitstyle"
             >
-              <span className="nt-ck" aria-hidden="true">
-                &#10003;
-              </span>
-              <span className="kinds">
-                <span className="kind4">Stop only</span>
-              </span>
-              <b>Let winners run</b>
-              <span className="d">
-                Only the stop or trailing stop closes a position. A SELL from {who} is recorded, not acted on.
-              </span>
-              <em>Default</em>
-            </button>
-            <button
-              type="button"
-              className={`nt-rc2${form.agent_exits ? " sel" : ""}`}
-              aria-pressed={form.agent_exits}
-              onClick={() => set("agent_exits", true)}
-            >
-              <span className="nt-ck" aria-hidden="true">
-                &#10003;
-              </span>
-              <span className="kinds">
-                <span className="kind4">{aiDecides ? "CandleAI exits" : "Bot exits"}</span>
-              </span>
-              <b>{aiDecides ? "CandleAI" : "My bot"} can close</b>
-              <span className="d">
-                A SELL above {barN} confidence closes the position at the market. The stop protects it until then.
-              </span>
-              <em>Closes at market</em>
-            </button>
+              {styleCard(
+                "STANDARD",
+                "Recommended · Default",
+                <>
+                  <span className="d">Adapts to the market each time a position opens.</span>
+                  <span className="nt-xrows">
+                    <span className="nt-xrow">
+                      <i className="amb">Protect</i>
+                      <span>
+                        While Bitcoin is more than 5% down over 30 days: the stop follows the price from the start
+                        and, once you&rsquo;re up 1%, locks in most of the gain.
+                      </span>
+                    </span>
+                    <span className="nt-xrow">
+                      <i>Run</i>
+                      <span>
+                        Otherwise: the stop holds until the trade is up 3R, then follows 1R behind the best price.
+                      </span>
+                    </span>
+                  </span>
+                </>,
+              )}
+              {styleCard(
+                "LET_RUN",
+                "Big winners",
+                <>
+                  <span className="d">
+                    Always the Run exit: a wide stop (3 &times; ATR) that stays put until the trade is up 3R, then
+                    follows 1R behind the highest price.
+                  </span>
+                  <span className="d nt-xwarn">Wins fewer trades; relies on the occasional large winner.</span>
+                </>,
+              )}
+              {styleCard(
+                "CUSTOM",
+                "Advanced",
+                <span className="d">
+                  Set your own stop distance, when the stop starts moving, and how far behind it follows.
+                </span>,
+              )}
+            </div>
+            {!form.trailing_stop && (
+              <p className="nt-hint" style={{ marginTop: 10 }}>
+                The trailing stop is off, so the stop never moves and the exit style has no effect.
+              </p>
+            )}
+            {fieldMsg("exit_style")}
           </div>
-          {fieldMsg("agent_exits")}
+
+          {style === "CUSTOM" && (
+            <div className="nt-xcustom">
+              {customInput("stop_atr_multiple", "How far below the entry the stop starts, in average candle ranges.")}
+              {customInput("trail_start_r", "How far up the trade must go before the stop moves.")}
+              {customInput("trail_distance_r", "How far behind the highest price the stop follows.")}
+              <div>
+                <label className="nt-fl" htmlFor="nt-stop_timeframe">
+                  Size the stop from
+                </label>
+                <div className="nt-inp">
+                  <select
+                    id="nt-stop_timeframe"
+                    value={form.stop_timeframe}
+                    onChange={(e) => set("stop_timeframe", e.target.value as TradeV2StopTimeframe)}
+                  >
+                    {STOP_TIMEFRAMES.map((o) => (
+                      <option key={o.v} value={o.v}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <p className={`nt-hint${fieldErrors.stop_timeframe ? " badt" : ""}`}>
+                  {fieldErrors.stop_timeframe || "Or the 1h / 4h chart. Optional."}
+                </p>
+              </div>
+              <p className="nt-hint nt-xr">
+                <b>R</b> is the distance from the entry to the starting stop, so &ldquo;up 3R&rdquo; means the trade
+                has gained three times what it risked.
+              </p>
+            </div>
+          )}
+
+          <div className="nt-xsum">
+            <span>exit_summary · {savedExitSame ? "from the API" : "preview"}</span>
+            <p>{summary}</p>
+          </div>
+
           <div className="nt-sw boxed">
             <div className="tx">
               <b id="nt-l-trail">Trailing stop</b>
               <span>
-                {form.trailing_stop
-                  ? `Follows price in your favour and never moves back. It moves as each ${form.timeframe} candle closes, and to breakeven once the position is up by as much as it risks.`
-                  : "Off: the stop stays where Candleweb placed it."}
+                On: the stop moves as the exit style above says, and never moves back. Off: it stays where it was
+                placed.
               </span>
             </div>
             <button
@@ -1870,20 +2060,76 @@ const NewTradePage = () => {
             />
           </div>
           {fieldMsg("trailing_stop")}
-          {!form.agent_exits && !form.trailing_stop && (
-            <div className="nt-aibox">
-              <b>Nothing will take profit</b>
-              <p>
-                With no trailing stop and no SELL exits, a winning position only closes if price falls all the way back
-                to its first stop.
-              </p>
+
+          {feeTf && (
+            <div className="nt-xfee">
+              <b>{form.timeframe} trades often, and pays fees every time.</b> In Candleweb&rsquo;s replays, 1m and 5m
+              bots lost the most to fees. 1h or 4h usually keeps more of what the bot gets right.
             </div>
           )}
-          {form.agent_exits && !aiDecides && (
-            <p className="nt-hint" style={{ margin: 0 }}>
-              Your bot&rsquo;s SELLs still need to clear the confidence bar from step 3. HOLD keeps the position open.
+
+          <div>
+            <span className="nt-fl" id="nt-l-agentexits">
+              Can {aiDecides ? "CandleAI" : "your bot"} close positions?
+            </span>
+            <p className="nt-hint" style={{ margin: "0 0 12px" }}>
+              Whatever you choose here, the stop above always protects the position.
             </p>
-          )}
+            <div className="nt-reach2" role="group" aria-labelledby="nt-l-agentexits">
+              <button
+                type="button"
+                className={`nt-rc2${form.agent_exits ? "" : " sel"}`}
+                aria-pressed={!form.agent_exits}
+                onClick={() => set("agent_exits", false)}
+              >
+                <span className="nt-ck" aria-hidden="true">
+                  &#10003;
+                </span>
+                <span className="kinds">
+                  <span className="kind4">Stop only · Default</span>
+                </span>
+                <b>Only the stop closes</b>
+                <span className="d">
+                  Only the stop or trailing stop closes a position. A SELL from {who} is recorded, not acted on.
+                </span>
+                <em>agent_exits: false</em>
+              </button>
+              <button
+                type="button"
+                className={`nt-rc2${form.agent_exits ? " sel" : ""}`}
+                aria-pressed={form.agent_exits}
+                onClick={() => set("agent_exits", true)}
+              >
+                <span className="nt-ck" aria-hidden="true">
+                  &#10003;
+                </span>
+                <span className="kinds">
+                  <span className="kind4">{aiDecides ? "CandleAI exits" : "Bot exits"}</span>
+                </span>
+                <b>{aiDecides ? "CandleAI" : "My bot"} can close</b>
+                <span className="d">
+                  A SELL above {barN} confidence closes the position at the market. The stop protects it until then.
+                </span>
+                <em>agent_exits: true · closes at market</em>
+              </button>
+            </div>
+            {fieldMsg("agent_exits")}
+            {form.agent_exits && style === "LET_RUN" && (
+              <p className="nt-warn2">
+                <em>&#9679;</em>
+                <span>
+                  The tested strategy left trades only by the stop. Selling early cuts off the big winners it depends
+                  on.
+                </span>
+              </p>
+            )}
+            {form.agent_exits && !aiDecides && (
+              <p className="nt-hint">
+                Your bot&rsquo;s SELLs still need to clear the confidence bar from step 3. HOLD keeps the position
+                open.
+              </p>
+            )}
+          </div>
         </div>
       </>
     );
@@ -2132,12 +2378,10 @@ const NewTradePage = () => {
         s: EXITS,
         h: (
           <>
+            Exit with the <b>{EXIT_STYLE_LABEL[form.exit_style]}</b> style: {exitSummaryPreview(form)}{" "}
             {form.agent_exits
-              ? `Close a position when ${who} sends a confident SELL, at the market. Until then, the stop protects it.`
-              : `Close positions only by their stop${form.trailing_stop ? " or trailing stop, letting winners run." : "."} A SELL from ${who} is recorded, not acted on.`}
-            {form.trailing_stop
-              ? " The stop trails price and moves to breakeven once a position is up by as much as it risks."
-              : ""}
+              ? `A confident SELL from ${who} also closes a position, at the market.`
+              : `Only the stop closes a position; a SELL from ${who} is recorded, not acted on.`}
           </>
         ),
       },
@@ -2463,7 +2707,8 @@ const NewTradePage = () => {
               {t.pair_name || pairName} · {t.timeframe}
             </span>
             <span className="nt-dchip">{ai ? "CandleAI" : bName || "No bot yet"}</span>
-            <span className="nt-dchip">{t.agent_exits ? "Bot can close" : "Let winners run"}</span>
+            <span className="nt-dchip">{EXIT_STYLE_LABEL[toExitStyle(t.exit_style ?? form.exit_style)]} exit</span>
+            <span className="nt-dchip">{t.agent_exits ? "Bot can close" : "Only the stop closes"}</span>
             {amount > 0 && <span className="nt-dchip">{usd(amount)}</span>}
             {(t.reinvest_profits ?? form.reinvest_profits) && (
               <span className="nt-dchip hi9">Reinvests profits</span>
@@ -2510,7 +2755,9 @@ const NewTradePage = () => {
           </div>
           <div className="nt-dfact">
             <span>Exits</span>
-            <b>{form.agent_exits ? "Bot can close" : "Stop only"}</b>
+            <b>
+              {EXIT_STYLE_LABEL[form.exit_style]} · {form.agent_exits ? "bot can close" : "stop only"}
+            </b>
           </div>
         </div>
         <p className="nt-dwarn">

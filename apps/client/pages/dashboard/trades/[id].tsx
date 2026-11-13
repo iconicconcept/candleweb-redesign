@@ -44,6 +44,7 @@ import {
 } from "../../../lib/tradingV2Trades";
 import usePoll, { POLL } from "../../../lib/hooks/usePoll";
 import { useRevalidateEffect } from "../../../lib/hooks/useRevalidate";
+import { EXIT_STYLE_LABEL, toExitStyle, tradeExitLine } from "../../../lib/tradingV2Exits";
 
 const STATUS_META: Record<TradeV2Status, { label: string; cls: string }> = {
   ACTIVE: { label: "Running", cls: "on5" },
@@ -520,6 +521,11 @@ const TradeDetailPage = () => {
                   {trade.trailing_stop ? "Trailing stop on" : "Fixed stop"}
                 </span>
               </div>
+              {/* The API's own one-line description of how this trade's
+                  positions leave (style, stop chart, trailing on/off). */}
+              <p className="fx-sub3" style={{ marginTop: "10px", fontSize: "13px" }}>
+                <b>{EXIT_STYLE_LABEL[toExitStyle(trade.exit_style)]} exit.</b> {tradeExitLine(trade)}
+              </p>
 
               {/* `at_risk_now` counts only stops ARMED on the venue, so a
                   position with no stop adds nothing. The unprotected count

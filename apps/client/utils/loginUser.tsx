@@ -10,9 +10,11 @@ interface LoginDetails {
   signerPassword: string;
   setIsLoading?: React.Dispatch<React.SetStateAction<boolean>>;
   onSuccess: (data: any, type: "success" | "error") => void
+  /** Sees the error body first; return true when it was handled (no toast). */
+  onError?: (body: any) => boolean
 }
 
-export const loginUser = async ({ wallet, signerPassword, setIsLoading, onSuccess }: LoginDetails) => {
+export const loginUser = async ({ wallet, signerPassword, setIsLoading, onSuccess, onError }: LoginDetails) => {
   setIsLoading && setIsLoading(true);
   try {
     // Make a POST request to the server for user login
@@ -38,6 +40,7 @@ export const loginUser = async ({ wallet, signerPassword, setIsLoading, onSucces
   } catch (err: any) {
     // If there was an error during the login process, it will be caught here
     const e = err as AxiosError;
+    if (onError && onError(e.response?.data)) return;
     const message =
       (e.response &&
         e.response.data &&

@@ -6,13 +6,13 @@ import { AppDispatch } from "../../redux/store";
 import useEthereum from "../../lib/hooks/useEthereum";
 import useUserStore from "../../lib/hooks/useUserStore";
 import useGoogleAuth from "../../lib/hooks/useGoogleAuth";
-import useSiteTheme from "../../lib/hooks/useSiteTheme";
 import authService from "../../services/authService";
+import accountService, { verifyPath } from "../../services/accountService";
 import { loginUser } from "../../utils/loginUser";
 import { safeReturnTo } from "../../lib/authRedirect";
 import { validateEmailAddress } from "../../utils/emailValidate";
 import { error } from "../alert/Toast";
-import BrandLogo from "../public/BrandLogo";
+import AuthShell from "./AuthShell";
 /* The walking flag-bearer loader is parked for now — the plain candle-ring
    Loader is used instead. Restore both lines below to bring it back. */
 // import DashboardEntryLoader from "./DashboardEntryLoader";
@@ -56,7 +56,6 @@ export default function AuthPanel({ initialMode }: { initialMode: Mode }) {
   const { connectWallet, mobileConnectWallet } = useEthereum();
   const { googleAuth } = useGoogleAuth();
   const { setUser } = useUserStore((state) => state);
-  const { toggle: toggleTheme } = useSiteTheme();
 
   const [mode, setMode] = useState<Mode>(initialMode);
   const [busy, setBusy] = useState(false);
@@ -126,6 +125,10 @@ export default function AuthPanel({ initialMode }: { initialMode: Mode }) {
       },
     });
 
+  /* A new account (email or wallet) is emailed a 6-digit code; the verify
+     page checks it, and the API signs the user in when it matches. */
+  const goVerify = (email: string) => router.push(verifyPath(email, redirect));
+
   // Email login rides the same POST /user/login/ endpoint as wallet login —
   // the email goes in the wallet_address field per the API docs.
   const finishWithEmail = (email: string, password: string) =>
@@ -138,6 +141,15 @@ export default function AuthPanel({ initialMode }: { initialMode: Mode }) {
           setUser(value);
           goDashboard();
         }
+      },
+      /* If the API refuses an unverified address, send a fresh code and
+         take the user to the code screen instead of showing the error. */
+      onError: (body) => {
+        const code = String(body?.code ?? "");
+        if (!/UNVERIFIED|NOT_VERIFIED|VERIFY/i.test(code)) return false;
+        accountService.resendOtp(email).catch(() => undefined);
+        goVerify(email);
+        return true;
       },
     });
 
@@ -203,8 +215,7 @@ export default function AuthPanel({ initialMode }: { initialMode: Mode }) {
       await dispatch(
         authService.registerUser({
           data,
-          onSucess: () =>
-            finishWithWallet(result.walletAddress, result.signMessage),
+          onSucess: () => goVerify(email),
         }),
       );
     } catch (signupError) {
@@ -253,7 +264,7 @@ export default function AuthPanel({ initialMode }: { initialMode: Mode }) {
       await dispatch(
         authService.createUserWithEmail({
           data: { username, email, password },
-          onSucess: () => finishWithEmail(email, password),
+          onSucess: () => goVerify(email),
         }),
       );
     } catch (signupError) {
@@ -269,90 +280,39 @@ export default function AuthPanel({ initialMode }: { initialMode: Mode }) {
   };
 
   return (
-    <div className="auth-page">
+    <AuthShell
+      ask={
+        mode === "login" ? (
+          <>
+            New here?{" "}
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                switchMode("signup");
+              }}
+            >
+              Create an account
+            </a>
+          </>
+        ) : (
+          <>
+            Already have an account?{" "}
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                switchMode("login");
+              }}
+            >
+              Log in
+            </a>
+          </>
+        )
+      }
+    >
       {/* {busy && <DashboardEntryLoader />} */}
       {busy && <Loader />}
-      <div className="auth-aura">
-        <b className="b1" />
-        <b className="b2" />
-        <b className="b3" />
-      </div>
-      <div className="auth-grid-tex" />
-
-      <div className="auth-stage">
-        <div className="auth-top">
-          <Link href="/" className="auth-brand">
-            <BrandLogo height={17} />
-          </Link>
-          <div className="auth-top-end">
-            <button
-              type="button"
-              className="auth-theme"
-              aria-label="Switch between light and dark theme"
-              onClick={toggleTheme}
-            >
-              <svg
-                className="auth-i-sun"
-                width="17"
-                height="17"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.7"
-                strokeLinecap="round"
-                aria-hidden="true"
-              >
-                <circle cx="12" cy="12" r="4.2" />
-                <path d="M12 2.6v2.4M12 19v2.4M4.4 4.4l1.7 1.7M17.9 17.9l1.7 1.7M2.6 12H5M19 12h2.4M4.4 19.6l1.7-1.7M17.9 6.1l1.7-1.7" />
-              </svg>
-              <svg
-                className="auth-i-moon"
-                width="17"
-                height="17"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.7"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M20.5 14.5A8.6 8.6 0 019.5 3.5a8.6 8.6 0 1011 11z" />
-              </svg>
-            </button>
-            <p className="ask">
-            {mode === "login" ? (
-              <>
-                New here?{" "}
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    switchMode("signup");
-                  }}
-                >
-                  Create an account
-                </a>
-              </>
-            ) : (
-              <>
-                Already have an account?{" "}
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    switchMode("login");
-                  }}
-                >
-                  Log in
-                </a>
-              </>
-            )}
-            </p>
-          </div>
-        </div>
-
-        <div className="auth-layout">
           <div className="auth-aside">
             <p className="auth-eyebrow">Getting started</p>
             <h1>Three steps and your agent is trading.</h1>
@@ -475,7 +435,7 @@ export default function AuthPanel({ initialMode }: { initialMode: Mode }) {
                   <label className="auth-check">
                     <input type="checkbox" /> Keep me signed in
                   </label>
-                  <Link href="/auth/forgot">Forgot password?</Link>
+                  <Link href="/forgot-password">Forgot password?</Link>
                 </div>
                 <button type="submit" className="auth-submit" disabled={busy}>
                   Log in <span>→</span>
@@ -632,19 +592,7 @@ export default function AuthPanel({ initialMode }: { initialMode: Mode }) {
               </form>
             </div>
           </div>
-        </div>
-
-        <div className="auth-foot">
-          <span>© Candleweb</span>
-          <div className="lk">
-            <Link href="/">Help centre</Link>
-            <Link href="mailto:support@candleweb.io">Contact support</Link>
-            <Link href="/terms">Terms</Link>
-            <Link href="/privacy">Privacy</Link>
-          </div>
-        </div>
-      </div>
-    </div>
+    </AuthShell>
   );
 }
 

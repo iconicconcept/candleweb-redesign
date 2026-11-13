@@ -12,7 +12,7 @@
  */
 
 /** Auth routes: returning to one of these after a sign-in would just loop. */
-const NO_RETURN = ["/login", "/register", "/auth"];
+const NO_RETURN = ["/login", "/register", "/auth", "/verify-email", "/forgot-password", "/reset-password"];
 
 /**
  * Drops return paths that shouldn't survive a sign-in.

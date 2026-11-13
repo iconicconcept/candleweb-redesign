@@ -67,14 +67,14 @@ const createUserWithEmail = createAsyncThunk(
     thunkApi
   ) => {
     try {
-      // Create the account. The backend emails a 5-minute verification code,
-      // but the account is usable straight away (the code is informational),
-      // so callers can log the user in immediately afterwards.
+      // Create the account. The backend emails a 10-minute verification
+      // code; callers send the user to /verify-email to enter it, and the
+      // API signs them in once it matches.
       const { data } = await axiosApi.post(
         "/user/create-with-email/",
         payload.data
       );
-      success(data?.message || "Account created — signing you in.");
+      success(data?.message || "Account created. Check your email for a code.");
       payload.onSucess?.(data);
       return data;
     } catch (err: any) {

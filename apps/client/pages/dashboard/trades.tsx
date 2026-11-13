@@ -45,6 +45,7 @@ import { indicatorLabels } from "../../lib/tradingV2Indicators";
 import useBook from "../../lib/hooks/useBook";
 import usePoll, { POLL } from "../../lib/hooks/usePoll";
 import { useRevalidateEffect } from "../../lib/hooks/useRevalidate";
+import { EXIT_STYLE_LABEL, toExitStyle, tradeExitLine } from "../../lib/tradingV2Exits";
 
 const STATUS_META: Record<TradeV2Status, { label: string; cls: string }> = {
   ACTIVE: { label: "Running", cls: "on5" },
@@ -519,7 +520,10 @@ const TradesPage = () => {
                   <div className="fx-tm2">
                     <span>Direction</span>
                     <b>{DIRECTION_LABEL[t.direction] || t.direction}</b>
-                    <em>{t.trailing_stop ? "trailing stop" : "fixed stop"}</em>
+                    <em title={tradeExitLine(t)}>
+                      {EXIT_STYLE_LABEL[toExitStyle(t.exit_style)].toLowerCase()} ·{" "}
+                      {t.trailing_stop ? "trailing stop" : "fixed stop"}
+                    </em>
                   </div>
                   {/* The TRADE's all-time record, off the list response — no
                       per-row request. Not a 30-day window: this is what the

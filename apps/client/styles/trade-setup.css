@@ -1143,7 +1143,16 @@ button.nt-eb.sel3:hover:not(:disabled) {
   cursor: pointer;
   border: 1px solid var(--fx-line2);
   border-radius: 15px;
-  padding: 16px 44px 16px 16px;
+  /* A <button> centres its content vertically, so in a row of equal-height
+     cards the shorter ones floated mid-card. A column starting at the top
+     keeps every card reading from the same line. */
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: stretch;
+  /* Only the tag row sits beside the tick (see .kinds), so the text below
+     can use the card's full width. */
+  padding: 16px;
   background: linear-gradient(180deg, var(--fx-2), var(--fx-1));
   color: var(--fx-t1);
   font-family: var(--sans);
@@ -1164,6 +1173,8 @@ button.nt-eb.sel3:hover:not(:disabled) {
   gap: 6px;
   flex-wrap: wrap;
   margin-bottom: 11px;
+  /* clears the tick circle in the top-right corner */
+  padding-right: 28px;
 }
 .nt-rc2 .kind4 {
   display: inline-block;
@@ -1208,6 +1219,119 @@ button.nt-eb.sel3:hover:not(:disabled) {
   text-transform: uppercase;
   color: var(--fx-t3);
 }
+/* ---- exit style: three cards, Custom's numbers, the summary line ---- */
+.nt-reach2.three {
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 900px) {
+  .nt-reach2.three {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+/* trailing stop off: the style has no effect, so the cards step back */
+.nt-reach2.dim .nt-rc2 {
+  opacity: 0.55;
+}
+.nt-rc2 .nt-xwarn {
+  margin-top: 8px;
+  color: var(--fx-amber2);
+}
+.nt-xrows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--fx-line2);
+}
+.nt-xrow {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  font-size: 12px;
+  color: var(--fx-t2);
+  line-height: 1.5;
+}
+.nt-xrow i {
+  display: block;
+  padding: 3px 0;
+  border-radius: 5px;
+  font-style: normal;
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-align: center;
+  color: var(--fx-teal2);
+  background: rgba(46, 230, 168, 0.1);
+}
+.nt-xrow i.amb {
+  color: var(--fx-amber2);
+  background: rgba(255, 194, 77, 0.14);
+}
+.nt-xcustom {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--fx-line);
+  border-radius: 15px;
+  background: var(--w02);
+}
+.nt-xcustom > * {
+  min-width: 0;
+}
+@media (min-width: 600px) {
+  .nt-xcustom {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1000px) {
+  .nt-xcustom {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+.nt-xcustom .nt-xr {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+.nt-xsum {
+  padding: 12px 16px;
+  border-left: 3px solid var(--fx-teal);
+  border-radius: 0 12px 12px 0;
+  background: rgba(46, 230, 168, 0.06);
+}
+.nt-xsum span {
+  display: block;
+  margin-bottom: 6px;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fx-teal2);
+}
+.nt-xsum p {
+  margin: 0;
+  font-size: 12.8px;
+  line-height: 1.6;
+  color: var(--fx-t1);
+}
+.nt-xfee {
+  padding: 12px 16px;
+  border: 1px solid rgba(255, 194, 77, 0.35);
+  border-radius: 12px;
+  background: rgba(255, 194, 77, 0.08);
+  font-size: 12.6px;
+  line-height: 1.6;
+  color: var(--fx-t2);
+}
+.nt-xfee b {
+  color: var(--fx-amber2);
+  font-weight: 600;
+}
+
 .nt-ck {
   position: absolute;
   top: 14px;
