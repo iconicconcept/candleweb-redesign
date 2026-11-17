@@ -122,7 +122,8 @@ export default function DashboardShell({ active, children }: Props) {
                   mark was a duplicate of it. "Bring your bot" is the home page
                   (see NAV_LINKS in components/public/PublicHeader.tsx). */}
               <Link href="/" className="fx-mark-link" aria-label="Candleweb — main site">
-                <Image src={"/favicon.ico"} alt="Candleweb" width={26} height={26} />
+                <Image src="/brand/icon-dark-bg.png" alt="Candleweb" width={28} height={16} className="fx-mark-img fx-mark-dark" />
+                <Image src="/brand/icon-light-bg.png" alt="" aria-hidden width={28} height={16} className="fx-mark-img fx-mark-light" />
               </Link>
               {RAIL.map((item) => (
                 <Link

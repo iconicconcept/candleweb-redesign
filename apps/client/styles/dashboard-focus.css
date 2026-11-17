@@ -318,6 +318,22 @@
     margin-bottom: 16px;
     border-radius: 9px;
   }
+  /* New brand icon: the bright-top variant on the dark rail, the deep-top
+     variant on the light rail. */
+  .fx-mark-img {
+    display: block;
+    width: 28px;
+    height: auto;
+  }
+  .fx-mark-light {
+    display: none;
+  }
+  :root[data-theme="light"] .fx-mark-dark {
+    display: none;
+  }
+  :root[data-theme="light"] .fx-mark-light {
+    display: block;
+  }
   .fx-mark {
     width: 22px;
     height: 18px;
@@ -6736,6 +6752,22 @@ a.fx-revpill:hover {
     width: 100%;
   }
 }
+/* Trade detail's Pause/Edit sit in the TopBar row beside the theme, bell and
+   account buttons. Same min-width:180px problem as above: two of them plus
+   the three icon buttons came to ~510px and scrolled the page sideways on a
+   phone. Here the row takes the full width and the two buttons share what is
+   left after the icons. !important beats the page's inline CTA_STYLE. */
+@media (max-width: 720px) {
+  .fx-tools:has(.fx-tdact) {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+  .fx-tools .fx-tdact {
+    flex: 1 1 0 !important;
+    min-width: 0;
+    padding: 11px 10px !important;
+  }
+}
 
 /* bot detail vitals row — heading-size values, no card chrome per stat */
 .fx-vitals {
@@ -7190,6 +7222,26 @@ a.nm4:hover {
   font-size: 10.5px;
   color: var(--fx-t3);
   margin-top: 3px;
+}
+/* Phone layout of a position row (1fr auto grid). Left to auto-placement,
+   the stop track took the second column of row two, where it collapsed to
+   nothing, and the return dropped to a third row of its own, stranded at
+   the bottom right. Pin the return to the right of the pair + size lines,
+   centred on them, and give the track its own compact full-width line. */
+@media (max-width: 759px) {
+  .fx-row .fx-plr {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: center;
+  }
+  .fx-row .fx-track {
+    grid-column: 1 / -1;
+  }
+  .fx-row .fx-track svg {
+    display: block;
+    width: 100%;
+    height: 26px;
+  }
 }
 .fx-up {
   color: var(--fx-teal2);

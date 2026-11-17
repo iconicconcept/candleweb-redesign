@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Header } from "ui";
-import Logo from "../public/logo.png";
+import Logo from "../public/brand/logo-dark-bg.png";
 import { CgMenuRight } from "react-icons/cg";
 import Image from "next/image";
 import Head from "next/head";

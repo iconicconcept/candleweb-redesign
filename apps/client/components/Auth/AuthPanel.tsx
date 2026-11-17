@@ -69,10 +69,10 @@ export default function AuthPanel({ initialMode }: { initialMode: Mode }) {
   });
 
   /* Terms agreement. Sign-up has three entry points — Google, a wallet and
-     the email form — and consent has to hold for all three, so this gates
-     every one of them rather than just the form's submit button. The box
-     sits above the three choices for the same reason: a control that blocks
-     a button has to be visible before that button is reached. */
+     the email form — and consent has to hold for all three. The wallet and
+     email routes wait for this box; Google instead states, right under its
+     button, that signing up with it is agreeing, and ticks the box itself
+     (see handleGoogle). */
   const [agreed, setAgreed] = useState(false);
   const agreeRef = useRef<HTMLInputElement>(null);
 
@@ -158,8 +158,11 @@ export default function AuthPanel({ initialMode }: { initialMode: Mode }) {
 
   const handleGoogle = () => {
     /* Shared with the login pane, where there is nothing to agree to —
-       signing in again is not a new agreement. */
-    if (mode === "signup" && !consentGiven()) return;
+       signing in again is not a new agreement. On sign-up, Google does not
+       wait for the terms box at the foot of the form (most people never
+       scroll to it): the line under the button tells them that signing up
+       with Google is agreeing to the terms, and the box is ticked for them. */
+    if (mode === "signup") setAgreed(true);
     setBusy(true);
     googleAuth(redirect || "/dashboard");
   };
@@ -620,20 +623,31 @@ function WalletChoices({
     : undefined;
   return (
     <div className="auth-choices">
-      {/* Never greyed out for the terms: the box is at the foot of the form,
-          out of sight from here, so a dead button gave no reason. The click
-          handler checks consent instead — it says why and takes the user to
+      {/* Not gated by the terms box: on sign-up, clicking it is the
+          agreement — the note right under it says so, and the click ticks
           the box. */}
       <button
         type="button"
         className="auth-gbtn"
         disabled={busy}
-        title={gate}
         onClick={onGoogle}
       >
         <GoogleMark />
         {mode === "login" ? "Continue with Google" : "Sign up with Google"}
       </button>
+      {mode === "signup" && (
+        <p className="auth-legal" style={{ margin: 0 }}>
+          By signing up with Google, you agree to Candleweb&apos;s{" "}
+          <Link href="/terms" target="_blank" rel="noopener noreferrer">
+            Terms of Service
+          </Link>{" "}
+          and{" "}
+          <Link href="/privacy" target="_blank" rel="noopener noreferrer">
+            Privacy Policy
+          </Link>
+          .
+        </p>
+      )}
       {/* <div className="auth-wsel">
         <button
           type="button"

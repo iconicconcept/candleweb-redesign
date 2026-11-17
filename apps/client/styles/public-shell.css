@@ -812,8 +812,8 @@
   background: rgba(11, 143, 106, 0.08);
 }
 
-/* BrandLogo (shared wordmark): white-text logo.png on dark, black-text
-   c_white.png on light — both render, this just shows the right one. Global
+/* BrandLogo (shared wordmark): brand/logo-dark-bg.png on dark,
+   brand/logo-light-bg.png on light — both render, this just shows the right one. Global
    so it covers every page that uses BrandLogo (public header/footer,
    landing, and the auth pages, which share this same site theme).
    !important: BrandLogo passes each caller's own sizing class (.pub-logo,

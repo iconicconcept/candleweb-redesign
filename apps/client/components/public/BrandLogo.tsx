@@ -2,61 +2,41 @@ import Image from "next/image";
 
 type Props = {
   className?: string;
-  /** Rendered height in px — width is derived from each logo's own aspect. */
+  /** Rendered height in px — width is derived from the logo's own aspect. */
   height?: number;
   priority?: boolean;
 };
 
-// logo.png (dark-theme wordmark) is already cropped tight to its content.
-const DARK_W = 875;
-const DARK_H = 116;
-const DARK_ASPECT = DARK_W / DARK_H;
+// public/brand/logo-*.png are trimmed to the artwork (no transparent
+// padding) and share one aspect, so both theme variants fill the same box.
+// Source files: public/Candleweb-logo-for-{dark,white}-backgrounds.png.
+const SRC_W = 960;
+const SRC_H = 150;
+const ASPECT = SRC_W / SRC_H;
 
-// c_white.png (light-theme wordmark, transparent background) ships on a big
-// 1920x1080 canvas with the mark + text occupying a band across the middle,
-// not cropped to the wordmark like logo.png is — so it's cropped here via a
-// clipping wrapper instead of being stretched into the logo's usual slot.
-// The box below is the image's opaque bounding box (158,429)-(1760,648)
-// plus a little padding — nudge it if the crop ever looks off.
-const LIGHT_SRC_W = 1920;
-const LIGHT_SRC_H = 1080;
-const LIGHT_CROP = { x: 150, y: 421, w: 1618, h: 235 };
-const LIGHT_ASPECT = LIGHT_CROP.w / LIGHT_CROP.h;
-
+/** Shared wordmark: light-text logo on dark, dark-text logo on light. The
+    theme toggle in public-shell.css shows the right one. */
 export default function BrandLogo({ className = "", height = 18, priority }: Props) {
-  const darkWidth = Math.round(height * DARK_ASPECT);
-  const lightWidth = Math.round(height * LIGHT_ASPECT);
+  const width = Math.round(height * ASPECT);
 
   return (
     <>
       <Image
-        src="/logo.png"
+        src="/brand/logo-dark-bg.png"
         alt="Candleweb"
-        width={darkWidth}
+        width={width}
         height={height}
         className={`brand-logo-dark ${className}`}
         priority={priority}
       />
-      <span
+      <Image
+        src="/brand/logo-light-bg.png"
+        alt="Candleweb"
+        width={width}
+        height={height}
         className={`brand-logo-light ${className}`}
-        style={{ position: "relative", overflow: "hidden", width: lightWidth, height, verticalAlign: "middle" }}
-      >
-        <Image
-          src="/c_white.png"
-          alt="Candleweb"
-          width={LIGHT_SRC_W}
-          height={LIGHT_SRC_H}
-          priority={priority}
-          style={{
-            position: "absolute",
-            left: `${-(LIGHT_CROP.x / LIGHT_CROP.w) * 100}%`,
-            top: `${-(LIGHT_CROP.y / LIGHT_CROP.h) * 100}%`,
-            width: `${(LIGHT_SRC_W / LIGHT_CROP.w) * 100}%`,
-            height: `${(LIGHT_SRC_H / LIGHT_CROP.h) * 100}%`,
-            maxWidth: "none",
-          }}
-        />
-      </span>
+        priority={priority}
+      />
     </>
   );
 }

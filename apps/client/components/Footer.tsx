@@ -3,7 +3,7 @@ import { RiInstagramFill } from "react-icons/ri";
 import { AiFillLinkedin, AiFillTwitterCircle } from "react-icons/ai";
 import { SiGmail } from "react-icons/si";
 import Image from "next/image";
-import Logo from "../public/logo.png";
+import Logo from "../public/brand/logo-dark-bg.png";
 import {
   Accordion,
   AccordionContent,

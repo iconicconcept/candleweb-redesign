@@ -1,6 +1,6 @@
 import Image from "next/image";
 import { Button, CDEIcon, MarketIcon, SelectImageDropdown, dollarFormat } from "ui";
-import Icon from "../../public/logo.png";
+import Icon from "../../public/brand/logo-dark-bg.png";
 import Link from "next/link";
 import Notification from "./modal/Notification";
 import { useRouter } from "next/router";

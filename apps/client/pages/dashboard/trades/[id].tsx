@@ -303,7 +303,7 @@ const TradeDetailPage = () => {
               <>
                 <button
                   type="button"
-                  className="fx-cta ghost2"
+                  className="fx-cta ghost2 fx-tdact"
                   style={CTA_STYLE}
                   disabled={busy}
                   onClick={toggleRun}
@@ -311,7 +311,7 @@ const TradeDetailPage = () => {
                   {busy ? "…" : running ? "Pause" : "Start"}
                 </button>
                 <Link
-                  className="fx-cta ghost2"
+                  className="fx-cta ghost2 fx-tdact"
                   href={`/dashboard/trades/new?id=${trade.id}`}
                   style={CTA_STYLE}
                 >

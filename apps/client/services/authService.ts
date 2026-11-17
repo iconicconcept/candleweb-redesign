@@ -212,3 +212,22 @@ const authService = {
 };
 
 export default authService;
+
+{/* 
+Note: only work on what you are prompted to work on, don't touch other things already working fine.
+1. We are changing our logo across our web-app overall, from the favicon, header, footer, landing/public pages, dashboard header. dashboard sidebar, and every single places we have candlwebs's logo and icon, we will changes them to the new logo and icon.
+The logo and icon will be provided in the public folder, and also added here for checking, put the right logo and icon at the right places, on the background that fit. Confirm the current ones, also get this done perfectly!
+
+2. The is a UI change, on trade details page, the is scrollable/overflow horizontally, correct that! The page screenshot is added here for checking. 
+
+3. A UI changes in positioning also on dashboard/overview page, i circled it in the screenshot attached.
+
+4. Logic correction, currently what we implemented is that when a user is signing up with Google, they have to check the terms before it works,.. please don't make it that way, most people wouldn't know. So, instead, if someone is signing up with Google, let them know they're agreeing to Candleweb's terms of service by signing up, then check the terms automatically for them.
+
+5. This is on dashboard/overview page, When the screen is idle for a while, it just switches to start showing the user their live account balance even though they're on demo, and it doesn't show the page details and start showing null/not provided/unrealized, shows that error "can't load your positions" as well. But once the user refreshes the page everything goes back to normal. Sceeenshot attached!
+
+6. This is on academy/tutor dashboard page, the continue learning should turn to "download certificate" when the course/class is completed, and work well like the card we have on that same page for downloading certificates.
+
+Work on them one after the other and let me know when they are all done, and how i can confirm them all.
+*/}
+

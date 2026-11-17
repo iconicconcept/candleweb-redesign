@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import React from "react";
 import { useRouter } from "next/router";
-import Logo from "../../public/logo.png";
+import Logo from "../../public/brand/logo-dark-bg.png";
 import { Button, Heading, SidenavImage, SvgIcons, sideNav } from "ui";
 import { setCurrentPlan, setSubscription, setSubscriptionHistory } from "../../redux/slices/subscriptionSlice";
 import { setExchangeRecord } from "../../redux/slices/exchangeSlice";

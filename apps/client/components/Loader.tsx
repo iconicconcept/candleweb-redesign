@@ -12,10 +12,10 @@ const Loader = () => {
         <span className="cwl-ring" />
 
         <Image
-          src="/favicon.ico"
+          src="/brand/icon-dark-bg.png"
           alt="Loading"
-          width={24}
-          height={24}
+          width={32}
+          height={18}
           className="cwl-logo"
         />
       </div>
@@ -71,8 +71,8 @@ const Loader = () => {
         .cwl-logo {
           position: relative;
           z-index: 2;
-          width: 24px;
-          height: 24px;
+          width: 32px;
+          height: auto;
           object-fit: contain;
           filter: drop-shadow(0 0 10px rgba(46, 230, 168, 0.55));
           animation: cwl-pulse 1.5s ease-in-out infinite;
