@@ -131,6 +131,7 @@ export default function CourseFocus() {
   const totalModules = scheduleModules.length;
   const completedCount = modules.filter((m: any) => m.isActuallyCompleted).length;
   const progressPercent = totalModules > 0 ? Math.round((completedCount / totalModules) * 100) : 0;
+  const courseComplete = totalModules > 0 && completedCount === totalModules;
   const selectedModule = modules.find((m: any) => m.id === selectedModuleId) || modules[0] || null;
   const openModule = modules.find((m: any) => m.id === openModuleId) || null;
 
@@ -416,9 +417,23 @@ export default function CourseFocus() {
                 </svg>
                 <b>{progressPercent}</b>
               </div>
-              <button className="fx-cta live6" type="button" disabled={joining} onClick={() => onJoinCourse()}>
-                {joining ? "Checking you in…" : "Continue learning →"}
-              </button>
+              {/* Once every module is done there is nothing left to continue,
+                  so the hero's button becomes the certificate download — the
+                  same handler, states and messages as the Certificate card. */}
+              {courseComplete ? (
+                <button
+                  className="fx-cta live6"
+                  type="button"
+                  disabled={certLoading || certDownloading}
+                  onClick={handleDownloadCertificate}
+                >
+                  {certDownloading ? "Downloading…" : certLoading ? "Checking…" : "Download certificate ↓"}
+                </button>
+              ) : (
+                <button className="fx-cta live6" type="button" disabled={joining} onClick={() => onJoinCourse()}>
+                  {joining ? "Checking you in…" : "Continue learning →"}
+                </button>
+              )}
             </div>
           </div>
         </div>

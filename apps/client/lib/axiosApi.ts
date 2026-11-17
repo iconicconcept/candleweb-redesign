@@ -91,7 +91,19 @@ export const isExpiredToken = (error: any) => {
   if (status !== 403) return false;
   const body = error?.response?.data;
   const message = typeof body === "string" ? body : String(body?.message ?? "");
-  return /invalid or expired token/i.test(message);
+  /* `/trading_v2/*` loses the auth message on the way out: an expired (or
+     missing) token there answers 403 {"status":"error","message":"status:
+     error"} instead of "Invalid or expired token provided.". Not matching it
+     meant the overview's metrics, status and positions polls never refreshed
+     the token after a phone sat idle past its lifetime — they failed on every
+     tick ("Couldn't load your positions. status: error", the hero falling
+     back to the live exchange balance) until a full reload, whose
+     /user/profile/ call did get refreshed. That exact string is the wrapper's
+     placeholder, never a real permission message, so it stays narrow.
+     "Authorization token required." is the same API with no token at all. */
+  return /invalid or expired token|^status: error$|authorization token required/i.test(
+    message.trim(),
+  );
 };
 
 axiosApi.interceptors.response.use(

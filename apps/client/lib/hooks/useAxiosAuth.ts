@@ -36,6 +36,12 @@ import { uri, isExpiredToken } from "../axiosApi";
  * fetch with. The interceptor effect below is keyed on the same instance, so a
  * replacement is always fully wired before anyone uses it.
  */
+/* One refresh at a time, app-wide. Coming back to an idle dashboard fires
+   every poll at once (metrics, status, positions, trades, notifications), and
+   each one's 403 used to start its own refresh call. Every caller now waits
+   on the one already in the air and retries with its token. */
+let pendingRefresh: Promise<{ access_token: string } | undefined> | null = null;
+
 const useAxiosAuth = () => {
   const { user } = useUserStore((state) => state);
   const refreshToken = useRefreshToken();
@@ -88,7 +94,12 @@ const useAxiosAuth = () => {
            is what once logged people out mid-session over a plan limit. */
         if (isExpiredToken(err) && prevRequest && !prevRequest._retry) {
           prevRequest._retry = true;
-          const newToken = await refreshRef.current();
+          if (!pendingRefresh) {
+            pendingRefresh = Promise.resolve(refreshRef.current()).finally(() => {
+              pendingRefresh = null;
+            });
+          }
+          const newToken = await pendingRefresh;
 
           if (newToken?.access_token) {
             prevRequest.headers["Authorization"] = `Bearer ${newToken.access_token}`;
