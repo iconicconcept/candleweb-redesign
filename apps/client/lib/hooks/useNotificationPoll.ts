@@ -10,6 +10,8 @@ import { isAuthorizationHeaderSet } from "../../utils/check_auth";
 import { RevalidateKey, revalidate } from "../../redux/slices/revalidateSlice";
 import { triggersFor, warnUnmatchedType } from "../notificationTriggers";
 import { Result } from "../../types/notification";
+import useUserStore from "./useUserStore";
+import { announceTradeEvents, primeTradeSounds } from "../tradeSounds";
 
 /**
  * Keeps the header bell's unread count live.
@@ -91,11 +93,20 @@ export default function useNotificationPoll(paused = false) {
     if (typeof document !== "undefined" && document.hidden) return;
     inFlight.current = true;
     try {
-      const page: any = await dispatch(
-        notificationService.getNotifications({ api: axiosToken }),
-      ).unwrap();
+      /* On the Notifications page the list belongs to that page (it paginates
+         this same slice), so read it there without writing to the store —
+         the trade sounds still have to hear a new fill or close. */
+      const page: any = ownsItsOwnFetch
+        ? (await axiosToken.get("/notification/unread/")).data
+        : await dispatch(notificationService.getNotifications({ api: axiosToken })).unwrap();
 
       const rows: Result[] = Array.isArray(page?.results) ? page.results : [];
+
+      /* Sound for "Bot order placed" / "Position closed" only — see
+         lib/tradeSounds.ts. Keyed by user so a different sign-in starts fresh. */
+      const me: any = useUserStore.getState().user;
+      announceTradeEvents(rows, String(me?.id ?? me?.email ?? me?.username ?? ""));
+      if (ownsItsOwnFetch) return;
       const ids = rows.map((r) => Number(r?.id)).filter((n) => Number.isFinite(n));
       if (!ids.length) return;
       const highest = Math.max(...ids);
@@ -122,10 +133,17 @@ export default function useNotificationPoll(paused = false) {
     } finally {
       inFlight.current = false;
     }
-  }, [axiosToken, dispatch]);
+  }, [axiosToken, dispatch, ownsItsOwnFetch]);
 
   useEffect(() => {
-    if (paused || ownsItsOwnFetch) return;
+    /* Preload the trade sounds and unlock audio on the first tap/click. */
+    primeTradeSounds();
+  }, []);
+
+  useEffect(() => {
+    /* Runs on the Notifications page too — there it only listens for the
+       trade sounds and leaves the page's own list alone (see poll). */
+    if (paused) return;
     if (!isAuthorizationHeaderSet(axiosToken)) return;
 
     const timer = setInterval(poll, NOTIFICATION_POLL_MS);

@@ -20,7 +20,7 @@ import {
 import { setActiveTrade, setPortfolioTrade, setYearAnalysis, setYearList } from "../../../redux/slices/tradeSlice";
 import { setBalance } from "../../../redux/slices/userSlice";
 import { setIsSuccessful } from "../../../redux/slices/authSlice";
-import { success } from "../../alert/Toast";
+import { error, success } from "../../alert/Toast";
 import Popover from "./Popover";
 import Dialog from "./Dialog";
 import {
@@ -132,15 +132,38 @@ export default function TopBar({ crumb, title, subtitle, actions, hideHeading, t
      action on the full Notifications page). This loops the same per-id
      mark-read call that page's own "Mark all read" uses — no bulk endpoint
      exists yet (see BACKEND_API_REQUESTS.md §2.2). */
+  /* Each confirmed mark clears its row from the badge at once (the thunk
+     records it in the store's `readIds`), so the count falls as the calls
+     land and a poll reply that was already in the air can't put it back.
+     The calls go out together rather than one after another, and one that
+     fails no longer stops the rest — it used to abort the loop before the
+     refetch, leaving the badge up until a reload. `/notification/unread/`
+     is paginated, so after each round it re-reads the list and carries on
+     with whatever the next page revealed, until nothing unread is left. */
   const markAllRead = async () => {
     if (!unread.length || markingAll) return;
     setMarkingAll(true);
+    const attempted = new Set<number>();
     try {
-      for (const n of unread) {
-        if (n.id == null) continue;
-        await dispatch(notificationService.getMarkNotificationRead({ api: axiosToken, id: n.id })).unwrap();
+      let pending = unread.map((n) => n.id).filter((id): id is number => id != null);
+      for (let round = 0; round < 10 && pending.length; round++) {
+        pending.forEach((id) => attempted.add(id));
+        const settled = await Promise.allSettled(
+          pending.map((id) =>
+            dispatch(notificationService.getMarkNotificationRead({ api: axiosToken, id })).unwrap(),
+          ),
+        );
+        const failed = settled.filter((s) => s.status === "rejected").length;
+        if (failed) error(`Couldn't mark ${failed} notification${failed === 1 ? "" : "s"} read. Try again.`);
+
+        const page: any = await dispatch(
+          notificationService.getNotifications({ api: axiosToken }),
+        ).unwrap();
+        const rows: any[] = Array.isArray(page?.results) ? page.results : [];
+        pending = rows
+          .filter((r) => !r?.is_read && r?.id != null && !attempted.has(Number(r.id)))
+          .map((r) => Number(r.id));
       }
-      await dispatch(notificationService.getNotifications({ api: axiosToken }));
     } catch (err) {
       console.error(err);
     } finally {

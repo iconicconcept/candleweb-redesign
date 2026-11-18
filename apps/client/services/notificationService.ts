@@ -1,5 +1,5 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
-import { setNotification } from "../redux/slices/notificationSlice";
+import { markNotificationsRead, setNotification } from "../redux/slices/notificationSlice";
 import { AxiosError, AxiosInstance } from "axios";
 import { axiosApi } from "../lib/axiosApi";
 
@@ -38,12 +38,21 @@ const getMarkNotificationRead = createAsyncThunk(
   "/notification/",
   async (payload: { api: AxiosInstance; id: string | number }, thunkApi) => {
     try {
-      const { data } = await payload.api.get(`/notification/${payload.id}`);
-      // thunkApi.dispatch(getNotifications(payload.api));
+      /* Trailing slash: without it the API answers 301 → `/notification/{id}/`,
+         doubling the requests behind every "mark read". */
+      const { data } = await payload.api.get(`/notification/${payload.id}/`);
+      /* Reflected locally the moment the server confirms it, so the bell's
+         badge drops at once and a stale list can't bring it back — see
+         `readIds` in notificationSlice. */
+      thunkApi.dispatch(markNotificationsRead([Number(payload.id)]));
 
       return data;
     } catch (err: any) {
-      return thunkApi.rejectWithValue(err.response.message);
+      /* `err.response.message` threw a TypeError on a network error (no
+         response), which rejected with that instead of a message. */
+      return thunkApi.rejectWithValue(
+        err?.response?.data?.message ?? err?.message ?? "Couldn't mark that notification read.",
+      );
     }
   }
 );

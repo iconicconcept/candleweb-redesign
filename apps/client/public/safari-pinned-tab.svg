@@ -1,9 +1,15 @@
 <?xml version="1.0" standalone="no"?>
+<!-- Safari pinned-tab mask icon, traced from Candleweb-icon-one-colour-black.png
+     (same 1720-wide coordinate space). Safari fills it with the `color` on the
+     <link rel="mask-icon"> in components/Layout.tsx. -->
 <svg version="1.0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1720 1720">
-<g transform="translate(0 340)">
+<g transform="translate(0 356)">
 <path d="M60 60H1660L1350 630C1170 400 1040 107 860 107C680 107 550 400 370 630Z"/>
-<path d="M633 557C730 440 800 381 860 381C920 381 990 440 1087 557Z"/>
-<path d="M590 612H1130L1238 764H482Z"/>
-<path d="M441 826H1279L1354 946H365Z"/>
+<path d="M698 484C775 405 815 381 860 381C905 381 945 405 1022 484Z"/>
+<path d="M678 505H1042L1113 591H606Z"/>
+<path d="M584 620H1137L1187 690H532Z"/>
+<path d="M507 727H1213L1249 781H470Z"/>
+<path d="M440 827H1280L1306 868H413Z"/>
+<path d="M382 919H1338L1356 949H363Z"/>
 </g>
 </svg>
